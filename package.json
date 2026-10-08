@@ -1,0 +1,41 @@
+{
+  "name": "boardscope",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline, single-file boardview viewer for PCB repair (TVW, BRD, BRD2, BDV, BVR, FZ, GenCAD, ASC and more).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node tools/postbuild.mjs",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:formats": "vitest run tests/formats",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "bench": "node tools/bench.mjs",
+    "fixtures": "node tools/gen-fixtures.mjs"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "flatbush": "4.6.2",
+    "lucide-preact": "1.53.0",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
+    "@preact/preset-vite": "2.10.6",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.19.1",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

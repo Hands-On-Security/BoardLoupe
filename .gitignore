@@ -1,0 +1,9 @@
+node_modules/
+dist/.build/
+test-results/
+playwright-report/
+.vite/
+*.log
+.DS_Store
+tools/obv-harness/build/
+tools/obv-harness/src-obv/

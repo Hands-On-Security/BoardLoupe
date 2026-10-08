@@ -1,0 +1,177 @@
+@import 'tailwindcss';
+
+/* Theme tokens. Components use the Tailwind aliases below (bg-panel, text-fg …). */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-net: var(--net);
+  --color-part: var(--part);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-info: var(--info);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --canvas: #0b0e13;
+  --panel: #12161d;
+  --panel2: #161b23;
+  --raised: #1c222c;
+  --line: #232a35;
+  --line2: #2e3644;
+  --fg: #e3e8ef;
+  --muted: #98a3b3;
+  --faint: #6b7686;
+  --accent: #e8b04a;
+  --accent-fg: #1a1408;
+  --accent-soft: rgba(232, 176, 74, 0.14);
+  --net: #ffd640;
+  --part: #ff6e64;
+  --ok: #4cc38a;
+  --warn: #e8b04a;
+  --err: #f0706a;
+  --info: #5aa9e6;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #eef0f3;
+  --canvas: #f4f5f7;
+  --panel: #fbfbfc;
+  --panel2: #f3f4f6;
+  --raised: #ffffff;
+  --line: #e1e4e9;
+  --line2: #cfd4db;
+  --fg: #151b24;
+  --muted: #546070;
+  --faint: #7d8796;
+  --accent: #b9770e;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(185, 119, 14, 0.12);
+  --net: #c97a00;
+  --part: #d6342a;
+  --ok: #1f8a57;
+  --warn: #a8660a;
+  --err: #c4352d;
+  --info: #1f6fb5;
+  --shadow: 0 10px 30px rgba(20, 30, 50, 0.16), 0 2px 6px rgba(20, 30, 50, 0.1);
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Keyboard focus is always visible; mouse focus stays quiet. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--line2);
+  border-radius: 8px;
+}
+
+.shadow-pop {
+  box-shadow: var(--shadow);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.board-cursor-grab {
+  cursor: grab;
+}
+.board-cursor-grabbing {
+  cursor: grabbing;
+}
+.board-cursor-pointer {
+  cursor: pointer;
+}
+.board-cursor-crosshair {
+  cursor: crosshair;
+}
+
+.dropzone-dash {
+  background-image: linear-gradient(90deg, var(--line2) 50%, transparent 50%), linear-gradient(90deg, var(--line2) 50%, transparent 50%),
+    linear-gradient(0deg, var(--line2) 50%, transparent 50%), linear-gradient(0deg, var(--line2) 50%, transparent 50%);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size: 12px 1.5px, 12px 1.5px, 1.5px 12px, 1.5px 12px;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+}
+.dropzone-active {
+  background-color: var(--accent-soft);
+}
+
+@keyframes bs-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+.progress-indeterminate {
+  animation: bs-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes bs-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-in {
+  animation: bs-fade-in 0.16s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
