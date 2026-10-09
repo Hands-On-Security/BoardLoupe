@@ -184,6 +184,10 @@ export function App() {
         case 'X':
           viewer.toggleMirror();
           break;
+        case 'g':
+        case 'G':
+          if (s.board!.model.caps.sides) setPrefs({ otherSide: s.prefs.otherSide === 'hide' ? 'ghost' : 'hide' });
+          break;
         case 'r':
           viewer.rotate(90);
           break;

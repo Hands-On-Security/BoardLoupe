@@ -278,6 +278,7 @@ const SHORTCUTS: [string[], string][] = [
   [['Z'], 'Focus selection'],
   [['+', '−'], 'Zoom in / out'],
   [['Space'], 'Toggle top / bottom side'],
+  [['G'], 'Show only this side / ghost the other'],
   [['X'], 'Mirror view'],
   [['R'], 'Rotate 90°'],
   [['M'], 'Measure tool'],

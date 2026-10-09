@@ -141,6 +141,22 @@ test.describe('BoardScope single-file app', () => {
     await expect(insp.getByText(/^(Pin|Test point|Via \/ hole)$/).first()).toBeVisible();
   });
 
+  test('show only this side: hide / ghost the other side (toolbar and G)', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('synthetic/glasgow.tvw')); // has top and bottom parts
+    const other = () => page.evaluate(() => (window as unknown as { boardscope: { viewer: { opts: { otherSide: string } } } }).boardscope.viewer.opts.otherSide);
+    await expect.poll(other).toBe('ghost');
+    // Toolbar control: one click shows only the current side.
+    await page.getByRole('button', { name: /only this side/i }).click();
+    await expect.poll(other).toBe('hide');
+    await page.getByRole('button', { name: /show the other side/i }).click();
+    await expect.poll(other).toBe('ghost');
+    // Keyboard shortcut (shortcuts are suppressed while an input is focused).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('g');
+    await expect.poll(other).toBe('hide');
+  });
+
   test('side switching, mirror, rotate, zoom and fit', async ({ page }) => {
     await openApp(page);
     await load(page, FX('real/glasgow/glasgow-kicad-boardview.brd'));

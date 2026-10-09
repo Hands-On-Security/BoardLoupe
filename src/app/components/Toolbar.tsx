@@ -3,6 +3,8 @@ import {
   ArrowRight,
   ChevronDown,
   CircuitBoard,
+  Eye,
+  EyeOff,
   FlipHorizontal2,
   FolderOpen,
   HelpCircle,
@@ -81,6 +83,16 @@ export function Toolbar() {
               );
             })}
           </div>
+          {sideable && (
+            <IconButton
+              label={prefs.otherSide === 'hide' ? 'Show the other side (ghosted)' : 'Show only this side (hide the other side)'}
+              shortcut="G"
+              active={prefs.otherSide === 'hide'}
+              onClick={() => setPrefs({ otherSide: prefs.otherSide === 'hide' ? 'ghost' : 'hide' })}
+            >
+              {prefs.otherSide === 'hide' ? <EyeOff size={16} /> : <Eye size={16} />}
+            </IconButton>
+          )}
           <IconButton label="Mirror view" shortcut="X" active={viewer.view.mirror} onClick={() => viewer.toggleMirror()}>
             <FlipHorizontal2 size={16} />
           </IconButton>
