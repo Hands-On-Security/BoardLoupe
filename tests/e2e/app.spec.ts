@@ -207,6 +207,114 @@ test.describe('BoardScope single-file app', () => {
     expect(json.parts.length).toBe(272);
   });
 
+  test('highlighted pads on a ghosted or hidden side do not show through the board', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('synthetic/glasgow.tvw'));
+    // Count framebuffer pixels in the single-net highlight colour, rendered and read in one task.
+    const counts = await page.evaluate(() => {
+      type BS = { store: { set: (p: object) => void }; viewer: { model: import('../../src/model/types').BoardModel; renderNow: () => void; setOptions: (o: object) => void; palette: { selNet: number[] } } };
+      const bs = (window as unknown as { boardscope: BS }).boardscope;
+      const m = bs.viewer.model;
+      // A small net whose pins are all on the top side and which has no vias (vias go through the board).
+      let net = -1;
+      for (let n = 0; n < m.nets.count && net < 0; n++) {
+        const a = m.nets.pinStart[n],
+          b = m.nets.pinStart[n + 1];
+        if (b - a < 2 || b - a > 10) continue;
+        let ok = true;
+        for (let j = a; j < b; j++) if (m.pins.side[m.nets.pinIndex[j]] !== 1) ok = false;
+        for (let i = 0; i < m.vias.count && ok; i++) if (m.vias.net[i] === n) ok = false;
+        if (ok) net = n;
+      }
+      bs.store.set({ sel: { kind: 'net', index: net, multi: [], nets: [] } });
+      const c = document.querySelector('[data-testid=board] canvas') as HTMLCanvasElement;
+      const g = c.getContext('webgl2')!;
+      const [r0, g0, b0] = bs.viewer.palette.selNet;
+      const count = () => {
+        bs.viewer.renderNow();
+        const px = new Uint8Array(c.width * c.height * 4);
+        g.readPixels(0, 0, c.width, c.height, g.RGBA, g.UNSIGNED_BYTE, px);
+        let k = 0;
+        for (let i = 0; i < px.length; i += 4) if (Math.abs(px[i] - r0) < 24 && Math.abs(px[i + 1] - g0) < 24 && Math.abs(px[i + 2] - b0) < 24) k++;
+        return k;
+      };
+      bs.viewer.setOptions({ side: 1, otherSide: 'ghost' });
+      const top = count();
+      bs.viewer.setOptions({ side: 2, otherSide: 'ghost' });
+      const ghosted = count();
+      bs.viewer.setOptions({ side: 2, otherSide: 'hide' });
+      const hidden = count();
+      return { net, top, ghosted, hidden };
+    });
+    expect(counts.net).toBeGreaterThanOrEqual(0);
+    expect(counts.top).toBeGreaterThan(20); // beacons visible on their own side
+    expect(counts.hidden).toBe(0); // nothing shows through a hidden side
+    expect(counts.ghosted).toBeLessThan(counts.top * 0.1); // ghosted, not full-strength
+  });
+
+  test('highlight group: add, legend, save and re-apply', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    const insp = page.getByTestId('inspector');
+    // Two nets via search, each added to the group.
+    for (const q of ['/SDA', '/SCL']) {
+      await page.keyboard.press('/');
+      await page.keyboard.type(q);
+      // Wait for this query's results (search is debounced), then pick the net.
+      await page.getByRole('option').filter({ hasText: q }).filter({ hasText: 'net' }).first().click();
+      await expect(insp.getByRole('heading', { name: q })).toBeVisible();
+      await insp.getByRole('button', { name: /Group/ }).click();
+    }
+    const legend = page.getByTestId('highlight-legend');
+    await expect(legend).toBeVisible();
+    await expect(legend).toContainText('/SDA');
+    await expect(legend).toContainText('/SCL');
+    // The group survives clearing the selection.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Escape');
+    await expect(legend).toContainText('/SDA');
+    // Save it, clear it, re-apply it.
+    await page.getByRole('tab', { name: /Groups/ }).click();
+    const panel = page.getByTestId('groups-panel');
+    await panel.getByLabel('Group name').fill('I2C bus');
+    await panel.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(panel.getByRole('list', { name: 'Saved groups' })).toContainText('I2C bus');
+    await panel.getByRole('button', { name: 'Clear' }).click();
+    await expect(legend).toHaveCount(0);
+    await panel.getByRole('list', { name: 'Saved groups' }).getByRole('button', { name: /I2C bus/ }).click();
+    await expect(page.getByTestId('highlight-legend')).toContainText('/SCL');
+    // Saved groups persist in this browser only.
+    const stored = await page.evaluate(() => localStorage.getItem('boardscope.groups.v1'));
+    expect(stored).toContain('I2C bus');
+  });
+
+  test('report: A4 preview with highlighted nets, self-contained HTML without scripts', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    await page.keyboard.press('/');
+    await page.keyboard.type('/SDA');
+    await page.getByRole('option').filter({ hasText: 'net' }).first().click();
+    await page.keyboard.press('a'); // add to group (focus left the search box on click)
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Control+p');
+    const dlg = page.getByRole('dialog', { name: 'Report' });
+    await expect(dlg).toBeVisible();
+    await dlg.getByPlaceholder(/board analysis/).fill('I2C <script>alert(1)</script> audit');
+    const preview = dlg.getByTestId('report-preview');
+    await expect.poll(async () => (await preview.getAttribute('srcdoc')) ?? '').toContain('I2C &lt;script&gt;');
+    const frame = page.frameLocator('[data-testid=report-preview]');
+    await expect(frame.locator('h1')).toHaveText('I2C <script>alert(1)</script> audit');
+    await expect(frame.locator('table.data')).toContainText('/SDA');
+    await expect(frame.locator('figure img')).toHaveCount(1);
+    const [dl] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: /Download HTML/ }).click()]);
+    const html = readFileSync((await dl.path())!, 'utf8');
+    expect(html.startsWith('<!doctype html>')).toBe(true);
+    expect(html).not.toMatch(/<script/i);
+    expect(html).toContain('size: A4 portrait');
+    expect(html).toContain('hos.direct/boardscope');
+    expect(html).toMatch(/<img src="data:image\/png;base64,/);
+  });
+
   test('unsupported file shows a precise error', async ({ page }) => {
     await openApp(page);
     await page.setInputFiles('#bs-file-input', { name: 'mystery.brd', mimeType: 'application/octet-stream', buffer: Buffer.from(Array.from({ length: 2048 }, (_, i) => (i * 2654435761) >>> 24)) });

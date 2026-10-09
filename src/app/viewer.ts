@@ -46,6 +46,7 @@ export class Viewer {
   /** Scale at the last fit, used to report zoom as a percentage. */
   fitScale = 1;
 
+  private glCanvas: HTMLCanvasElement | null = null;
   private overlayCanvas: HTMLCanvasElement | null = null;
   private overlayCtx: CanvasRenderingContext2D | null = null;
   private raf = 0;
@@ -73,6 +74,7 @@ export class Viewer {
     this.overlayCtx = overlay.getContext('2d');
     this.renderer?.dispose();
     this.renderer = null;
+    this.glCanvas = gl;
     if (!forceCanvas2d) {
       try {
         this.renderer = new GLRenderer(gl);
@@ -89,6 +91,7 @@ export class Viewer {
         const c = document.createElement('canvas');
         c.className = gl.className;
         gl.replaceWith(c);
+        this.glCanvas = c;
         this.renderer = new Canvas2DRenderer(c);
       }
     }
@@ -254,6 +257,63 @@ export class Viewer {
 
   worldAt(sx: number, sy: number): [number, number] {
     return screenToWorld(this.view, sx, sy);
+  }
+
+  /**
+   * Renders the current view (board, highlights and labels) at print
+   * resolution and returns it as a PNG data URL. Optionally uses the light
+   * palette for a print-friendly image. Everything happens synchronously in
+   * one task, so the on-screen canvas never shows the intermediate frame and
+   * the WebGL drawing buffer is still valid when it is read.
+   */
+  captureImage(
+    o: { light?: boolean; minDpr?: number; decorate?: (ctx: CanvasRenderingContext2D, width: number, height: number, dpr: number) => void } = {},
+  ): { url: string; width: number; height: number } | null {
+    const r = this.renderer,
+      gl = this.glCanvas,
+      ov = this.overlayCanvas;
+    if (!r || !gl || !this.model || !this.scene) return null;
+    const w = this.view.width,
+      h = this.view.height;
+    const prevDpr = this.dpr,
+      prevLight = this.opts.light;
+    const dpr = Math.min(3, Math.max(o.minDpr ?? 2, prevDpr));
+    const swapTheme = o.light !== undefined && o.light !== prevLight;
+    const size = (d: number) => [Math.max(1, Math.round(w * d)), Math.max(1, Math.round(h * d))] as const;
+    try {
+      this.dpr = dpr;
+      r.resize(w, h, dpr);
+      if (ov) [ov.width, ov.height] = size(dpr);
+      if (swapTheme) {
+        this.opts = { ...this.opts, light: !!o.light };
+        this.colorsDirty = true;
+      }
+      this.renderNow();
+      const [cw, ch] = size(dpr);
+      const c = document.createElement('canvas');
+      c.width = cw;
+      c.height = ch;
+      const ctx = c.getContext('2d');
+      if (!ctx) return null;
+      const bg = this.palette.bg;
+      ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(gl, 0, 0, cw, ch);
+      if (ov) ctx.drawImage(ov, 0, 0, cw, ch);
+      o.decorate?.(ctx, cw, ch, dpr);
+      return { url: c.toDataURL('image/png'), width: cw, height: ch };
+    } catch {
+      return null;
+    } finally {
+      this.dpr = prevDpr;
+      if (swapTheme) {
+        this.opts = { ...this.opts, light: prevLight };
+        this.colorsDirty = true;
+      }
+      r.resize(w, h, prevDpr);
+      if (ov) [ov.width, ov.height] = size(prevDpr);
+      this.renderNow();
+    }
   }
 
   private emitView() {

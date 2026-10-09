@@ -61,6 +61,17 @@ export interface Colors {
   viaEmph: Uint8Array;
 }
 
+/**
+ * Colour a highlighted net is drawn in: the plain selection colour for a
+ * single net, or a distinct bus colour (by position in h.nets) when several
+ * nets are highlighted. Shared by the renderer, the UI legend and reports.
+ */
+export function netHighlightColor(h: Pick<Highlight, 'nets'>, p: Palette, n: number): RGBA {
+  if (h.nets.length <= 1) return p.selNet;
+  const i = h.nets.indexOf(n);
+  return i < 0 ? p.selNet : p.busColors[i % p.busColors.length];
+}
+
 function put(a: Uint8Array, i: number, c: RGBA, alpha = c[3]) {
   a[4 * i] = c[0];
   a[4 * i + 1] = c[1];
@@ -90,11 +101,7 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
   // A multi-net (bus) selection gets a distinct colour per net; a single net
   // keeps the plain selection colour. Index follows h.nets order (selection order).
   const multiBus = h.nets.length > 1;
-  const busOf = (n: number): RGBA => {
-    if (!multiBus) return p.selNet;
-    const i = h.nets.indexOf(n);
-    return i < 0 ? p.selNet : p.busColors[i % p.busColors.length];
-  };
+  const busOf = (n: number): RGBA => netHighlightColor(h, p, n);
   const partSel = new Uint8Array(parts.count);
   for (const k of h.parts) if (k >= 0 && k < parts.count) partSel[k] = 2;
   if (h.part >= 0 && h.part < parts.count) partSel[h.part] = 1;

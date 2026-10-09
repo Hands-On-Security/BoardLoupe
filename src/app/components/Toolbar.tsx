@@ -14,6 +14,7 @@ import {
   MousePointer2,
   PanelLeft,
   PanelRight,
+  Printer,
   RotateCw,
   Ruler,
   Settings,
@@ -119,6 +120,9 @@ export function Toolbar() {
           </IconButton>
           <IconButton label="Tables & export" shortcut="T" onClick={() => store.set({ dialog: 'tables' })}>
             <Table2 size={16} />
+          </IconButton>
+          <IconButton label="Report (A4 PDF)" shortcut="Ctrl/⌘+P" onClick={() => store.set({ dialog: 'report' })}>
+            <Printer size={16} />
           </IconButton>
         </>
       )}

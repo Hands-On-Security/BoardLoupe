@@ -1,10 +1,10 @@
-import { Copy, Crosshair, Eye, EyeOff, Focus, Layers, Wrench } from 'lucide-preact';
+import { BookmarkPlus, Copy, Crosshair, Eye, EyeOff, Focus, Layers, Wrench } from 'lucide-preact';
 import { useMemo } from 'preact/hooks';
 import { type SolderPoint, solderPoints } from '../../model/solder';
 import { type BoardModel, MOUNT_UNKNOWN, NETFLAG_GROUND, NETFLAG_NOCONNECT, NETFLAG_POWER, NO_PROBE, PINKIND_TESTPOINT, mountLabel, sideLabel } from '../../model/types';
 import { RATSNEST_MAX_PINS } from '../../scene/ratsnest';
 import { collator } from '../../search/search';
-import { copyText, focusSelection, selectNet, selectPart, selectPin, selectVia } from '../actions';
+import { addSelectionToGroup, copyText, focusSelection, selectNet, selectPart, selectPin, selectVia } from '../actions';
 import { formatCoord, formatLength, plural } from '../format';
 import { type LoadedBoard, store, useStore } from '../store';
 import { Badge, Field, IconButton, SectionTitle, Unavailable, cx } from './ui';
@@ -111,6 +111,13 @@ export function Inspector() {
             title="Hide pins of all other nets (H)"
           >
             {hideOther ? <EyeOff size={14} /> : <Eye size={14} />} Other nets
+          </button>
+          <button
+            class="flex-1 h-8 rounded-md text-[12px] font-medium flex items-center justify-center gap-1.5 border border-line2 text-muted hover:text-fg hover:bg-raised"
+            onClick={addSelectionToGroup}
+            title="Keep the selection highlighted in the highlight group (A)"
+          >
+            <BookmarkPlus size={14} /> Group
           </button>
         </div>
       ) : null}

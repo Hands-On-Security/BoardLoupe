@@ -1,6 +1,6 @@
 # BoardScope — release report (2026-10-09)
 
-**Deliverable:** `dist/boardview.html`: one self-contained file, ~400 KB (~128 KB gzip),
+**Deliverable:** `dist/boardview.html`: one self-contained file, ~457 KB (~159 KB gzip),
 zero external references. The build verifies this and fails otherwise. Build it with
 `npm ci && npm run build`.
 
@@ -18,6 +18,16 @@ built for the hardware-security classroom.
 - **Solder / probe point finder.** The net and pin inspectors rank every point on a net by how
   practical it is to tap a wire onto — test points first, then through-holes, connectors and large
   pads, with fine-pitch IC pads last — each with its side, click-to-jump. (`src/model/solder.ts`.)
+- **Side-consistent highlights.** Beacons follow the other-side setting exactly like the pads beneath
+  them (ghosted or hidden), so a selected net never shows through a hidden side; an eye toggle / `G`
+  shows only the current side.
+- **Highlight groups.** `A` adds the selection to a persistent group whose nets stay lit in their own
+  colours (with an on-board legend); groups can be saved by name in this browser and re-applied by
+  net/part name.
+- **Report (PDF).** `Ctrl/⌘+P` builds an A4-portrait report (header/footer, logos, file and board
+  details, the current view at print resolution, highlighted nets with colours, parts and solder points,
+  notes) for *Print → Save as PDF* or as a self-contained HTML download; plus PNG export with a legend.
+  The report has no scripts, embeds only `data:` images and escapes all file-derived text (tested).
 
 ## Formats: what is actually verified
 

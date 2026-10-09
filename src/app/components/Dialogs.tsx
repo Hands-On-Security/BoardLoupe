@@ -290,6 +290,8 @@ const SHORTCUTS: [string[], string][] = [
   [['Alt', '←'], 'Back in selection history'],
   [['Alt', '→'], 'Forward in history'],
   [['T'], 'Tables & export'],
+  [['A'], 'Add selection to highlight group'],
+  [['Ctrl/⌘', 'P'], 'Report (A4 PDF)'],
   [['['], 'Toggle explorer'],
   [[']'], 'Toggle inspector'],
   [['Shift', 'click'], 'Add part / net to selection'],

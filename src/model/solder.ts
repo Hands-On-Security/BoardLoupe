@@ -76,13 +76,16 @@ export function solderPoints(m: BoardModel, pinHW: Float32Array, pinHH: Float32A
     }
     if (!reasons.length) reasons.push(sizeFactor >= 1.3 ? 'large pad' : 'component pad');
 
-    const label = k >= 0 ? `${pname}.${pins.number[i] || '?'}` : `TP ${pins.number[i] || i}`;
+    // Single-pin parts (test pads, mounting holes) are named by their refdes alone.
+    const label = k >= 0 ? (parts.pinCount[k] === 1 || !pins.number[i] ? pname : `${pname}.${pins.number[i]}`) : `TP ${pins.number[i] || i}`;
     out.push({ kind: 'pin', index: i, label, part: k, side: pins.side[i], score: Math.round(s), reasons });
   }
 
   for (let i = 0; i < vias.count; i++) {
     if (vias.net[i] !== n) continue;
-    out.push({ kind: 'via', index: i, label: 'Via', part: -1, side: 3, score: 20, reasons: ['via'] });
+    // Vias are usually tented (under solder mask), so a resistor terminal of
+    // similar size is the easier tap; they still beat fine-pitch IC pads.
+    out.push({ kind: 'via', index: i, label: `Via ${i + 1}`, part: -1, side: 3, score: 14, reasons: ['via'] });
   }
 
   out.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, 'en', { numeric: true }));

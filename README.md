@@ -15,6 +15,7 @@ bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch b
 | | |
 |---|---|
 | ![BGA part selected](docs/screenshots/dark-part.png) | ![Bottom side with copper traces](docs/screenshots/dark-bottom-traces.png) |
+| ![Highlight group with legend](docs/screenshots/dark-group.png) | ![A4 report preview](docs/screenshots/dark-report.png) |
 
 ## Quick start
 
@@ -70,7 +71,8 @@ source) on the fixture, plus integrity, fuzz and browser tests.
   The minimap (bottom right) shows the viewport; click or drag it to move.
 - **Sides.** **Top/Bottom** in the toolbar, or <kbd>Space</kbd>. The bottom view is mirrored like a
   board turned over (turn this off in *Layers & display*). Components on the other side are ghosted,
-  hidden or shown. <kbd>X</kbd> mirrors and <kbd>R</kbd> rotates by 90°. Picking and labels stay
+  hidden or shown; the eye button next to Top/Bottom (or <kbd>G</kbd>) switches to **only this side**.
+  Highlights follow the same rule, so a selected net never shows through a hidden side. <kbd>X</kbd> mirrors and <kbd>R</kbd> rotates by 90°. Picking and labels stay
   correct in every orientation.
 - **Search** (<kbd>/</kbd> or <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd>). Results are ranked exact, then prefix, then substring, then fuzzy, across
   parts, nets and values. Examples: `U42`, `R101`, `GND`, `+3V3`, `USB_D+`, `U12.4`, `U12 pin 4`, and
@@ -85,6 +87,17 @@ source) on the fixture, plus integrity, fuzz and browser tests.
   it is to tap a wire onto — **test points first, then through-holes, connectors and large pads, with
   fine-pitch IC pads last** — each with its board side. Click one to jump straight to it. This is the
   classroom workflow for reaching a bus somewhere accessible instead of on a BGA ball.
+- **Highlight groups.** Press <kbd>A</kbd> (or *Group* in the inspector) to add the selection to the
+  highlight group. Its nets stay lit, each in its own colour, while you keep exploring — e.g. follow a bus
+  through its series resistors and keep the whole path highlighted. A legend on the board names every
+  colour. Groups can be saved by name in the *Groups* tab (kept in this browser only) and re-applied later,
+  matched by net and part name, so they also work on another revision of the board.
+- **Report (PDF) and image export** (<kbd>Ctrl/⌘</kbd>+<kbd>P</kbd>). An A4-portrait report with header,
+  footer and logos: file and board details, the current view (optionally rendered print-friendly in
+  light colours), every highlighted net with its colour, parts and best solder / probe points, the
+  highlighted parts, and your notes. *Print / Save as PDF* turns it into a PDF; *Download HTML* saves the
+  self-contained report. *Save view as PNG* exports the view with a legend of the highlighted nets. Reports
+  are generated offline, contain no scripts, and escape all text taken from the file.
 - **Inspect.** Click a part to see refdes, side, mount, position, rotation, footprint, value,
   attributes, its pin table with nets, and parts it connects to on signal nets. Click a pin to see its
   part, number, name, net and pad, and to highlight its net. Click a net (in the inspector, search or

@@ -1,10 +1,11 @@
-import { CircuitBoard, Cpu, FileText, Search, Spline, X } from 'lucide-preact';
+import { CircuitBoard, Cpu, FileText, Highlighter, Search, Spline, X } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { NETFLAG_GROUND, NETFLAG_NOCONNECT, NETFLAG_POWER, unitLabel } from '../../model/types';
 import { type SearchHit, collator } from '../../search/search';
 import { selectNet, selectPart, selectPin } from '../actions';
 import { formatBytes, plural } from '../format';
 import { type Panel, store, useStore } from '../store';
+import { GroupsPanel } from './Groups';
 import { Badge, Field, SectionTitle, cx } from './ui';
 import { VirtualList } from './VirtualList';
 
@@ -12,25 +13,28 @@ const TABS: { id: Panel; label: string; icon: typeof Search }[] = [
   { id: 'search', label: 'Search', icon: Search },
   { id: 'parts', label: 'Parts', icon: Cpu },
   { id: 'nets', label: 'Nets', icon: Spline },
+  { id: 'groups', label: 'Groups', icon: Highlighter },
   { id: 'info', label: 'File', icon: FileText },
 ];
 
 export function Sidebar() {
   const panel = useStore(store, (s) => s.panel);
+  const groupSize = useStore(store, (s) => s.group.nets.length + s.group.parts.length);
   return (
     <aside class="w-[300px] shrink-0 border-r border-line bg-panel flex flex-col min-h-0" aria-label="Explorer">
-      <div role="tablist" class="flex items-center gap-0.5 px-2 h-10 border-b border-line shrink-0">
+      <div role="tablist" class="flex items-center gap-0.5 px-1.5 h-10 border-b border-line shrink-0 overflow-x-auto [scrollbar-width:none]">
         {TABS.map((t) => (
           <button
             key={t.id}
             role="tab"
             aria-selected={panel === t.id}
             id={`tab-${t.id}`}
-            class={cx('flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12.5px] font-medium transition-colors', panel === t.id ? 'bg-raised text-fg' : 'text-muted hover:text-fg')}
+            class={cx('relative flex items-center gap-1 h-7 px-2 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap shrink-0', panel === t.id ? 'bg-raised text-fg' : 'text-muted hover:text-fg')}
             onClick={() => store.set({ panel: t.id })}
           >
-            <t.icon size={14} />
+            <t.icon size={13} />
             {t.label}
+            {t.id === 'groups' && groupSize > 0 && <span class="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-accent text-accent-fg text-[10px] leading-4 text-center tabular">{groupSize}</span>}
           </button>
         ))}
       </div>
@@ -38,6 +42,7 @@ export function Sidebar() {
         {panel === 'search' && <SearchPanel />}
         {panel === 'parts' && <PartsPanel />}
         {panel === 'nets' && <NetsPanel />}
+        {panel === 'groups' && <GroupsPanel />}
         {panel === 'info' && <InfoPanel />}
       </div>
     </aside>

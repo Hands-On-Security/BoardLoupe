@@ -5,7 +5,7 @@ import type { BoardModel } from '../model/types';
 import type { Highlight } from '../render/style';
 import { SearchIndex } from '../search/search';
 import { type ParseJob, startParse } from '../worker/client';
-import { NO_SEL, type Selection, historyGo, select, store, toast } from './store';
+import { EMPTY_GROUP, type HighlightGroup, NO_SEL, type SavedGroup, type Selection, historyGo, saveGroups, select, store, toast } from './store';
 import { Viewer } from './viewer';
 
 export const viewer = new Viewer();
@@ -68,6 +68,7 @@ export async function openFiles(files: File[]) {
     historyPos: -1,
     isolate: false,
     hideOtherNets: false,
+    group: EMPTY_GROUP,
     measure: { a: null, b: null },
     tool: 'select',
     searchText: '',
@@ -86,43 +87,139 @@ export function cancelLoad() {
 
 export function closeBoard() {
   job?.cancel();
-  store.set({ board: null, phase: 'empty', error: null, sel: NO_SEL, history: [], historyPos: -1, loading: null });
+  store.set({ board: null, phase: 'empty', error: null, sel: NO_SEL, history: [], historyPos: -1, loading: null, group: EMPTY_GROUP });
   viewer.setBoard(null, null);
 }
 
-export function highlightFor(sel: Selection, m: BoardModel | null, isolate: boolean, hideOtherNets: boolean): Highlight {
-  const nets = new Set<number>(sel.nets);
+export function highlightFor(sel: Selection, m: BoardModel | null, isolate: boolean, hideOtherNets: boolean, group: HighlightGroup = EMPTY_GROUP): Highlight {
+  // Group nets come first so their bus colours stay stable as new nets are
+  // selected on top of the group.
+  const nets: number[] = [];
+  const seen = new Set<number>();
+  const addNet = (n: number) => {
+    if (n >= 0 && !seen.has(n)) {
+      seen.add(n);
+      nets.push(n);
+    }
+  };
+  for (const n of group.nets) addNet(n);
+  for (const n of sel.nets) addNet(n);
   let part = -1,
     pin = -1;
   if (m) {
     if (sel.kind === 'part') part = sel.index;
     else if (sel.kind === 'pin') {
       pin = sel.index;
-      const n = m.pins.net[sel.index];
-      if (n >= 0) nets.add(n);
-    } else if (sel.kind === 'net') nets.add(sel.index);
-    else if (sel.kind === 'via') {
-      const n = m.vias.net[sel.index];
-      if (n >= 0) nets.add(n);
-    }
+      addNet(m.pins.net[sel.index]);
+    } else if (sel.kind === 'net') addNet(sel.index);
+    else if (sel.kind === 'via') addNet(m.vias.net[sel.index]);
   }
-  return { part, pin, nets: [...nets], parts: sel.multi, isolate, hideUnselectedNets: hideOtherNets };
+  const parts = [...new Set([...group.parts, ...sel.multi])];
+  return { part, pin, nets, parts, isolate, hideUnselectedNets: hideOtherNets };
 }
 
 export function syncHighlight() {
   const s = store.get();
-  viewer.setHighlight(highlightFor(s.sel, s.board?.model ?? null, s.isolate, s.hideOtherNets));
+  viewer.setHighlight(highlightFor(s.sel, s.board?.model ?? null, s.isolate, s.hideOtherNets, s.group));
 }
 
 store.subscribe(() => {
   const s = store.get();
-  const key = `${s.sel.kind}:${s.sel.index}:${s.sel.multi.join(',')}:${s.sel.nets.join(',')}:${s.isolate}:${s.hideOtherNets}:${s.board?.id}`;
+  const key = `${s.sel.kind}:${s.sel.index}:${s.sel.multi.join(',')}:${s.sel.nets.join(',')}:${s.isolate}:${s.hideOtherNets}:${s.board?.id}:${s.group.nets.join(',')}:${s.group.parts.join(',')}`;
   if (key !== lastHlKey) {
     lastHlKey = key;
     syncHighlight();
   }
 });
 let lastHlKey = '';
+
+// --- Highlight groups -----------------------------------------------------
+
+/** Nets/parts implied by the current selection, merged into the group set. */
+function groupWithSelection(): HighlightGroup {
+  const s = store.get();
+  const m = s.board?.model;
+  const nets = new Set<number>(s.group.nets);
+  const parts = new Set<number>(s.group.parts);
+  const sel = s.sel;
+  if (m) {
+    for (const n of sel.nets) if (n >= 0) nets.add(n);
+    for (const k of sel.multi) parts.add(k);
+    if (sel.kind === 'net') nets.add(sel.index);
+    else if (sel.kind === 'pin') {
+      const n = m.pins.net[sel.index];
+      if (n >= 0) nets.add(n);
+    } else if (sel.kind === 'via') {
+      const n = m.vias.net[sel.index];
+      if (n >= 0) nets.add(n);
+    } else if (sel.kind === 'part') parts.add(sel.index);
+  }
+  return { nets: [...nets], parts: [...parts] };
+}
+
+export function addSelectionToGroup() {
+  const before = store.get().group;
+  const g = groupWithSelection();
+  if (g.nets.length === before.nets.length && g.parts.length === before.parts.length) {
+    toast('Nothing new to add — select a net or part first');
+    return;
+  }
+  store.set({ group: g });
+  toast(`Highlight group: ${g.nets.length} net${g.nets.length !== 1 ? 's' : ''}, ${g.parts.length} part${g.parts.length !== 1 ? 's' : ''}`);
+}
+
+export function removeNetFromGroup(n: number) {
+  const s = store.get();
+  store.set({ group: { ...s.group, nets: s.group.nets.filter((x) => x !== n) } });
+}
+export function removePartFromGroup(k: number) {
+  const s = store.get();
+  store.set({ group: { ...s.group, parts: s.group.parts.filter((x) => x !== k) } });
+}
+export function clearGroup() {
+  store.set({ group: { nets: [], parts: [] } });
+}
+
+export function saveCurrentGroup(name: string) {
+  const s = store.get();
+  const m = s.board?.model;
+  if (!m) return;
+  const netNames = s.group.nets.map((n) => m.nets.name[n]).filter(Boolean);
+  const partNames = s.group.parts.map((k) => m.parts.name[k]).filter(Boolean);
+  if (!netNames.length && !partNames.length) {
+    toast('Add nets or parts to the group first');
+    return;
+  }
+  const sg: SavedGroup = { id: Date.now(), name: name.trim() || `Group ${s.savedGroups.length + 1}`, created: Date.now(), fileName: m.source.fileName, nets: netNames, parts: partNames };
+  const list = [sg, ...s.savedGroups].slice(0, 50);
+  store.set({ savedGroups: list });
+  saveGroups(list);
+  toast(`Saved “${sg.name}”`);
+}
+
+export function applySavedGroup(id: number) {
+  const s = store.get();
+  const m = s.board?.model;
+  if (!m) return;
+  const sg = s.savedGroups.find((g) => g.id === id);
+  if (!sg) return;
+  const netIdx = new Map<string, number>();
+  m.nets.name.forEach((nm, i) => netIdx.set(nm, i));
+  const partIdx = new Map<string, number>();
+  m.parts.name.forEach((nm, i) => partIdx.set(nm, i));
+  const nets = sg.nets.map((nm) => netIdx.get(nm)).filter((v): v is number => v !== undefined);
+  const parts = sg.parts.map((nm) => partIdx.get(nm)).filter((v): v is number => v !== undefined);
+  store.set({ group: { nets, parts }, panel: 'groups' });
+  const miss = sg.nets.length - nets.length + (sg.parts.length - parts.length);
+  toast(`Applied “${sg.name}”${miss ? ` — ${miss} not on this board` : ''}`);
+}
+
+export function deleteSavedGroup(id: number) {
+  const s = store.get();
+  const list = s.savedGroups.filter((g) => g.id !== id);
+  store.set({ savedGroups: list });
+  saveGroups(list);
+}
 
 // --- Focus helpers --------------------------------------------------------
 
@@ -266,6 +363,21 @@ export async function copyText(text: string) {
     }
     ta.remove();
   }
+}
+
+/** Downloads a data: URL (e.g. a captured PNG) under the given file name. */
+export function downloadUrl(name: string, url: string) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/** File name stem for exports, derived from the open board's file name. */
+export function exportBaseName(m: BoardModel): string {
+  return m.source.fileName.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') || 'board';
 }
 
 export function downloadText(name: string, text: string, type: string) {

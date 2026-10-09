@@ -26,6 +26,8 @@ const bs = (page: Page, js: string) => page.evaluate(js);
 
 test('dark: empty state', async ({ page }) => {
   await open(page);
+  // The Hands-On Security logo is an inline image: capture once it is decoded.
+  await page.locator('img.hos-logo').first().evaluate((img) => (img as HTMLImageElement).decode());
   await page.screenshot({ path: `${SHOTS}/dark-empty.png` });
 });
 
@@ -95,4 +97,29 @@ test('dark: laptop 1366x768 measure tool', async ({ page }) => {
   await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.55);
   await page.waitForTimeout(150);
   await page.screenshot({ path: `${SHOTS}/dark-measure-laptop.png` });
+});
+
+test('dark: highlight group with legend', async ({ page }) => {
+  await open(page, 'synthetic/glasgow.tvw');
+  await bs(
+    page,
+    `(() => { const b = window.boardscope, m = b.store.get().board.model;
+      const nets = []; for (let i = 0; i < m.nets.count && nets.length < 6; i++) if (/IO_Banks\\/DA\\d$/.test(m.nets.name[i])) nets.push(i);
+      b.store.set({ group: { nets, parts: [] }, panel: 'groups' }); b.viewer.fit(); b.viewer.zoomBy(1.6); })()`,
+  );
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${SHOTS}/dark-group.png` });
+});
+
+test('dark: report dialog', async ({ page }) => {
+  await open(page, 'synthetic/glasgow.tvw');
+  await bs(
+    page,
+    `(() => { const b = window.boardscope, m = b.store.get().board.model;
+      const nets = []; for (let i = 0; i < m.nets.count && nets.length < 4; i++) if (/IO_Banks\\/DA\\d$/.test(m.nets.name[i])) nets.push(i);
+      b.store.set({ group: { nets, parts: [] } }); b.viewer.fit(); b.store.set({ dialog: 'report' }); })()`,
+  );
+  await page.getByPlaceholder(/board analysis/).fill('Glasgow — FPGA I/O bank A');
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${SHOTS}/dark-report.png` });
 });

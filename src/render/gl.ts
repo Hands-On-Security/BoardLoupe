@@ -102,7 +102,9 @@ void main() {
     float d = shapeSdf(p, v_half, v_shape);
     float fill = clamp(0.5 - d, 0.0, 1.0);
     float halo = (1.0 - smoothstep(0.0, u_haloPx, d)) * step(-0.5, d);
-    float a = max(fill, halo * 0.92);
+    // v_color.a carries the side-visibility factor (full on this side, u_ghost
+    // on the other, 0 when hidden) so a beacon never shows through a hidden side.
+    float a = max(fill, halo * 0.92) * v_color.a;
     if (a <= 0.0) discard;
     vec3 col = mix(u_haloColor, v_color.rgb, clamp(fill * 2.0, 0.0, 1.0));
     o = vec4(col * a, a);

@@ -177,6 +177,10 @@ export class Canvas2DRenderer implements Renderer {
     if (opts.showPins && this.pinIdx) {
       for (const i of this.pinIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY)) {
         if (!c.pinEmph[i]) continue;
+        // Respect side visibility: a beacon on the other side ghosts (or hides)
+        // exactly like the pad beneath it, instead of showing through the board.
+        const sideMul = isOther(m.pins.side[i] || 3) ? ghostA : 1;
+        if (sideMul === 0) continue;
         const hw = Math.max(s.pinHW[i], minR),
           hh = Math.max(s.pinHH[i], minR);
         const x = m.pins.x[i],
@@ -187,6 +191,7 @@ export class Canvas2DRenderer implements Renderer {
           if (sh === SHAPE_RECT || sh === SHAPE_ROUNDRECT || sh === SHAPE_OBLONG) ctx.rect(x - hw, y - hh, 2 * hw, 2 * hh);
           else ctx.arc(x, y, Math.min(hw, hh), 0, Math.PI * 2);
         };
+        ctx.globalAlpha = sideMul;
         path();
         ctx.strokeStyle = halo;
         ctx.lineWidth = haloW;
@@ -194,6 +199,7 @@ export class Canvas2DRenderer implements Renderer {
         path();
         ctx.fillStyle = rgba(c.pin, i);
         ctx.fill();
+        ctx.globalAlpha = 1;
       }
     }
     // Drill holes after all pads (both sides), so overlapping copper never hides a drill.

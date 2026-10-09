@@ -74,6 +74,24 @@ export interface Selection {
 
 export const NO_SEL: Selection = { kind: 'none', index: -1, multi: [], nets: [] };
 
+/** A persistent highlight group: nets and parts kept lit while you explore. */
+export interface HighlightGroup {
+  nets: number[];
+  parts: number[];
+}
+
+export const EMPTY_GROUP: HighlightGroup = { nets: [], parts: [] };
+
+/** A named group saved for later use, by name so it can survive reloads. */
+export interface SavedGroup {
+  id: number;
+  name: string;
+  created: number;
+  fileName: string;
+  nets: string[];
+  parts: string[];
+}
+
 export interface LoadedBoard {
   model: BoardModel;
   scene: Scene;
@@ -92,8 +110,8 @@ export interface RecentEntry {
   files: File[];
 }
 
-export type Panel = 'search' | 'parts' | 'nets' | 'info';
-export type Dialog = null | 'tables' | 'settings' | 'help';
+export type Panel = 'search' | 'parts' | 'nets' | 'groups' | 'info';
+export type Dialog = null | 'tables' | 'settings' | 'help' | 'report';
 
 export interface Prefs {
   theme: 'dark' | 'light';
@@ -147,6 +165,10 @@ export interface AppState {
   historyPos: number;
   isolate: boolean;
   hideOtherNets: boolean;
+  /** Persistent highlight group (board-specific indices). */
+  group: HighlightGroup;
+  /** Named groups saved for later use (resolved by name on apply). */
+  savedGroups: SavedGroup[];
   panel: Panel;
   dialog: Dialog;
   tool: 'select' | 'measure';
@@ -159,6 +181,25 @@ export interface AppState {
 
 const PREFS_KEY = 'boardscope.prefs.v1';
 const KEYS_KEY = 'boardscope.keys.v1';
+const GROUPS_KEY = 'boardscope.groups.v1';
+
+function loadGroups(): SavedGroup[] {
+  try {
+    const raw = localStorage.getItem(GROUPS_KEY);
+    const v = raw ? JSON.parse(raw) : [];
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveGroups(list: SavedGroup[]) {
+  try {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(list));
+  } catch {
+    /* storage unavailable — saved groups stay in memory for this session */
+  }
+}
 
 function loadJSON<T>(key: string, def: T): T {
   try {
@@ -198,6 +239,8 @@ export const store = createStore<AppState>({
   historyPos: -1,
   isolate: false,
   hideOtherNets: false,
+  group: EMPTY_GROUP,
+  savedGroups: loadGroups(),
   panel: 'search',
   dialog: null,
   tool: 'select',

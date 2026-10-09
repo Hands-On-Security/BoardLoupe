@@ -44,7 +44,7 @@ describe('solderPoints', () => {
   });
 
   test('ranks a test point first and the fine-pitch IC ball last', () => {
-    expect(pts[0].label).toBe('TP7.1');
+    expect(pts[0].label).toBe('TP7'); // single-pin part: refdes only
     expect(pts[0].reasons).toContain('test point');
     const last = pts[pts.length - 1];
     expect(last.label).toBe('U1.A0');
@@ -53,9 +53,9 @@ describe('solderPoints', () => {
 
   test('the through-hole connector and passive terminal outrank the BGA ball', () => {
     const rank = (lbl: string) => pts.findIndex((p) => p.label === lbl);
-    expect(rank('J2.8')).toBeLessThan(rank('U1.A0'));
+    expect(rank('J2')).toBeLessThan(rank('U1.A0'));
     expect(rank('R12.1')).toBeLessThan(rank('U1.A0'));
-    expect(pts.find((p) => p.label === 'J2.8')!.reasons).toContain('through-hole');
+    expect(pts.find((p) => p.label === 'J2')!.reasons).toContain('through-hole');
   });
 
   test('is deterministic (stable ordering)', () => {

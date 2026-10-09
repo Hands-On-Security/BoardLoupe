@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'preact/hooks';
-import { back, clearSelection, focusSelection, forward, openFiles, viewer } from './actions';
+import { addSelectionToGroup, back, clearSelection, focusSelection, forward, openFiles, viewer } from './actions';
 import { BoardCanvas } from './components/BoardCanvas';
 import { HelpDialog, SettingsDialog, TablesDialog } from './components/Dialogs';
+import { HighlightLegend } from './components/Groups';
 import { Inspector } from './components/Inspector';
+import { ReportDialog } from './components/Report';
 import { EmptyState, ErrorView, LoadingOverlay, Toast } from './components/Screens';
 import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
@@ -121,6 +123,13 @@ export function App() {
         openPicker();
         return;
       }
+      if (mod && e.key.toLowerCase() === 'p' && store.get().board) {
+        // Ctrl/⌘+P: open the report; inside the report dialog it prints.
+        e.preventDefault();
+        if (store.get().dialog === 'report') window.dispatchEvent(new Event('bs-report-print'));
+        else store.set({ dialog: 'report' });
+        return;
+      }
       if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         focusSearch();
@@ -202,6 +211,10 @@ export function App() {
         case 'V':
           store.set({ tool: 'select' });
           break;
+        case 'a':
+        case 'A':
+          addSelectionToGroup();
+          break;
         case 'i':
         case 'I':
           store.set({ isolate: !s.isolate });
@@ -246,6 +259,7 @@ export function App() {
         {hasBoard && prefs.sidebar && <Sidebar />}
         <main class="flex-1 relative min-w-0" aria-label="Board">
           <BoardCanvas />
+          {hasBoard && <HighlightLegend />}
           {!hasBoard && phase !== 'error' && <EmptyState dragging={dragging} />}
           {hasBoard && dragging && (
             <div class="absolute inset-3 z-20 rounded-2xl dropzone-dash dropzone-active flex items-center justify-center text-[15px] font-medium pointer-events-none">Drop to open</div>
@@ -271,6 +285,7 @@ export function App() {
         }}
       />
       {dialog === 'tables' && <TablesDialog />}
+      {dialog === 'report' && <ReportDialog />}
       {dialog === 'settings' && <SettingsDialog />}
       {dialog === 'help' && <HelpDialog />}
       <Toast />

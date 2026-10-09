@@ -51,7 +51,8 @@ export const DARK: Palette = {
   selPart: [255, 94, 110, 255],
   selNet: [66, 214, 255, 255],
   selPin: [255, 255, 255, 255],
-  multi: [190, 140, 255, 255],
+  // Grouped / multi-selected parts: warm white, distinct from every bus colour.
+  multi: [255, 234, 186, 255],
   highlightHalo: [255, 255, 255, 255],
   busColors: [
     [66, 214, 255, 255], // cyan
@@ -60,7 +61,7 @@ export const DARK: Palette = {
     [255, 110, 196, 255], // pink
     [190, 150, 255, 255], // violet
     [250, 222, 74, 255], // yellow
-    [120, 190, 255, 255], // sky
+    [96, 128, 255, 255], // blue
     [120, 236, 210, 255], // teal
   ],
   ratsnest: [66, 214, 255, 210],
@@ -98,7 +99,7 @@ export const LIGHT: Palette = {
   selPart: [200, 30, 56, 255],
   selNet: [0, 122, 200, 255],
   selPin: [10, 10, 10, 255],
-  multi: [124, 58, 237, 255],
+  multi: [36, 40, 52, 255],
   highlightHalo: [17, 20, 26, 255],
   busColors: [
     [0, 122, 200, 255], // blue

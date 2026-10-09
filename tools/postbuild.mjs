@@ -53,7 +53,9 @@ if (extFiles.length) problems.push(`Unexpected extra build outputs (would not be
 const checks = [
   [/<script[^>]+\bsrc\s*=/i, 'external <script src>'],
   [/<link[^>]+rel\s*=\s*["']?(?:stylesheet|preload|modulepreload|manifest)/i, 'external <link>'],
-  [/<img[^>]+\bsrc\s*=\s*["']?(?!data:)/i, 'external <img src>'],
+  // The value itself (after an optional quote) must start with data:. The quote is
+  // matched explicitly so the regex cannot backtrack past it.
+  [/<img[^>]+\bsrc\s*=\s*(?:"(?!data:)|'(?!data:)|(?!["'])(?!data:))/i, 'external <img src>'],
   [/@import\s+(?:url\()?["']?(?!data:)/i, 'CSS @import'],
   [/url\(\s*["']?(?:https?:)?\/\//i, 'CSS url() to remote resource'],
   [/\bimport\s*\(\s*["'`]\.{0,2}\//, 'dynamic import of a relative chunk'],
