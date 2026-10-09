@@ -14,8 +14,9 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "bench": "node tools/bench.mjs",
-    "fixtures": "node tools/gen-fixtures.mjs"
+    "bench": "tsx tools/bench.ts",
+    "fixtures": "tsx tools/gen-fixtures.ts",
+    "goldens": "tsx tools/gen-goldens.ts"
   },
   "dependencies": {
     "fflate": "0.8.3",
@@ -33,6 +34,7 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
     "vite": "8.3.4",

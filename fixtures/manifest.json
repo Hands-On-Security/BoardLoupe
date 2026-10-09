@@ -1,0 +1,195 @@
+[
+  {
+    "id": "real-brd2-kicad-boardview",
+    "files": [
+      "fixtures/real/glasgow/glasgow-kicad-boardview.brd"
+    ],
+    "format": "brd2-brdout",
+    "obv": "brd2",
+    "origin": "real",
+    "provenance": "Glasgow interface explorer board; file shipped in whitequark/kicad-boardview (commit da24793, 0BSD), produced by its pcbnew exporter.",
+    "license": "0BSD"
+  },
+  {
+    "id": "real-bvr3-kicad-boardview",
+    "files": [
+      "fixtures/real/glasgow/glasgow-kicad-boardview.bvr"
+    ],
+    "format": "bvr3",
+    "obv": "bvr3",
+    "origin": "real",
+    "provenance": "Glasgow interface explorer board; file shipped in whitequark/kicad-boardview (commit da24793, 0BSD), produced by its pcbnew exporter.",
+    "license": "0BSD"
+  },
+  {
+    "id": "real-gencad-kicad10",
+    "files": [
+      "fixtures/real/glasgow/glasgow-kicad10.cad"
+    ],
+    "format": "gencad",
+    "obv": "gencad",
+    "origin": "real",
+    "provenance": "Exported with `kicad-cli pcb export gencad` (KiCad 10.0.1) from fixtures/real/glasgow/glasgow.kicad_pcb (kicad-boardview example, 0BSD).",
+    "license": "0BSD"
+  },
+  {
+    "id": "real-gencad-kicad10-flipped",
+    "files": [
+      "fixtures/real/glasgow/glasgow-kicad10-flipped.cad"
+    ],
+    "format": "gencad",
+    "obv": "gencad",
+    "origin": "real",
+    "provenance": "Exported with `kicad-cli pcb export gencad --flip-bottom-pads --unique-pins` (KiCad 10.0.1) from fixtures/real/glasgow/glasgow.kicad_pcb (kicad-boardview example, 0BSD).",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-testlink",
+    "files": [
+      "fixtures/synthetic/glasgow-testlink.brd"
+    ],
+    "format": "brd-testlink",
+    "obv": "brd",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-testlink-obfuscated",
+    "files": [
+      "fixtures/synthetic/glasgow-testlink-obfuscated.brd"
+    ],
+    "format": "brd-testlink",
+    "obv": "brd",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-testlink-lenovo",
+    "files": [
+      "fixtures/synthetic/glasgow-testlink-lenovo.brd"
+    ],
+    "format": "brd-testlink",
+    "obv": "brd",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-bdv",
+    "files": [
+      "fixtures/synthetic/glasgow.bdv"
+    ],
+    "format": "bdv",
+    "obv": "bdv",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-asc",
+    "files": [
+      "fixtures/synthetic/asc/pins.asc",
+      "fixtures/synthetic/asc/format.asc",
+      "fixtures/synthetic/asc/nails.asc"
+    ],
+    "format": "asc",
+    "obv": "asc",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-bvr1",
+    "files": [
+      "fixtures/synthetic/glasgow-format1.bvr"
+    ],
+    "format": "bvr1",
+    "obv": "bvr",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-fz-zlib",
+    "files": [
+      "fixtures/synthetic/glasgow-zlib.fz"
+    ],
+    "format": "fz",
+    "obv": "fz",
+    "key": "f59e4e1e 69a044f3 30acdfa8 6dd4a4f4 a5c88bc2 3558be47 e29680ec 4c96ed69 71d871a7 5b0442da 15933471 1ad6a31c 0c0e63ca 53bfe6af 7a14fe35 9ff5fa10 c91f062f 6a0ffdc2 c64c2239 fb806644 27573cd2 eeb41c17 dceb247d b51e9bb8 d6002bb6 70bb15aa 9e2ac901 f1ca8e6c 210336da 8cd6fe7f e70e13c4 82437260 e4ce023e 27f12a93 82e648c9 bec1bb95 6e7671e3 28fe2de6 1316ec0c 63eb1e08 ec1ea9c7 0611dc7a 3119c190 e5068dbc",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-fz-rc6",
+    "files": [
+      "fixtures/synthetic/glasgow-rc6-testkey.fz"
+    ],
+    "format": "fz",
+    "obv": "fz",
+    "key": "f59e4e1e 69a044f3 30acdfa8 6dd4a4f4 a5c88bc2 3558be47 e29680ec 4c96ed69 71d871a7 5b0442da 15933471 1ad6a31c 0c0e63ca 53bfe6af 7a14fe35 9ff5fa10 c91f062f 6a0ffdc2 c64c2239 fb806644 27573cd2 eeb41c17 dceb247d b51e9bb8 d6002bb6 70bb15aa 9e2ac901 f1ca8e6c 210336da 8cd6fe7f e70e13c4 82437260 e4ce023e 27f12a93 82e648c9 bec1bb95 6e7671e3 28fe2de6 1316ec0c 63eb1e08 ec1ea9c7 0611dc7a 3119c190 e5068dbc",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser. Encrypted with a generated TEST key (not a vendor key).",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-cae-rc6",
+    "files": [
+      "fixtures/synthetic/glasgow-rc6-testkey.cae"
+    ],
+    "format": "cae",
+    "obv": "cae",
+    "key": "b82f535e 96550932 a64c56e9 95b13334 70e94503 a711a686 03c3cc2c 611f3fa9 d5ca1ee6 a4918f1a 906193b0 de84f95c de86450a c6d5d6ef 862bb174 c9c89451 e2865b6e 3386d202 14266979 dd398484 540b4612 d6c81456 d9183fbd 25847df8 3b9228f6 7f4c71ea 488df841 bae774ac 5778681b d1a9febe 7e1e9705 93a59ca1 03dfa77e e6ee0ed3 42ef6008 63bb69d5 4ed1cb23 aa713627 4977d74d bdd29048 dca4f707 4aeb48ba e385c0d0 e97603fd",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser. Encrypted with a generated TEST key (not a vendor key).",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-cad-panel",
+    "files": [
+      "fixtures/synthetic/glasgow-panel.cad"
+    ],
+    "format": "cad-panel",
+    "obv": "cad",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-cst",
+    "files": [
+      "fixtures/synthetic/glasgow.cst"
+    ],
+    "format": "cst",
+    "obv": "cst",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-xzz",
+    "files": [
+      "fixtures/synthetic/glasgow-testkey.pcb"
+    ],
+    "format": "xzz",
+    "obv": "xzz",
+    "key": "1F2E3C4B5A667788",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser. Component records DES-encrypted with a generated TEST key.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-tvw",
+    "files": [
+      "fixtures/synthetic/glasgow.tvw"
+    ],
+    "format": "tvw",
+    "obv": "tvw",
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the reference parser. Includes copper traces, vias, route-layer outline, probe/fixture registries and an empty through-layer.",
+    "license": "0BSD"
+  }
+]
