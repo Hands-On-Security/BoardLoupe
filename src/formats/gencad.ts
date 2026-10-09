@@ -496,6 +496,15 @@ export const gencadFormat: FormatModule = {
       const names = [...new Set(routeSegs.map((r) => r.layer))];
       b.layers = names.map((n) => ({ id: layerId(n), name: n || 'Unnamed layer', kind: n === 'TOP' ? 'top' : n === 'BOTTOM' ? 'bottom' : n.startsWith('INNER') ? 'inner' : 'other' }));
     }
+    // KiCad's GenCAD writer emits the unexpanded text variable "${REFERENCE}"
+    // instead of reference designators for boards imported from other tools.
+    let textVars = 0;
+    for (let k = 0; k < b.partCount; k++) if (/^\$\{[^}]+\}$/.test(b.partInput(k).name)) textVars++;
+    if (textVars > 0)
+      b.warn(
+        'gencad.textvar',
+        `${textVars} component(s) are named with an unexpanded text variable such as "\${REFERENCE}" instead of a reference designator (a KiCad GenCAD-export issue for imported boards). Open the KiCad board (.kicad_pcb) in BoardScope instead to get the real names.`,
+      );
     return b.finish({ fileName: ctx.file.name, fileSize: ctx.file.bytes.length, formatId: this.id, formatName: this.name, variant: null, extraFiles: [] });
   },
 };

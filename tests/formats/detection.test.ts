@@ -65,18 +65,28 @@ describe('diagnostics for unsupported or broken input', () => {
     expect(msg(parseBytes(name, b))).toMatch(re);
   });
 
-  test('binary Allegro database is recognised and explained', () => {
+  test('binary Allegro database is recognised, its release named, and the KiCad route explained', () => {
     const b = new Uint8Array(1024);
-    b.set([0x61, 0x6c, 0x6c], 0xf8); // "all" at 0xF8
+    b.set([0x04, 0x15, 0x13, 0x00]); // header magic 0x00131504 -> Allegro 16.6
+    b.set(new TextEncoder().encode('allv16-612/7/'), 0xf8);
     const r = parseBytes('mainboard.brd', b);
     expect(r.ok).toBe(false);
     expect(r.diagnostics[0].code).toBe('unsupported.allegro');
-    expect(msg(r)).toMatch(/Allegro/);
+    expect(msg(r)).toMatch(/Allegro 16\.6/);
+    expect(msg(r)).toMatch(/kicad-cli pcb import "mainboard\.brd" -o board\.kicad_pcb/);
   });
 
-  test('KiCad PCB source is explained', () => {
-    const r = parseBytes('board.kicad_pcb', new TextEncoder().encode('(kicad_pcb (version 20221018) (generator pcbnew)\n'));
-    expect(msg(r)).toMatch(/KiCad/);
+  test('a KiCad board without footprints opens (with a warning) instead of being rejected', () => {
+    const r = parseBytes('board.kicad_pcb', new TextEncoder().encode('(kicad_pcb (version 20221018) (generator pcbnew)\n)'));
+    expect(r.ok).toBe(true);
+    expect(r.model!.source.formatId).toBe('kicad');
+    expect(r.model!.diagnostics.some((d) => d.code === 'kicad.empty')).toBe(true);
+  });
+
+  test('legacy (pre-v5) KiCad boards get a conversion hint', () => {
+    const r = parseBytes('old.brd', new TextEncoder().encode('PCBNEW-BOARD Version 1 date 2014\n$GENERAL\n'));
+    expect(r.ok).toBe(false);
+    expect(msg(r)).toMatch(/legacy KiCad board/);
   });
 
   test('encrypted FZ without a key asks for one', () => {

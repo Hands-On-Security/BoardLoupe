@@ -3,6 +3,8 @@ import type { BoardModel, Diagnostic, FormatStatus } from '../model/types';
 export interface InputFile {
   name: string;
   bytes: Uint8Array;
+  /** Name of the ZIP archive this file was extracted from, if any. */
+  archive?: string;
 }
 
 /** Cheap, precomputed view of a file used by all detectors. */

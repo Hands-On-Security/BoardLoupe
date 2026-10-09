@@ -27,7 +27,7 @@ explanation (format guess, reason, byte offset or line).
 | BRD Test_Link, Lenovo nail-net variant | `.brd` | as above; empty pin nets | **verified** | `glasgow-testlink-lenovo.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | Nets resolved through nail probe numbers. |
 | **BRD2 / BRDOUT** (Toptest, kicad-boardview, eagleview) | `.brd` | `BRDOUT:` and `NETS:` | **verified** | `glasgow-kicad-boardview.brd` (**real**) | OBV `BRD2File` | mil (assumed) | Positional pin numbers. Part boxes that systematically include silkscreen text are detected and replaced by pin extents (warning shown). |
 | **BDV** (obfuscated ASC set) | `.bdv` | `dd:1.3?,r?-=bb` (ciphered `<<format.asc>>`) or plain `<<format.asc>>`+`<<pins.asc>>` | **verified** | `glasgow.bdv` (synthetic) | OBV `BDVFile` | inch | Fixed header-line skipping as upstream (8/8/7 lines). |
-| **ASC multi-file set** | `.asc` | file name `format/pins/nails/parts/nets.asc`, or `Part … (T)` lines | partial | `asc/*.asc` (synthetic) | OBV `ASCFile` | inch | All files must be opened together (multi-select, folder drop or ZIP). `parts.asc`, `nets.asc` and `.bom` are not used (same as upstream). |
+| **ASC multi-file set** | `.asc` | file name `format/pins/nails/parts/nets.asc`, or `Part … (T)` lines | partial | `asc/*.asc` (synthetic, OBV layout); VayoPro-Test Expert layout as inline test data; checked locally on a real Microsoft Surface Pro 4 set (see below) | OBV `ASCFile` | inch | All files must be opened together (multi-select, folder drop or ZIP). Records are recognised by shape, not by fixed header line counts. `parts.asc` adds placement, rotation and footprint; `nets.asc` is redundant and not used. |
 | **BVR (BVRAW_FORMAT_1)** | `.bvr` | `BVRAW_FORMAT_1` | **verified** | `glasgow-format1.bvr` (synthetic) | OBV `BVRFile` | inch | |
 | **BVR3 (BVRAW_FORMAT_3)** | `.bvr` | `BVRAW_FORMAT_3` | **verified** | `glasgow-kicad-boardview.bvr` (**real**) | OBV `BVR3File` | mil (assumed) | Pad size from `PIN_RADIUS` (circular approximation). `PART_OUTLINE_RELATIVE`/`PIN_OUTLINE_RELATIVE` not drawn. |
 | **FZ**, unencrypted (ASRock style) | `.fz` | zlib header at offset 4 | **verified** | `glasgow-zlib.fz` (synthetic) | OBV `FZFile` | mil, or mm with `UNIT:millimeters` | `GRAPHIC_DATA` (drawings) not used; outline is derived (dashed). |
@@ -37,9 +37,10 @@ explanation (format guess, reason, byte offset or line).
 | **CAD "###Panel Added"** (COMP/C_PIN) | `.cad` | `###Panel Added` + `C_PIN` | partial | `glasgow-panel.cad` (synthetic) | OBV `CADFile` | inch | Several fields unknown upstream; outline derived (dashed). |
 | **CST** (MFC CArchive) | `.cst` | `.cst` + `CPad` class record | experimental | `glasgow.cst` (synthetic) | OBV `CSTFile` | assumed mil (16-bit ints) | Record layout partly unknown upstream; no outline. |
 | **XZZ PCB** | `.pcb` | `XZZPCB` (optionally XOR-masked via byte 0x10) | experimental | `glasgow-testkey.pcb` (synthetic, test DES key) | OBV `XZZPCBFile` | raw/10000, treated as mil | Component records are DES-encrypted: **needs a user key** (none bundled). Sides are not decoded (all parts on top, like upstream). Diode-reading tables not used. |
-| Cadence **Allegro** `.brd` database | `.brd` | `all`/`vie` at 0xF8 | diagnostic | (unit test) | OBV `BRDAllegroFile` | — | Explains that this is a design database and suggests exporting GenCAD/Extracta. |
-| ZIP archive | `.zip` | `PK\x03\x04` | supported container | unit tests | — | — | Members are expanded (size-limited) and detected normally; ASC sets inside ZIPs work. |
-| PDF, RAR, 7z, gzip, images, OLE (Altium PcbDoc/Office), KiCad `.kicad_pcb` | — | magic bytes | diagnostic | unit tests | — | — | Specific explanation of what the file is and what to do. |
+| Cadence **Allegro** `.brd` database | `.brd` | `all`/`vie` at 0xF8 | diagnostic → **opens via KiCad** | (unit test) | OBV `BRDAllegroFile` (also diagnostic only) | — | Names the Allegro release from the header and gives the conversion command: `kicad-cli pcb import board.brd -o board.kicad_pcb` (free KiCad 10, Allegro 16–17), then open the `.kicad_pcb`. |
+| **KiCad PCB** | `.kicad_pcb` | `(kicad_pcb` | **verified** | `glasgow.kicad_pcb` (**real**, KiCad 7 file) checked pin by pin against KiCad's own GenCAD export; KiCad 5 and KiCad 10 syntax as inline test data; checked locally on a real Allegro 16.6 board imported by KiCad 10 (see below) | KiCad 10.0.1 exports | mm | Copper zones (pours) are not drawn. Pads without copper (solder-paste apertures) are not shown. Custom pad shapes are drawn as their anchor pad. |
+| ZIP archive | `.zip` | `PK\x03\x04` | supported container | unit tests | — | — | Members are expanded (size-limited) and detected normally; ASC sets inside ZIPs work, one level of ZIP-in-ZIP is followed, macOS `__MACOSX`/`.DS_Store` metadata is ignored. A ZIP without a boardview lists what it holds. |
+| PDF, RAR, 7z, gzip, images, OLE (Altium PcbDoc/Office), legacy KiCad (pre-5), BIOS/SPI flash images, EC firmware, flash dumps, programs | — | magic bytes / signatures | diagnostic | unit tests | — | — | Specific explanation of what the file is and what to do. |
 
 ### TVW: corrections relative to the reference implementation
 
@@ -63,12 +64,36 @@ Found on a real Lenovo X1 Carbon Gen9 (NM-D341) board and verified on all of its
    type 21) and fiducials (type 29) are keep-out circles larger than the copper, so they are drawn
    dashed.
 
+### Findings from a real repair corpus (2026-10)
+
+Checked locally on boardviews that cannot be redistributed (two ThinkPads, a Surface Pro 4), against
+OpenBoardView, KiCad 10.0.1 and an independent CAMCAD conversion.
+
+1. **ASC (VayoPro-Test Expert export, as read by TSICT).** Headers are shorter than the reference
+   expects and the nail *type* column is text (`FPT`). Fixed-count header skipping dropped the first part,
+   two outline corners and two nails; positional nail columns put every nail on the bottom side and used
+   the net id (`#73`) as the net name, creating 897 bogus nets. OpenBoardView crashes (segfault) on the
+   same set. Records are now recognised by shape: all 3,246 parts, 1,023 nails (632 top / 391 bottom),
+   2,257 nets (= `nets.asc`) and the closed outline are read. `parts.asc` supplies rotation and footprint.
+2. **GenCAD (CAMCAD, Lenovo X270).** Identical to OpenBoardView: 2,157 parts, 7,848 pins, no net
+   differences. 29 BGA pins differ by 2.6 mil because the reference rounds placement and pad offsets to
+   whole mils separately; BoardScope equals the hand computation from the raw records. Two SMD connectors
+   with drilled pegs are marked "both sides" by the reference and kept on the bottom by BoardScope (the
+   file's `TECHNOLOGY "SMD"`). `$BOARD` holds a drawing frame and hatching, not an outline, so the outline
+   is derived (as in the reference).
+3. **Allegro 16.6 (same X270 board) via KiCad.** `kicad-cli pcb import` → BoardScope's KiCad reader matches
+   the independent CAMCAD GenCAD on all 7,848 pins (0.000 mil) and 1,566 nets, and adds the real board
+   outline, part bodies, 45,602 copper segments and 525 pin-net assignments CAMCAD dropped.
+   KiCad 10.0.1's own GenCAD and position-file exporters write `${REFERENCE}` instead of reference
+   designators for such imports (KiCad gives each footprint a second, unresolved "Reference" property);
+   BoardScope reads the real one and warns when it meets such a GenCAD file.
+
 ## Not supported (yet)
 
 | Format | Why | Path forward |
 |---|---|---|
 | Altium **ASCII** PCB (`|KIND=Protel_Advanced_PCB`) | Not implemented in this release (OBV has `ADFile`). No redistributable fixture. | Add `src/formats/altium-ascii.ts` from OBV `ADFile.cpp` and a fixture. |
-| Altium binary `.PcbDoc`, OrCAD, Mentor `.hkp`, ODB++, IPC-2581 | Design databases, not boardviews; complex or proprietary. | Export GenCAD instead. |
+| Altium binary `.PcbDoc`, OrCAD, Mentor `.hkp`, ODB++, IPC-2581 | Design databases, not boardviews; complex or proprietary. | Import into KiCad 10 (Altium, PADS, Eagle, CADSTAR, Allegro) and open the `.kicad_pcb`, or export GenCAD. |
 | IPC-D-356 netlist | Not implemented; a real fixture (`glasgow-kicad10.d356`) is already in the repo. | Straightforward fixed-column parser. |
 | `.bvr2`, other vendor `.bv` dialects | No public specification and no fixture. Content detection reports "unrecognised" with a byte preview. | Needs a fixture or documentation. |
 | TVW variants without the standard header | Not documented in any open implementation used here. | Add a detector + parser module once a redistributable sample exists. |

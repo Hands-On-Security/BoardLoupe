@@ -350,12 +350,31 @@ test.describe('BoardScope single-file app', () => {
       'real/glasgow/glasgow-kicad-boardview.bvr',
       'synthetic/glasgow-zlib.fz',
       'synthetic/glasgow-panel.cad',
+      'real/glasgow/glasgow.kicad_pcb',
     ];
     for (const f of files) {
       await page.setInputFiles('#bs-file-input', FX(f));
       await expect(page.getByTestId('file-name')).toHaveText(f.split('/').pop()!, { timeout: 30_000 });
       await expect(page.getByText(/\d[\d,]* parts · [\d,]+ pins/)).toBeVisible();
     }
+  });
+
+  test('KiCad board: real outline, file bodies, through-hole drills and copper layers', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow.kicad_pcb'));
+    const info = await page.evaluate(() => {
+      const m = (window as unknown as { boardscope: { viewer: { model: import('../../src/model/types').BoardModel } } }).boardscope.viewer.model;
+      let drilled = 0;
+      for (let i = 0; i < m.pins.count; i++) if (m.pins.hole[i] > 0) drilled++;
+      return { fmt: m.source.formatId, outline: m.outline.source, bodies: m.caps.partBodies, layers: m.layers.length, drilled, traces: m.traces.count };
+    });
+    expect(info).toMatchObject({ fmt: 'kicad', outline: 'file', bodies: 'file', layers: 4 });
+    expect(info.drilled).toBeGreaterThan(100);
+    expect(info.traces).toBeGreaterThan(4000);
+    await page.keyboard.press('/');
+    await page.keyboard.type('U30');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('inspector').getByRole('heading', { name: 'U30' })).toBeVisible();
   });
 
   test('multi-file ASC set', async ({ page }) => {
@@ -455,7 +474,7 @@ test.describe('BoardScope single-file app', () => {
       }
     })()`);
     await expect(page.getByTestId('file-name')).toHaveText('dropped.bdv', { timeout: 30_000 });
-    await expect(page.getByText(/264 parts/)).toBeVisible();
+    await expect(page.getByText(/264 parts/).first()).toBeVisible({ timeout: 30_000 });
   });
 
   test('Canvas 2D fallback renderer draws the board', async ({ page }) => {

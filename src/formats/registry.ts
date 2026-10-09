@@ -10,9 +10,13 @@ import { extOf, makeSniff } from './common';
 import { cstFormat } from './cst';
 import { caeFormat, fzFormat } from './fz';
 import { gencadFormat } from './gencad';
+import { kicadFormat } from './kicad';
 import { tvwFormat } from './tvw';
 import type { Detection, FormatModule, InputFile, ParseContext, ParseOptions, ParseOutcome, Sniff } from './types';
 import { xzzFormat } from './xzz';
+
+/** Allegro header magic (low byte masked) -> release. */
+const ALLEGRO_RELEASES: Record<number, string> = { 0x00130000: '16.0', 0x00130400: '16.2', 0x00130c00: '16.4', 0x00131000: '16.5', 0x00131500: '16.6', 0x00140400: '17.2', 0x00140900: '17.4', 0x00141500: '17.5' };
 
 /** Allegro .brd: recognised so the user gets a precise explanation. */
 const allegroFormat: FormatModule = {
@@ -20,7 +24,7 @@ const allegroFormat: FormatModule = {
   name: 'Cadence Allegro board database',
   extensions: ['brd'],
   status: 'diagnostic',
-  summary: 'Binary Allegro design database — not a boardview; recognised with a clear message',
+  summary: 'Binary Allegro design database — opens after a one-step KiCad import (the message gives the command)',
   detect(_s, f) {
     const b = f.bytes;
     if (b.length >= 0xfb) {
@@ -29,10 +33,15 @@ const allegroFormat: FormatModule = {
     }
     return null;
   },
-  parse() {
+  parse(ctx) {
+    const b = ctx.file.bytes;
+    // Release from the header magic (little-endian, low byte masked).
+    const magic = b.length >= 4 ? (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0 : 0;
+    const release = ALLEGRO_RELEASES[(magic & 0xffffff00) >>> 0] ?? null;
+    const verText = String.fromCharCode(...b.subarray(0xf8, 0xf8 + 32)).replace(/[^\x20-\x7e].*$/s, '').trim();
     throw new ParseError(
       'unsupported.allegro',
-      'This is a binary Cadence Allegro board database (.brd), not a boardview. Its proprietary layout is not supported. Export a boardview (e.g. GenCAD or "Extracta"/FZ) from Allegro, or use Allegro Free Physical Viewer.',
+      `This is a binary Cadence Allegro board database${release ? ` (Allegro ${release}${verText ? `, "${verText}"` : ''})` : ''}, not a boardview. BoardScope cannot read Allegro's proprietary format directly, but it opens KiCad boards — and the free KiCad 10 imports Allegro 16–17: run \`kicad-cli pcb import "${ctx.file.name}" -o board.kicad_pcb\` (or File → Import → Non-KiCad Board in KiCad) and open board.kicad_pcb here. Alternatively export GenCAD from Allegro.`,
     );
   },
 };
@@ -51,6 +60,7 @@ export const FORMATS: FormatModule[] = [
   cadPanelFormat,
   cstFormat,
   xzzFormat,
+  kicadFormat,
   allegroFormat,
 ];
 
@@ -93,41 +103,88 @@ export function describeUnknown(file: InputFile, sniff: Sniff): string {
   if (startsWithBytes(b, [0x1f, 0x8b])) return 'This is a gzip-compressed file. Decompress it first.';
   if (startsWithBytes(b, [0x89, 0x50, 0x4e, 0x47]) || startsWithBytes(b, [0xff, 0xd8, 0xff])) return 'This is an image, not a boardview.';
   if (startsWithBytes(b, [0xd0, 0xcf, 0x11, 0xe0])) return 'This is an OLE compound document (e.g. Altium .PcbDoc, Excel/Word). Binary design databases are not boardviews and are not supported.';
-  if (sniff.headText.startsWith('(kicad_pcb')) return 'This is a KiCad PCB design. Export it as GenCAD (File → Fabrication Outputs → GenCAD) or use the kicad-boardview exporter.';
+  if (sniff.headText.startsWith('PCBNEW-BOARD')) return 'This is a legacy KiCad board (KiCad 4 or older). Open it in a current KiCad and save it as .kicad_pcb, which BoardScope opens directly.';
+  const fw = firmwareKind(b);
+  if (fw) return `This is ${fw}, not a boardview. Boardviews are files such as .brd, .bdv, .tvw, .fz, .cad or an ASC set.`;
   const e = entropy(b);
   const head = hex(b, 16);
   const kind = sniff.isText ? 'a text file' : e > 7.5 ? 'high-entropy binary data (encrypted or compressed)' : 'binary data';
   return `No supported boardview signature was found. The file (${ext}, ${b.length.toLocaleString()} bytes) contains ${kind}; first bytes: ${head}. Extensions alone do not identify a boardview dialect — this variant is not supported yet.`;
 }
 
-const BOARD_EXTS = new Set(['tvw', 'brd', 'bv', 'brd2', 'bdv', 'asc', 'bvr', 'bvr3', 'fz', 'cae', 'cad', 'gcd', 'gencad', 'cst', 'pcb']);
+/**
+ * Names firmware and program files that turn up next to boardviews in repair
+ * folders (BIOS/EC dumps, viewer programs), or null.
+ */
+export function firmwareKind(b: Uint8Array): string | null {
+  if (b.length >= 0x14 && b[0x10] === 0x5a && b[0x11] === 0xa5 && b[0x12] === 0xf0 && b[0x13] === 0x0f) return 'a BIOS / SPI flash image (Intel flash descriptor)';
+  if (startsWithBytes(b, [0x5f, 0x45, 0x43])) return 'an embedded-controller (EC) firmware image';
+  if (startsWithBytes(b, [0x4d, 0x5a])) return 'a Windows program or library (.exe / .dll)';
+  if (startsWithBytes(b, [0x7f, 0x45, 0x4c, 0x46])) return 'a Linux/Unix program (ELF)';
+  const n = b.length;
+  if (n >= 65536 && (n & (n - 1)) === 0) {
+    // Raw flash/EEPROM dumps: power-of-two size, largely erased (0xFF).
+    let ff = 0,
+      seen = 0;
+    for (let i = 0; i < n; i += 61) {
+      seen++;
+      if (b[i] === 0xff) ff++;
+    }
+    if (ff / seen > 0.3) return 'a raw flash / EEPROM memory dump';
+  }
+  return null;
+}
 
-/** Expands ZIP archives into their members (bounded), leaves other files untouched. */
-export function expandArchives(files: InputFile[], opts: ParseOptions, notes: Diagnostic[]): InputFile[] {
+const baseOf = (n: string) => n.slice(n.lastIndexOf('/') + 1);
+
+/** One-phrase description of a file that is not a boardview (for archive summaries). */
+function shortKind(f: InputFile): string {
+  const b = f.bytes;
+  if (startsWithBytes(b, [0x25, 0x50, 0x44, 0x46])) return 'PDF';
+  if (startsWithBytes(b, [0x89, 0x50, 0x4e, 0x47]) || startsWithBytes(b, [0xff, 0xd8, 0xff])) return 'image';
+  if (startsWithBytes(b, [0x52, 0x61, 0x72, 0x21]) || startsWithBytes(b, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c])) return 'archive (extract it first)';
+  const fw = firmwareKind(b);
+  if (fw) return fw.replace(/^an? /, '').replace(/ \(.*\)$/, '');
+  return makeSniff(f).isText ? 'text, not a boardview format' : 'unrecognised binary';
+}
+
+const BOARD_EXTS = new Set(['tvw', 'brd', 'bv', 'brd2', 'bdv', 'asc', 'bvr', 'bvr3', 'fz', 'cae', 'cad', 'gcd', 'gencad', 'cst', 'pcb', 'kicad_pcb']);
+
+/** macOS resource forks and Finder metadata that ride along in ZIPs. */
+const isJunkMember = (name: string) => name.startsWith('__MACOSX/') || /(^|\/)\._/.test(name) || /(^|\/)\.DS_Store$/.test(name) || /(^|\/)Thumbs\.db$/i.test(name);
+
+/**
+ * Expands ZIP archives into their members (bounded), leaves other files
+ * untouched. macOS metadata is dropped and ZIPs inside ZIPs are expanded one
+ * level, as boardview packs often nest them.
+ */
+export function expandArchives(files: InputFile[], opts: ParseOptions, notes: Diagnostic[], depth = 0): InputFile[] {
   const out: InputFile[] = [];
+  let total = 0;
   for (const f of files) {
     if (!startsWithBytes(f.bytes, [0x50, 0x4b, 0x03, 0x04])) {
       out.push(f);
       continue;
     }
-    let total = 0;
+    if (depth > 1) continue; // deeper nesting is not followed
     let members: Record<string, Uint8Array>;
     try {
       members = unzipSync(f.bytes, {
         filter: (m) => {
-          if (m.name.endsWith('/')) return false;
+          if (m.name.endsWith('/') || isJunkMember(m.name)) return false;
           total += m.originalSize;
           if (total > opts.maxDecompressedBytes) throw new ParseError('zip-bomb', 'ZIP archive expands beyond the safety limit');
           return BOARD_EXTS.has(extOf(m.name)) || m.originalSize < 64 * 1024 * 1024;
         },
       });
     } catch (e) {
-      throw new ParseError('zip', `Could not read ZIP archive: ${(e as Error).message}`);
+      throw new ParseError((e as ParseError).code === 'zip-bomb' ? 'zip-bomb' : 'zip', (e as ParseError).code === 'zip-bomb' ? (e as Error).message : `Could not read ZIP archive: ${(e as Error).message}`);
     }
     const names = Object.keys(members);
-    if (!names.length) throw new ParseError('zip.empty', 'The ZIP archive contains no files');
+    if (!names.length) throw new ParseError('zip.empty', `The ZIP archive ${f.name} contains no files (apart from macOS metadata)`);
     notes.push({ level: 'info', code: 'zip', message: `Opened from ZIP archive ${f.name} (${names.length} member${names.length > 1 ? 's' : ''})` });
-    for (const n of names) out.push({ name: n, bytes: members[n] });
+    const inner = names.map((n) => ({ name: n, bytes: members[n], archive: f.archive ?? f.name }));
+    out.push(...expandArchives(inner, opts, notes, depth + 1));
   }
   return out;
 }
@@ -214,6 +271,25 @@ export function parseFiles(input: InputFile[], options: ParseOptions, progress: 
 
   if (!attempts.length) {
     const main = files[0];
+    const archive = files.find((f) => f.archive)?.archive;
+    if (archive) {
+      // Group unique member names by what they are: "Windows program: a.exe, b.dll; image: c.jpg".
+      const groups = new Map<string, Set<string>>();
+      for (const f of files) {
+        const k = shortKind(f);
+        if (!groups.has(k)) groups.set(k, new Set());
+        groups.get(k)!.add(baseOf(f.name));
+      }
+      const parts = [...groups].map(([k, names]) => {
+        const list = [...names];
+        return `${k}: ${list.slice(0, 4).join(', ')}${list.length > 4 ? ` and ${list.length - 4} more` : ''}`;
+      });
+      return {
+        ok: false,
+        attempts,
+        diagnostics: [...diagnostics, { level: 'error', code: 'zip.noboard', message: `The ZIP archive ${archive} contains no boardview. It holds ${parts.join('; ')}.` }],
+      };
+    }
     return { ok: false, attempts, diagnostics: [...diagnostics, { level: 'error', code: 'unrecognized', message: describeUnknown(main, makeSniff(main)) }] };
   }
   const best = attempts[0];

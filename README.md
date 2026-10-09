@@ -48,13 +48,14 @@ Formats are recognised **by content**, not by file extension. The full details
 | BVR `BVRAW_FORMAT_1` `.bvr` | verified | reference-validated synthetic |
 | BVR3 `BVRAW_FORMAT_3` `.bvr` | verified | **real** file |
 | FZ (zlib; RC6-encrypted with **your** key) `.fz` | verified | reference-validated synthetic (test key) |
-| GenCAD 1.4 `.cad` `.gcd` | verified | **real** KiCad 10 exports |
-| ASC multi-file set `.asc` | partial | reference-validated synthetic |
+| GenCAD 1.4 `.cad` `.gcd` | verified | **real** KiCad 10 exports; checked locally on a real CAMCAD export |
+| KiCad PCB `.kicad_pcb` (KiCad 5–10) | verified | **real** KiCad board, checked pin by pin against KiCad's own export |
+| ASC multi-file set `.asc` (incl. VayoPro-Test Expert / TSICT exports) | partial | reference-validated synthetic; checked locally on a real set |
 | CAE (FZ container, needs key) `.cae` | partial | synthetic (test key) |
 | CAD "###Panel Added" (COMP/C_PIN) `.cad` | partial | reference-validated synthetic |
 | CST `.cst` | experimental | reference-validated synthetic |
 | XZZ PCB `.pcb` (needs key for components) | experimental | synthetic (test DES key) |
-| Cadence Allegro `.brd` database | recognised with an explanation, not parsed | — |
+| Cadence Allegro `.brd` database | opens after a one-step KiCad conversion (see below) | checked locally on a real Allegro 16.6 board |
 | ZIP containers | supported | — |
 
 "Verified" means the parser's output equals the output of the original
@@ -63,6 +64,19 @@ source) on the fixture, plus integrity, fuzz and browser tests.
 **No vendor decryption keys are included.** Encrypted FZ, CAE and XZZ files show a clear
 "key required" message. You can enter a key you are entitled to use under
 *Settings → Decryption keys*. Keys stay in memory unless you choose to remember them.
+
+### Allegro, Altium, PADS, Eagle … via KiCad
+
+BoardScope reads KiCad boards directly, and the free [KiCad 10](https://www.kicad.org) imports
+Cadence Allegro (16–17), Altium, PADS, Eagle and CADSTAR designs. Convert once, then open the result:
+
+```bash
+kicad-cli pcb import "board.brd" -o board.kicad_pcb
+```
+
+(or *File → Import → Non-KiCad Board* in KiCad). The KiCad board keeps the real outline, part bodies,
+pads, vias and copper. Open the `.kicad_pcb`, not a GenCAD exported from KiCad: KiCad 10.0.1 writes
+`${REFERENCE}` instead of reference designators for imported boards (BoardScope warns about this).
 
 ## Using the viewer
 
@@ -245,7 +259,7 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 ## Credits and licences
 
 BoardScope is published by [Hands-On Security](https://hos.direct/boardscope) and is MIT-licensed.
-The parsers are re-implementations informed by
+The KiCad reader follows KiCad's public file-format documentation. The parsers are re-implementations informed by
 [OpenBoardView](https://github.com/OpenBoardView/OpenBoardView) (MIT) and
 [eagleview](https://github.com/nitrocaster/eagleview) by Pavel Kovalenko (MIT, TVW). Real fixtures
 come from [kicad-boardview](https://github.com/whitequark/kicad-boardview) (0BSD, Glasgow board).

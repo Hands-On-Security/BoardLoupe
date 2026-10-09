@@ -29,6 +29,20 @@ built for the hardware-security classroom.
   notes) for *Print → Save as PDF* or as a self-contained HTML download; plus PNG export with a legend.
   The report has no scripts, embeds only `data:` images and escapes all file-derived text (tested).
 
+## Real-corpus validation (2026-10)
+
+A repair corpus (ThinkPad X260/X270/X280/X390, Surface Pro 4; boardviews, schematics, BIOS/EC dumps)
+was run through every parser, compared with OpenBoardView, KiCad 10.0.1 and an independent CAMCAD
+conversion, rendered and inspected, and exercised feature by feature in the app (search, solder points,
+highlight groups, sides, CSV, report, PNG) with zero console errors. Fixed or added as a result:
+ASC records recognised by shape (the VayoPro/TSICT dialect lost parts, outline corners and nails and put
+every nail on the wrong side with bogus nets; OpenBoardView crashes on it), `parts.asc` rotation and
+footprints, a KiCad PCB reader (KiCad 5–10; opens Allegro/Altium/PADS/Eagle boards after a KiCad import),
+named Allegro releases with a conversion command, recognition of BIOS/EC firmware, flash dumps and
+programs, ZIP-in-ZIP and macOS metadata handling, archive summaries, a warning for KiCad GenCAD exports
+with `${REFERENCE}` names, and collision-free part labels. Details: FORMAT_MATRIX.md, "Findings from a
+real repair corpus".
+
 ## Formats: what is actually verified
 
 Verified = BoardScope output equals the compiled original reference parser
@@ -45,6 +59,7 @@ integrity, fuzz and browser tests. See FORMAT_MATRIX.md for details.
 | BVR3 (BVRAW_FORMAT_3) | verified | **real** (kicad-boardview, Glasgow) |
 | FZ unencrypted; FZ RC6 with user key | verified | synthetic (generated test key) |
 | GenCAD 1.4 | verified | **real** (two KiCad 10 exports) |
+| KiCad PCB (KiCad 5–10) | verified | **real** (Glasgow, checked pin by pin against KiCad's export) |
 | ASC multi-file set | partial | synthetic, reference-validated |
 | CAE (needs key) | partial | synthetic (test key) |
 | CAD "###Panel Added" | partial | synthetic, reference-validated |

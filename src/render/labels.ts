@@ -8,6 +8,22 @@ import type { Highlight, RenderOptions } from './style';
 export const SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 export const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
+/** Label widths at a 100 px font, per weight: text width scales linearly with size. */
+const widthCache = new Map<string, number>();
+function textWidth100(ctx: CanvasRenderingContext2D, text: string, weight: number): number {
+  const key = weight + '|' + text;
+  let w = widthCache.get(key);
+  if (w === undefined) {
+    if (widthCache.size > 50000) widthCache.clear();
+    const prev = ctx.font;
+    ctx.font = `${weight} 100px ${SANS}`;
+    w = ctx.measureText(text).width;
+    ctx.font = prev;
+    widthCache.set(key, w);
+  }
+  return w;
+}
+
 export interface Overlay {
   measure: { ax: number; ay: number; bx: number; by: number; label: string } | null;
 }
@@ -70,9 +86,33 @@ export function drawLabels(
       if (Math.min(w, hgt) < 10 && !selected.has(k)) continue;
       cand.push({ k, w, hgt, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
     }
-    cand.sort((a, b) => b.w * b.hgt - a.w * a.hgt);
+    // Selected parts first, then larger parts, so they win when labels collide.
+    cand.sort((a, b) => Number(selected.has(b.k)) - Number(selected.has(a.k)) || b.w * b.hgt - a.w * a.hgt);
     const budget = 1500;
     let drawn = 0;
+    // Screen-space boxes of drawn labels in a coarse grid: a label that would
+    // overlap one already drawn is skipped (selected labels always draw).
+    const CELL = 48;
+    const grid = new Map<number, number[]>();
+    const boxes: number[] = [];
+    const cellKey = (cx: number, cy: number) => cx * 73856093 + cy;
+    const collides = (x0: number, y0: number, x1: number, y1: number) => {
+      for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++)
+        for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy++)
+          for (const j of grid.get(cellKey(cx, cy)) ?? []) if (x0 < boxes[j + 2] && x1 > boxes[j] && y0 < boxes[j + 3] && y1 > boxes[j + 1]) return true;
+      return false;
+    };
+    const occupy = (x0: number, y0: number, x1: number, y1: number) => {
+      const j = boxes.length;
+      boxes.push(x0, y0, x1, y1);
+      for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++)
+        for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy++) {
+          const key = cellKey(cx, cy);
+          const list = grid.get(key);
+          if (list) list.push(j);
+          else grid.set(key, [j]);
+        }
+    };
     for (const c of cand) {
       if (drawn >= budget) break;
       const name = m.parts.name[c.k];
@@ -83,6 +123,13 @@ export function drawLabels(
       if (sel) fs = Math.max(fs, 12);
       if (fs < 8.5) continue;
       ctx.font = `${sel ? 700 : 600} ${fs.toFixed(1)}px ${SANS}`;
+      const half = (textWidth100(ctx, name, sel ? 700 : 600) * fs) / 200 + 1;
+      const bx0 = c.cx - half,
+        bx1 = c.cx + half,
+        by0 = c.cy - fs * 0.55,
+        by1 = c.cy + fs * 0.55;
+      if (!sel && collides(bx0, by0, bx1, by1)) continue;
+      occupy(bx0, by0, bx1, by1);
       ctx.lineWidth = Math.max(2, fs * 0.22);
       ctx.strokeStyle = p.labelHalo;
       ctx.strokeText(name, c.cx, c.cy);
