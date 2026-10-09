@@ -334,6 +334,11 @@ export const gencadFormat: FormatModule = {
           } else if (kw === 'DEVICE') curComp.device = toEnd(line, 'DEVICE').replace(/ /g, '_');
           else if (kw === 'VALUE' || kw === 'Value') curComp.value = toEnd(line, kw);
           else if (kw === 'PartNumber') curComp.pn = t[1];
+          else if (kw === 'SHEET') {
+            // KiCad writes `SHEET "RefDes: R1, Value: 10k"`.
+            const sv = /Value:\s*(.+)$/.exec(toEnd(line, 'SHEET'));
+            if (sv && !curComp.value) curComp.value = sv[1].trim();
+          }
           break;
         case '$DEVICES':
           if (kw === 'DEVICE') {

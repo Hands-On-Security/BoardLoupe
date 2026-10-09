@@ -100,10 +100,6 @@ function latin1Bytes(s: string): Uint8Array {
 const tok = (s: string) => (s && !/\s/.test(s) ? s : s.replace(/\s+/g, '_') || '');
 const inch = (mil: number) => (mil / 1000).toFixed(3);
 
-function allPins(b: SrcBoard) {
-  return b.parts.flatMap((p) => p.pins.map((pin) => ({ part: p, pin })));
-}
-
 // ------------------------------------------------------------------ BRD (Test_Link)
 
 export function writeBrdTestLink(b: SrcBoard, opts: { obfuscate?: boolean; lenovoNets?: boolean } = {}): Uint8Array {
