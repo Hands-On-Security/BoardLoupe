@@ -139,6 +139,31 @@ export function writeBrdTestLink(b: SrcBoard, opts: { obfuscate?: boolean; lenov
   });
 }
 
+// ------------------------------------------------------------------ BRD2 (BRDOUT)
+
+/** kicad-boardview style BRDOUT (bottom Y mirrored, firstPin indices). */
+export function writeBrd2(b: SrcBoard): Uint8Array {
+  const maxX = Math.max(...b.outline.map((p) => p[0])),
+    maxY = Math.max(...b.outline.map((p) => p[1]));
+  const netIds = new Map(b.nets.map((n, i) => [n, i + 1]));
+  const L: string[] = ['0', `BRDOUT: ${b.outline.length + 1} ${maxX} ${maxY}`];
+  for (const [x, y] of [...b.outline, b.outline[0]]) L.push(`${x} ${y}`);
+  L.push('', `NETS: ${b.nets.length}`);
+  for (const n of b.nets) L.push(`${netIds.get(n)} ${tok(n)}`);
+  L.push('', `PARTS: ${b.parts.length}`);
+  let first = 0;
+  const my = (y: number, side: 'T' | 'B') => (side === 'B' ? maxY - y : y);
+  for (const p of b.parts) {
+    L.push(`${tok(p.name)} ${p.bbox[0]} ${my(p.bbox[1], p.side)} ${p.bbox[2]} ${my(p.bbox[3], p.side)} ${first} ${p.side === 'B' ? 2 : 1}`);
+    first += p.pins.length;
+  }
+  L.push('', `PINS: ${first}`);
+  for (const p of b.parts) for (const q of p.pins) L.push(`${q.x} ${my(q.y, q.side)} ${q.net ? netIds.get(q.net) : 0} ${q.side === 'B' ? 2 : 1}`);
+  L.push('', `NAILS: ${b.nails.length}`);
+  for (const n of b.nails) L.push(`${n.probe} ${n.x} ${my(n.y, n.side)} ${netIds.get(n.net) ?? 0} ${n.side === 'B' ? 2 : 1}`);
+  return enc.encode(L.join('\n') + '\n');
+}
+
 // ------------------------------------------------------------------ BDV / ASC
 
 const ASC_HEADER = (title: string, n: number) =>

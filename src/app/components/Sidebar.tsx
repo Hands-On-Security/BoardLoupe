@@ -112,6 +112,20 @@ function SearchPanel() {
   const [active, setActive] = useState(0);
   const [ms, setMs] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const queried = useRef('');
+
+  const runQuery = (text: string) => {
+    if (!board) return [];
+    const t0 = performance.now();
+    const ctx = sel.kind === 'part' ? sel.index : sel.kind === 'pin' ? board.model.pins.part[sel.index] : -1;
+    const h = board.search.query(text, 200, ctx);
+    queried.current = text;
+    setHits(h);
+    setMs(performance.now() - t0);
+    setActive(0);
+    store.set({ searchText: text });
+    return h;
+  };
 
   useEffect(() => {
     const onFocus = () => {
@@ -124,14 +138,7 @@ function SearchPanel() {
 
   useEffect(() => {
     if (!board) return;
-    const t = setTimeout(() => {
-      const t0 = performance.now();
-      const ctx = sel.kind === 'part' ? sel.index : sel.kind === 'pin' ? board.model.pins.part[sel.index] : -1;
-      setHits(board.search.query(q, 200, ctx));
-      setMs(performance.now() - t0);
-      setActive(0);
-      store.set({ searchText: q });
-    }, 60);
+    const t = setTimeout(() => runQuery(q), 60);
     return () => clearTimeout(t);
   }, [q, board]);
 
@@ -142,9 +149,12 @@ function SearchPanel() {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActive((a) => Math.max(0, a - 1));
-    } else if (e.key === 'Enter' && hits[active]) {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      activateHit(hits[active]);
+      // Typing then Enter before the debounce fires must still jump.
+      const list = queried.current === q ? hits : runQuery(q);
+      const h = list[queried.current === q ? active : 0];
+      if (h) activateHit(h);
     } else if (e.key === 'Escape') {
       if (q) {
         e.stopPropagation();

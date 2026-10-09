@@ -33,6 +33,19 @@ if (m) {
   html = html.replace('</body>', () => `${m[0]}\n</body>`);
 }
 
+// Embed third-party licence notices (MIT/ISC require them to accompany copies).
+{
+  const licDir = resolve(root, 'LICENSES');
+  const parts = readdirSync(licDir)
+    .filter((f) => f.endsWith('.txt') && !f.startsWith('kicad-boardview'))
+    .sort()
+    .map((f) => `===== ${f.replace(/\.txt$/, '')} =====\n${readFileSync(resolve(licDir, f), 'utf8').trim()}`);
+  const own = readFileSync(resolve(root, 'LICENSE'), 'utf8').trim();
+  const text = `BoardScope — offline boardview viewer.\n${own}\n\nThird-party components bundled in this file and parser sources:\n\n${parts.join('\n\n')}`;
+  // "--" is not allowed inside HTML comments.
+  html = html.replace('<head>', () => `<head>\n<!--\n${text.replace(/--/g, '- -')}\n-->`);
+}
+
 // ---- Verification ---------------------------------------------------------
 const problems = [];
 const extFiles = files.filter((f) => !['index.html', 'app.js', 'app.css'].includes(f) && statSync(resolve(buildDir, f)).isFile());

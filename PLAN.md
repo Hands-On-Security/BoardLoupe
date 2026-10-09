@@ -21,14 +21,21 @@ emits exactly one `dist/boardview.html`.
 
 ## Milestones
 
-- [x] M0 Research: OBV parsers, eagleview TVW, kicad-boardview fixtures, KiCad CLI available
-- [ ] M1 Scaffold + model + registry + vertical slice (BRD2 real fixture → render → select → search → build)
-- [ ] M2 Parsers: TVW, BRD(Test_Link, enc), BRD2, BDV, ASC, BVR1, BVR3, FZ(zlib + keyed RC6), GenCAD, CAD, CST, XZZ(keyed), Allegro diagnostic
-- [ ] M3 Reference harness (OBV C++) + golden JSON + fixture generators + provenance manifest
-- [ ] M4 UX: sidebar explorer, inspector, tables/export, minimap, layers, history, shortcuts, themes, measure
-- [ ] M5 Performance: synthetic 1k/10k/50k/100k pins; bench parse/index/search/frame
-- [ ] M6 E2E on file:// in Chromium, Firefox, WebKit; offline/no-network assertions; screenshots
-- [ ] M7 Docs: README, FORMAT_MATRIX.md, THIRD_PARTY_NOTICES.md, fixtures provenance, final report
+- [x] M0 Research: OBV parsers, eagleview TVW (via OBV PR #366), kicad-boardview real fixtures, KiCad CLI for GenCAD
+- [x] M1 Scaffold + model + registry + vertical slice (real BRD2 → render → select → search → single-file build)
+- [x] M2 Parsers: TVW, BRD (Test_Link plain/obfuscated/Lenovo), BRD2, BDV, ASC, BVR1, BVR3, FZ (zlib + keyed RC6), CAE, GenCAD, CAD panel, CST, XZZ (keyed DES), Allegro diagnostic, ZIP container
+- [x] M3 Reference harness (OBV C++ compiled from source) + 17 golden differential tests + fixture generators + provenance
+- [x] M4 UX: explorer (search/parts/nets/file), inspector, tables + CSV/JSON export, minimap, layers, history, shortcuts, themes, measure, keys dialog
+- [x] M5 Performance: 1k–200k pins; worker parse; WebGL2 instanced; 60 FPS at 200k pins (Chromium/WebKit, GPU)
+- [x] M6 E2E on file:// in Chromium, Firefox, WebKit; no-network assertion; drag-drop; Canvas2D fallback; screenshots
+- [x] M7 Docs: README, FORMAT_MATRIX.md, THIRD_PARTY_NOTICES.md, LICENSES/, fixtures/PROVENANCE.md
+
+## Next (not done)
+
+- Altium ASCII and IPC-D-356 parsers (fixture for IPC-D-356 already present)
+- TVW decal outlines and copper pours; BVR3 relative outlines
+- Side-by-side comparison of two boards
+- Real-world fixtures for TVW/FZ/BDV once redistributable samples exist
 
 ## Acceptance criteria
 

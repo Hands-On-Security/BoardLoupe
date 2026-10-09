@@ -1,3 +1,4 @@
+import { MAX_INPUT_BYTES } from '../formats/limits';
 import type { ParseOptions } from '../formats/types';
 import type { BoardModel, Diagnostic } from '../model/types';
 import type { Scene } from '../scene/scene';
@@ -30,6 +31,16 @@ export function startParse(files: File[], options: ParseOptions, onProgress: (ph
   const promise = new Promise<ParseResult>((resolve) => {
     settle = resolve;
     (async () => {
+      // Refuse oversized input before reading it into memory.
+      const big = files.find((f) => f.size > MAX_INPUT_BYTES);
+      if (big) {
+        resolve({
+          ok: false,
+          attempts: [],
+          diagnostics: [{ level: 'error', code: 'too-large', message: `${big.name} is ${(big.size / 1048576).toFixed(0)} MB, above the ${MAX_INPUT_BYTES / 1048576} MB safety limit for a boardview file.` }],
+        });
+        return;
+      }
       onProgress('Reading file');
       const buffers = await Promise.all(files.map(async (f) => ({ name: f.name, buffer: await f.arrayBuffer() })));
       if (cancelled) return;

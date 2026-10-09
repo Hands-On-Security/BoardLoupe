@@ -126,6 +126,8 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
     }
     let a = c[3];
     if ((isolate || (h.hideUnselectedNets && h.nets.length)) && !hl) a = h.hideUnselectedNets && h.nets.length ? 0 : dimAlpha;
+    // While a net is highlighted, other pads recede so the net stands out.
+    else if (h.nets.length && !hl) c = mix(c, p.bg, 0.55);
     put(pin, i, c, a);
   }
 
@@ -142,6 +144,7 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
       c = mix(c, p.selNet, 0.45);
       hl = true;
     }
+    if (h.nets.length && !hl && !isolate) c = mix(c, p.bg, 0.4);
     put(part, k, c, isolate && !hl ? dimAlpha : c[3]);
   }
 

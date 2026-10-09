@@ -81,7 +81,7 @@ export function rc6Stream(src: Uint8Array, key: ArrayLike<number>, encrypt = fal
       D = tmp;
     }
     A = (A + k[2 * r + 2]) >>> 0;
-    C = (C + k[2 * r + 3]) >>> 0;
+    // (The reference also adds k[2r+3] to C here; C is overwritten below, so it is omitted.)
     const inByte = src[pos];
     const outByte = (inByte ^ (A & 0xff)) & 0xff;
     out[pos] = outByte;

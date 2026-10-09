@@ -15,6 +15,13 @@ function isTyping(e: KeyboardEvent) {
 }
 
 function focusSearch() {
+  // Focus synchronously when the box exists so keys typed right after "/" land in it.
+  const el = document.getElementById('bs-search') as HTMLInputElement | null;
+  if (el) {
+    el.focus();
+    el.select();
+    return;
+  }
   const s = store.get();
   if (!s.prefs.sidebar) setPrefs({ sidebar: true });
   store.set({ panel: 'search' });

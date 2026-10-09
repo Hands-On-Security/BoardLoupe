@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-09T00:18:06.864Z",
+  "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Unspecified Version)",
+  "results": [
+    {
+      "browser": "chromium",
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Unspecified Version)",
+      "file": "synthetic-10k.brd",
+      "loadMs": 63,
+      "avgFrameMs": 16.9,
+      "p95FrameMs": 18.6,
+      "cpuRenderMs": 2.22,
+      "parseMs": 18,
+      "indexMs": 11,
+      "mode": "worker"
+    },
+    {
+      "browser": "chromium",
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Unspecified Version)",
+      "file": "synthetic-50k.tvw",
+      "loadMs": 116,
+      "avgFrameMs": 16.7,
+      "p95FrameMs": 18.1,
+      "cpuRenderMs": 1.77,
+      "parseMs": 61,
+      "indexMs": 28,
+      "mode": "worker"
+    },
+    {
+      "browser": "chromium",
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Unspecified Version)",
+      "file": "synthetic-100k.brd",
+      "loadMs": 186,
+      "avgFrameMs": 16.7,
+      "p95FrameMs": 18.3,
+      "cpuRenderMs": 0.9,
+      "parseMs": 96,
+      "indexMs": 47,
+      "mode": "worker"
+    },
+    {
+      "browser": "chromium",
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Unspecified Version)",
+      "file": "synthetic-200k.tvw",
+      "loadMs": 371,
+      "avgFrameMs": 16.7,
+      "p95FrameMs": 18.4,
+      "cpuRenderMs": 0.97,
+      "parseMs": 179,
+      "indexMs": 84,
+      "mode": "worker"
+    }
+  ]
+}

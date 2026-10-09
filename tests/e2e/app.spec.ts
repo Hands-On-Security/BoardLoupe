@@ -1,0 +1,302 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { type Page, expect, test } from '@playwright/test';
+
+const ROOT = resolve(import.meta.dirname, '../..');
+const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const FX = (p: string) => resolve(ROOT, 'fixtures', p);
+const SHOTS = resolve(ROOT, 'test-results/screens');
+
+/** Records every request that is not file:, data: or blob: (must stay empty). */
+function trackNetwork(page: Page) {
+  const external: string[] = [];
+  page.on('request', (r) => {
+    const u = r.url();
+    if (!u.startsWith('file:') && !u.startsWith('data:') && !u.startsWith('blob:')) external.push(u);
+  });
+  return external;
+}
+
+async function openApp(page: Page) {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  await page.goto(APP);
+  await expect(page.getByTestId('dropzone')).toBeVisible();
+  return errors;
+}
+
+async function load(page: Page, ...files: string[]) {
+  await page.setInputFiles('#bs-file-input', files);
+  await expect(page.getByTestId('file-name')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('loading')).toHaveCount(0);
+}
+
+async function pinScreen(page: Page, part: string, pin: string) {
+  return page.evaluate(
+    ([part, pin]) => {
+      const bs = (window as unknown as { boardscope: { viewer: { model: import('../../src/model/types').BoardModel }; toScreen: (x: number, y: number) => [number, number] } }).boardscope;
+      const m = bs.viewer.model;
+      const k = m.parts.name.indexOf(part);
+      for (let j = m.parts.pinStart[k]; j < m.parts.pinStart[k] + m.parts.pinCount[k]; j++) if (m.pins.number[j] === pin) return bs.toScreen(m.pins.x[j], m.pins.y[j]);
+      return null;
+    },
+    [part, pin],
+  );
+}
+
+test.describe('BoardScope single-file app', () => {
+  test('empty state, offline guarantee and no console errors', async ({ page }, info) => {
+    const net = trackNetwork(page);
+    const errors = await openApp(page);
+    await expect(page.getByRole('button', { name: /Browse files/ })).toBeVisible();
+    await expect(page.getByText('Private by design')).toBeVisible();
+    await page.screenshot({ path: `${SHOTS}/${info.project.name}-empty.png` });
+    expect(net).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  test('loads a real GenCAD board, renders, and makes no network requests', async ({ page, context }, info) => {
+    const net = trackNetwork(page);
+    const errors = await openApp(page);
+    await context.setOffline(true);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    await expect(page.getByTestId('file-name')).toHaveText('glasgow-kicad10.cad');
+    await expect(page.getByText(/272 parts · 1,149 pins · 251 nets/)).toBeVisible();
+    // Parsing ran in the inlined Blob worker (not the main-thread fallback).
+    expect(await page.evaluate(() => (window as unknown as { boardscope: { store: { get(): { board: { timings: { mode: string } } } } } }).boardscope.store.get().board.timings.mode)).toBe('worker');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${SHOTS}/${info.project.name}-gencad.png` });
+    expect(net).toEqual([]);
+    expect(errors.filter((e) => !/GPU stall|WebGL/.test(e))).toEqual([]);
+    // The canvas actually contains drawn pixels (not just the background).
+    const varied = await page.evaluate(() => {
+      // Render and read back in the same task (the WebGL buffer is not preserved).
+      (window as unknown as { boardscope: { viewer: { renderNow(): void } } }).boardscope.viewer.renderNow();
+      const c = document.querySelector('[data-testid="board"] canvas') as HTMLCanvasElement;
+      const tmp = document.createElement('canvas');
+      tmp.width = 200;
+      tmp.height = 200;
+      const g = tmp.getContext('2d')!;
+      g.drawImage(c, 0, 0, 200, 200);
+      const d = g.getImageData(0, 0, 200, 200).data;
+      const seen = new Set<number>();
+      for (let i = 0; i < d.length; i += 16) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      return seen.size;
+    });
+    expect(varied).toBeGreaterThan(5);
+  });
+
+  test('search → focus part → inspector', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    await page.keyboard.press('/');
+    await expect(page.locator('#bs-search')).toBeFocused();
+    await page.keyboard.type('U30');
+    await expect(page.getByRole('option').first()).toContainText('U30');
+    await page.keyboard.press('Enter');
+    const insp = page.getByTestId('inspector');
+    await expect(insp.getByRole('heading', { name: 'U30' })).toBeVisible();
+    await expect(insp.getByText('Component')).toBeVisible();
+    await expect(insp.getByText(/\d+ pins/).first()).toBeVisible();
+  });
+
+  test('click a pin → pin details and net highlight; Esc clears', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    // Zoom onto U1 first so pins are large enough to hit.
+    await page.keyboard.press('/');
+    await page.keyboard.type('U1');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+    const p = await pinScreen(page, 'U1', '12');
+    expect(p).not.toBeNull();
+    const box = (await page.getByTestId('board-canvas').boundingBox())!;
+    await page.mouse.click(box.x + p![0], box.y + p![1]);
+    const insp = page.getByTestId('inspector');
+    await expect(insp.getByRole('heading', { name: 'U1.12' })).toBeVisible();
+    await expect(insp.getByText('Net members')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(insp.getByText('Nothing selected.')).toBeVisible();
+  });
+
+  test('side switching, mirror, rotate, zoom and fit', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad-boardview.brd'));
+    const top = page.getByRole('button', { name: 'Top', exact: true });
+    const bottom = page.getByRole('button', { name: 'Bottom', exact: true });
+    await expect(top).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('board-canvas').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Space');
+    await expect(bottom).toHaveAttribute('aria-pressed', 'true');
+    const mirrored = await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { mirror: boolean } } } }).boardscope.viewer.view.mirror);
+    expect(mirrored).toBe(true);
+    const zoomText = page.locator('footer').getByText(/^\d+%$/);
+    await expect(zoomText).toHaveText('100%');
+    const box = (await page.getByTestId('board-canvas').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -400);
+    await expect(zoomText).not.toHaveText('100%');
+    await page.keyboard.press('r');
+    expect(await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { rot: number } } } }).boardscope.viewer.view.rot)).toBe(90);
+    await page.keyboard.press('f');
+    await expect(zoomText).toHaveText('100%');
+    // drag pans
+    const before = await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { cx: number } } } }).boardscope.viewer.view.cx);
+    await page.mouse.move(box.x + 300, box.y + 300);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 420, box.y + 340, { steps: 6 });
+    await page.mouse.up();
+    const after = await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { cx: number; cy: number } } } }).boardscope.viewer.view);
+    expect(after.cx !== before).toBe(true);
+  });
+
+  test('tables dialog and CSV export', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    await page.keyboard.press('t');
+    const dlg = page.getByRole('dialog', { name: 'Tables & export' });
+    await expect(dlg).toBeVisible();
+    await dlg.getByRole('tab', { name: 'nets' }).click();
+    await dlg.getByLabel('Filter nets').fill('GND');
+    const [dl] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: /CSV/ }).click()]);
+    const path = await dl.path();
+    const csv = readFileSync(path!, 'utf8');
+    expect(csv.split('\r\n')[0]).toBe('Net,Pins,Parts');
+    expect(csv).toContain('GND,');
+    const [dj] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: /JSON/ }).click()]);
+    const json = JSON.parse(readFileSync((await dj.path())!, 'utf8'));
+    expect(json.schema).toBe('boardscope/board@1');
+    expect(json.parts.length).toBe(272);
+  });
+
+  test('unsupported file shows a precise error', async ({ page }) => {
+    await openApp(page);
+    await page.setInputFiles('#bs-file-input', { name: 'mystery.brd', mimeType: 'application/octet-stream', buffer: Buffer.from(Array.from({ length: 2048 }, (_, i) => (i * 2654435761) >>> 24)) });
+    await expect(page.getByTestId('error')).toBeVisible();
+    await expect(page.getByTestId('error-message')).toContainText('No supported boardview signature');
+  });
+
+  test('encrypted FZ without key explains how to proceed', async ({ page }) => {
+    await openApp(page);
+    await page.setInputFiles('#bs-file-input', FX('synthetic/glasgow-rc6-testkey.fz'));
+    await expect(page.getByTestId('error-message')).toContainText('encrypted');
+    await expect(page.getByRole('button', { name: 'Enter key' })).toBeVisible();
+  });
+
+  test('every verified fixture format opens', async ({ page }) => {
+    await openApp(page);
+    const files = [
+      'synthetic/glasgow.tvw',
+      'synthetic/glasgow-testlink-obfuscated.brd',
+      'synthetic/glasgow.bdv',
+      'synthetic/glasgow-format1.bvr',
+      'real/glasgow/glasgow-kicad-boardview.bvr',
+      'synthetic/glasgow-zlib.fz',
+      'synthetic/glasgow-panel.cad',
+    ];
+    for (const f of files) {
+      await page.setInputFiles('#bs-file-input', FX(f));
+      await expect(page.getByTestId('file-name')).toHaveText(f.split('/').pop()!, { timeout: 30_000 });
+      await expect(page.getByText(/\d[\d,]* parts · [\d,]+ pins/)).toBeVisible();
+    }
+  });
+
+  test('multi-file ASC set', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('synthetic/asc/pins.asc'), FX('synthetic/asc/format.asc'), FX('synthetic/asc/nails.asc'));
+    await expect(page.getByText(/264 parts/)).toBeVisible();
+  });
+
+  test('theme preference persists (localStorage only for settings)', async ({ page }) => {
+    await openApp(page);
+    const before = await page.evaluate(() => document.documentElement.dataset.theme);
+    await page.getByRole('button', { name: /theme/i }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).not.toBe(before);
+    const after = await page.evaluate(() => document.documentElement.dataset.theme);
+    await page.reload();
+    await expect(page.getByTestId('dropzone')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(after);
+    const keys = await page.evaluate(() => Object.keys(localStorage));
+    expect(keys).toEqual(['boardscope.prefs.v1']);
+  });
+
+  test('picking on the mirrored bottom side and selection history', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    // Find a bottom-side part and show it via search (switches to the bottom view).
+    const name = (await page.evaluate(`(() => {
+      const m = boardscope.viewer.model;
+      for (let k = 0; k < m.parts.count; k++) if (m.parts.side[k] === 2 && m.parts.pinCount[k] === 2) return m.parts.name[k];
+    })()`)) as string;
+    await page.keyboard.press('/');
+    await page.keyboard.type(name);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Bottom', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(`boardscope.viewer.view.mirror`)).toBe(true);
+    const p = await pinScreen(page, name, '2');
+    const box = (await page.getByTestId('board-canvas').boundingBox())!;
+    await page.mouse.click(box.x + p![0], box.y + p![1]);
+    const insp = page.getByTestId('inspector');
+    await expect(insp.getByRole('heading', { name: `${name}.2` })).toBeVisible();
+    // Back returns to the part, forward to the pin.
+    await page.keyboard.press('Alt+ArrowLeft');
+    await expect(insp.getByRole('heading', { name })).toBeVisible();
+    await page.keyboard.press('Alt+ArrowRight');
+    await expect(insp.getByRole('heading', { name: `${name}.2` })).toBeVisible();
+  });
+
+  test('drag and drop a file onto the window', async ({ page }) => {
+    await openApp(page);
+    const b64 = readFileSync(FX('synthetic/glasgow.bdv')).toString('base64');
+    await page.evaluate(`(() => {
+      const bytes = Uint8Array.from(atob(${JSON.stringify(b64)}), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer();
+      dt.items.add(new File([bytes], 'dropped.bdv'));
+      for (const type of ['dragenter', 'dragover', 'drop']) {
+        window.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+      }
+    })()`);
+    await expect(page.getByTestId('file-name')).toHaveText('dropped.bdv', { timeout: 30_000 });
+    await expect(page.getByText(/264 parts/)).toBeVisible();
+  });
+
+  test('Canvas 2D fallback renderer draws the board', async ({ page }) => {
+    await openApp(page);
+    await page.evaluate(`boardscope.store.set({ prefs: { ...boardscope.store.get().prefs, forceCanvas2d: true } })`);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    await expect(page.locator('footer').getByText('Canvas 2D')).toBeVisible();
+    const varied = await page.evaluate(`(() => {
+      boardscope.viewer.renderNow();
+      const c = document.querySelector('[data-testid="board"] canvas');
+      const g = c.getContext('2d');
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      const seen = new Set();
+      for (let i = 0; i < d.length; i += 64) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      return seen.size;
+    })()`);
+    expect(varied).toBeGreaterThan(5);
+    // Selection works the same way.
+    await page.keyboard.press('/');
+    await page.keyboard.type('U5');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('inspector').getByRole('heading', { name: 'U5' })).toBeVisible();
+  });
+
+  test('laptop-size layout screenshot', async ({ page }, info) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openApp(page);
+    await load(page, FX('synthetic/glasgow.tvw'));
+    await page.keyboard.press('/');
+    await page.keyboard.type('gnd');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('inspector').getByRole('heading', { name: 'GND' })).toBeVisible();
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${SHOTS}/${info.project.name}-laptop-tvw-net.png` });
+    // No horizontal overflow of the app shell.
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(overflow).toBe(false);
+  });
+});

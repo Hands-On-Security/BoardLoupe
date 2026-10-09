@@ -58,8 +58,8 @@ export const DEFAULT_OPTIONS: ParseOptions = {
   maxDecompressedBytes: 512 * 1024 * 1024,
 };
 
-/** Hard input limit: anything larger is almost certainly not a boardview. */
-export const MAX_INPUT_BYTES = 400 * 1024 * 1024;
+export { MAX_INPUT_BYTES } from './limits';
+import { MAX_INPUT_BYTES } from './limits';
 
 export interface Candidate {
   format: FormatModule;
@@ -69,7 +69,7 @@ export interface Candidate {
 export function detectAll(file: InputFile, sniff: Sniff = makeSniff(file)): Candidate[] {
   const out: Candidate[] = [];
   for (const format of FORMATS) {
-    let d: Detection | null = null;
+    let d: Detection | null;
     try {
       d = format.detect(sniff, file);
     } catch {

@@ -3,7 +3,7 @@ import { basename, resolve } from 'node:path';
 import { DEFAULT_OPTIONS, parseFiles } from '../../src/formats/registry';
 import type { InputFile, ParseOptions } from '../../src/formats/types';
 
-export const ROOT = resolve(__dirname, '../..');
+export const ROOT = resolve(import.meta.dirname, '../..');
 
 export function file(path: string, name = basename(path)): InputFile {
   const buf = readFileSync(resolve(ROOT, path));

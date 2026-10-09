@@ -1,0 +1,126 @@
+{
+  "node": "v26.3.1",
+  "date": "2026-10-09T00:13:46.382Z",
+  "results": [
+    {
+      "format": "BRD2",
+      "pins": 1043,
+      "parts": 79,
+      "nets": 216,
+      "fileKB": 19,
+      "parseMs": 5.1,
+      "sceneMs": 2.9,
+      "searchIndexMs": 0.1,
+      "queryMsAvg": 0.07,
+      "heapMB": 3.2
+    },
+    {
+      "format": "TVW",
+      "pins": 1043,
+      "parts": 79,
+      "nets": 216,
+      "fileKB": 58,
+      "parseMs": 5.6,
+      "sceneMs": 2.3,
+      "searchIndexMs": 0.1,
+      "queryMsAvg": 0.05,
+      "heapMB": 3.4
+    },
+    {
+      "format": "BRD2",
+      "pins": 10053,
+      "parts": 527,
+      "nets": 2040,
+      "fileKB": 197,
+      "parseMs": 23.3,
+      "sceneMs": 16.6,
+      "searchIndexMs": 0.4,
+      "queryMsAvg": 0.3,
+      "heapMB": 18
+    },
+    {
+      "format": "TVW",
+      "pins": 10053,
+      "parts": 527,
+      "nets": 2040,
+      "fileKB": 508,
+      "parseMs": 26.5,
+      "sceneMs": 7.7,
+      "searchIndexMs": 0.4,
+      "queryMsAvg": 0.27,
+      "heapMB": 17.8
+    },
+    {
+      "format": "BRD2",
+      "pins": 50001,
+      "parts": 2973,
+      "nets": 10296,
+      "fileKB": 1068,
+      "parseMs": 75.4,
+      "sceneMs": 31.2,
+      "searchIndexMs": 1.1,
+      "queryMsAvg": 1.08,
+      "heapMB": 21.8
+    },
+    {
+      "format": "TVW",
+      "pins": 50001,
+      "parts": 2973,
+      "nets": 10296,
+      "fileKB": 2581,
+      "parseMs": 94.4,
+      "sceneMs": 29.6,
+      "searchIndexMs": 1.9,
+      "queryMsAvg": 1.14,
+      "heapMB": 31.8
+    },
+    {
+      "format": "BRD2",
+      "pins": 100065,
+      "parts": 6300,
+      "nets": 20618,
+      "fileKB": 2251,
+      "parseMs": 124.3,
+      "sceneMs": 42.2,
+      "searchIndexMs": 2.4,
+      "queryMsAvg": 2.3,
+      "heapMB": 49.4
+    },
+    {
+      "format": "TVW",
+      "pins": 100065,
+      "parts": 6300,
+      "nets": 20618,
+      "fileKB": 5182,
+      "parseMs": 128.6,
+      "sceneMs": 51.3,
+      "searchIndexMs": 3,
+      "queryMsAvg": 2.41,
+      "heapMB": 58.7
+    },
+    {
+      "format": "BRD2",
+      "pins": 200069,
+      "parts": 13307,
+      "nets": 41174,
+      "fileKB": 4646,
+      "parseMs": 237.5,
+      "sceneMs": 77,
+      "searchIndexMs": 4.1,
+      "queryMsAvg": 4.63,
+      "heapMB": 107.8
+    },
+    {
+      "format": "TVW",
+      "pins": 200069,
+      "parts": 13307,
+      "nets": 41174,
+      "fileKB": 10385,
+      "parseMs": 238,
+      "sceneMs": 94.7,
+      "searchIndexMs": 6.8,
+      "queryMsAvg": 4.79,
+      "heapMB": 150.8
+    }
+  ]
+}

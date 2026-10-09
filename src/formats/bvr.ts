@@ -54,8 +54,8 @@ export const bvr1Format: FormatModule = {
       }
       const ln = i + 1;
       if (block === 1) {
-        let [x, p] = strtod(line, 0);
-        if (line[p] === ',') p++;
+        const [x, p0] = strtod(line, 0);
+        const p = line[p0] === ',' ? p0 + 1 : p0;
         const [y] = strtod(line, p);
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
           b.warn('bvr1.layout', 'Malformed layout line skipped', { line: ln });

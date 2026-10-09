@@ -187,14 +187,6 @@ export function saveKeys(k: Keys) {
   }
 }
 
-function initialTheme(): 'dark' | 'light' {
-  try {
-    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  } catch {
-    return 'dark';
-  }
-}
-
 export const store = createStore<AppState>({
   phase: 'empty',
   loading: null,
@@ -211,7 +203,7 @@ export const store = createStore<AppState>({
   tool: 'select',
   measure: { a: null, b: null },
   searchText: '',
-  prefs: loadJSON(PREFS_KEY, { ...DEFAULT_PREFS, theme: initialTheme() }),
+  prefs: loadJSON(PREFS_KEY, DEFAULT_PREFS), // dark by default; light is a saved preference
   keys: loadJSON(KEYS_KEY, { fz: '', cae: '', xzz: '', remember: false }),
   toast: null,
 });

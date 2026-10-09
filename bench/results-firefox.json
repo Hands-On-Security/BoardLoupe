@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-09T00:19:15.322Z",
+  "renderer": "Apple M1, or similar",
+  "results": [
+    {
+      "browser": "firefox",
+      "gpu": "Apple M1, or similar",
+      "file": "synthetic-10k.brd",
+      "loadMs": 121,
+      "avgFrameMs": 8.4,
+      "p95FrameMs": 11,
+      "cpuRenderMs": 4.26,
+      "parseMs": 23,
+      "indexMs": 7,
+      "mode": "worker"
+    },
+    {
+      "browser": "firefox",
+      "gpu": "Apple M1, or similar",
+      "file": "synthetic-50k.tvw",
+      "loadMs": 154,
+      "avgFrameMs": 9.6,
+      "p95FrameMs": 17,
+      "cpuRenderMs": 12.27,
+      "parseMs": 77,
+      "indexMs": 20,
+      "mode": "worker"
+    },
+    {
+      "browser": "firefox",
+      "gpu": "Apple M1, or similar",
+      "file": "synthetic-100k.brd",
+      "loadMs": 201,
+      "avgFrameMs": 9.5,
+      "p95FrameMs": 16,
+      "cpuRenderMs": 9.39,
+      "parseMs": 107,
+      "indexMs": 35,
+      "mode": "worker"
+    },
+    {
+      "browser": "firefox",
+      "gpu": "Apple M1, or similar",
+      "file": "synthetic-200k.tvw",
+      "loadMs": 406,
+      "avgFrameMs": 9.1,
+      "p95FrameMs": 14,
+      "cpuRenderMs": 5.29,
+      "parseMs": 229,
+      "indexMs": 62,
+      "mode": "worker"
+    }
+  ]
+}
