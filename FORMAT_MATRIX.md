@@ -21,7 +21,7 @@ explanation (format guess, reason, byte offset or line).
 
 | Format / variant | Ext. | Detection signature | Status | Fixtures (origin) | Reference | Units | Limitations |
 |---|---|---|---|---|---|---|---|
-| **Tebo-ICT View (TVW)**, standard header | `.tvw` | bytes 0–19 = `13` + ciphered `"Tebo-ictview files."` | **verified** | `glasgow.tvw` (synthetic, 6 layers incl. traces, drills, route outline, empty through-layer, registries) | eagleview `TeboBoard` via OBV PR #366 | mil (1/100 mil fixed point) | No redistributable real TVW in the corpus (all real TVWs are vendor property). Upstream tested the same structure on 9 Lenovo/LCFC boards. TVW files without the standard header, e.g. the Gigabyte layout described by other projects, fail with "different Teboview variant" + offset. Copper pours (surfaces) are parsed but not drawn. Decal outlines are not drawn; part boxes come from the file. |
+| **Tebo-ICT View (TVW)**, standard header | `.tvw` | bytes 0–19 = `13` + ciphered `"Tebo-ictview files."` | **verified** | `glasgow.tvw` (synthetic, 6 layers incl. traces, drills, route outline with arc slots, empty through-layer, registries, decal outlines); also checked locally on a real Lenovo X1 Carbon Gen9 (NM-D341) board that cannot be redistributed | eagleview `TeboBoard` via OBV PR #366, with two corrections (below) | mil (1/100 mil fixed point) | No redistributable real TVW in the corpus. TVW files without the standard header, e.g. the Gigabyte layout described by other projects, fail with "different Teboview variant" + offset. Copper pours (surfaces) are parsed but not drawn. |
 | **BRD Test_Link**, plain | `.brd`, `.bv` | text contains `str_length:` and `var_data:` | **verified** | `glasgow-testlink.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | Pin numbers are positional (format has no pin names). |
 | BRD Test_Link, obfuscated | `.brd` | starts with `23 E2 63 28` | **verified** | `glasgow-testlink-obfuscated.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | as above |
 | BRD Test_Link, Lenovo nail-net variant | `.brd` | as above; empty pin nets | **verified** | `glasgow-testlink-lenovo.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | Nets resolved through nail probe numbers. |
@@ -40,6 +40,22 @@ explanation (format guess, reason, byte offset or line).
 | Cadence **Allegro** `.brd` database | `.brd` | `all`/`vie` at 0xF8 | diagnostic | (unit test) | OBV `BRDAllegroFile` | — | Explains that this is a design database and suggests exporting GenCAD/Extracta. |
 | ZIP archive | `.zip` | `PK\x03\x04` | supported container | unit tests | — | — | Members are expanded (size-limited) and detected normally; ASC sets inside ZIPs work. |
 | PDF, RAR, 7z, gzip, images, OLE (Altium PcbDoc/Office), KiCad `.kicad_pcb` | — | magic bytes | diagnostic | unit tests | — | — | Specific explanation of what the file is and what to do. |
+
+### TVW: corrections relative to the reference implementation
+
+Found on a real Lenovo X1 Carbon Gen9 (NM-D341) board and verified on all of its 2,115 parts:
+
+1. **Route arc slots.** Drill records with code `0x0B` are arcs: centre, radius, then start and
+   sweep angles as float32 degrees (negative = clockwise). The record has the same size as a straight
+   `0x0A` slot. The reference reads them as lines, which draws stray diagonals across the board (to
+   the origin when the start angle is 0°). BoardScope decodes them as arcs; the route outline then
+   forms closed loops (419 segments, 0 open endpoints on that board).
+2. **Part bodies.** The part record's box includes the reference-designator text and sits offset
+   from the component for rotated parts (only 4 of 183 top-side 270° parts contained their own pins).
+   BoardScope draws the decal outline instead, placed with the pad transform: rotate
+   counter-clockwise by the part angle, then mirror X on the bottom side. This transform reproduces
+   100% of the pads of all parts from their decals' local pads, and every pin then lies inside its
+   part body.
 
 ## Not supported (yet)
 

@@ -358,7 +358,8 @@ export class BoardBuilder {
         const [a, c, d, e] = p.bbox;
         b = [Math.min(a, d), Math.min(c, e), Math.max(a, d), Math.max(c, e)];
         parts.bboxFromFile[k] = 1;
-      } else if (counts[k] > 0) {
+      } else if (counts[k] > 0 || body) {
+        // Extent of the pins and, when the file has one, the body outline.
         let x0 = Infinity,
           y0 = Infinity,
           x1 = -Infinity,
@@ -372,17 +373,13 @@ export class BoardBuilder {
           x1 = Math.max(x1, pins.x[j] + r);
           y1 = Math.max(y1, pins.y[j] + r);
         }
-        b = [x0, y0, x1, y1];
-      } else if (body) {
-        let x0 = Infinity,
-          y0 = Infinity,
-          x1 = -Infinity,
-          y1 = -Infinity;
-        for (let i = 0; i + 1 < body.length; i += 2) {
-          x0 = Math.min(x0, body[i]);
-          x1 = Math.max(x1, body[i]);
-          y0 = Math.min(y0, body[i + 1]);
-          y1 = Math.max(y1, body[i + 1]);
+        if (body) {
+          for (let i = 0; i + 1 < body.length; i += 2) {
+            x0 = Math.min(x0, body[i]);
+            x1 = Math.max(x1, body[i]);
+            y0 = Math.min(y0, body[i + 1]);
+            y1 = Math.max(y1, body[i + 1]);
+          }
         }
         b = [x0, y0, x1, y1];
       } else if (p.x !== undefined && p.y !== undefined && Number.isFinite(p.x) && Number.isFinite(p.y)) {

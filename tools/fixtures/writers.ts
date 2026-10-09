@@ -11,6 +11,7 @@ import { tvwEncodeString } from '../../src/formats/tvw';
 import { desEcb } from '../../src/io/des';
 import type { SrcBoard, SrcPart } from './source';
 
+
 const enc = new TextEncoder();
 const CRLF = '\r\n';
 
@@ -491,18 +492,77 @@ function tvwLogic(
   if (opts.extras) w.u32(0).u32(0).u32(0);
 }
 
-function tvwThrough(w: ByteWriter, name: string, type: number, tools: number[], holes: { net: number; tool: number; x: number; y: number }[], slots: { net: number; tool: number; x1: number; y1: number; x2: number; y2: number }[]) {
+interface TvwArcSlot {
+  net: number;
+  tool: number;
+  cx: number;
+  cy: number;
+  r: number;
+  start: number;
+  sweep: number;
+}
+
+function tvwThrough(
+  w: ByteWriter,
+  name: string,
+  type: number,
+  tools: number[],
+  holes: { net: number; tool: number; x: number; y: number }[],
+  slots: { net: number; tool: number; x1: number; y1: number; x2: number; y2: number }[],
+  arcs: TvwArcSlot[] = [],
+) {
   tvwObjectHeader(w, 1, name, type);
   w.u32(0).u32(0);
-  if (!tools.length && !holes.length && !slots.length) {
+  if (!tools.length && !holes.length && !slots.length && !arcs.length) {
     w.u32(0); // empty through-layer
     return;
   }
   w.u32(tools.length + 1);
   for (const t of tools) w.bool(true).bool(false).u32(t).zeros(20).bytes([1, 2, 3]);
-  w.u8(0).u32(holes.length + slots.length).u32(0).zeros(16);
+  w.u8(0).u32(holes.length + slots.length + arcs.length).u32(0).zeros(16);
   for (const h of holes) w.u8(0x08).s32(h.net).u32(h.tool).vec(h.x, h.y);
-  slots.forEach((s, i) => w.u8(i % 2 ? 0x0b : 0x0a).s32(s.net).u32(s.tool).vec(s.x1, s.y1).vec(s.x2, s.y2).u32(0));
+  // 0x0A: straight slot (begin, end, 0); 0x0B: arc slot (centre, radius, start°, sweep° as float32).
+  for (const s of slots) w.u8(0x0a).s32(s.net).u32(s.tool).vec(s.x1, s.y1).vec(s.x2, s.y2).u32(0);
+  for (const a of arcs) w.u8(0x0b).s32(a.net).u32(a.tool).vec(a.cx, a.cy).s32(a.r).f32(a.start).f32(a.sweep);
+}
+
+/** Decal-local outline that, placed like the reader places it, reproduces the part's world box. */
+function localOutline(p: SrcPart, U: number): number[] {
+  const [x0, y0, x1, y1] = p.bbox;
+  const a = (-p.rot * Math.PI) / 180;
+  const c = Math.round(Math.cos(a) * 1e9) / 1e9,
+    s = Math.round(Math.sin(a) * 1e9) / 1e9;
+  const out: number[] = [];
+  for (const [x, y] of [
+    [x0, y0],
+    [x1, y0],
+    [x1, y1],
+    [x0, y1],
+  ]) {
+    // world_rel = M·R(rot)·local  ⇒  local = R(−rot)·M·world_rel (M = mirror X on the bottom side)
+    let u = x - p.x;
+    const v = y - p.y;
+    if (p.side === 'B') u = -u;
+    out.push(Math.round((u * c - v * s) * U), Math.round((u * s + v * c) * U));
+  }
+  return out;
+}
+
+/** A spot on the board far from every pin, for a circular route cutout. */
+function freeSpot(b: SrcBoard): [number, number, number] {
+  const xs = b.outline.map((p) => p[0]),
+    ys = b.outline.map((p) => p[1]);
+  const pins = b.parts.flatMap((p) => p.pins);
+  let best: [number, number, number] = [0, 0, 0];
+  for (let gx = 1; gx < 20; gx++)
+    for (let gy = 1; gy < 12; gy++) {
+      const x = Math.min(...xs) + ((Math.max(...xs) - Math.min(...xs)) * gx) / 20;
+      const y = Math.min(...ys) + ((Math.max(...ys) - Math.min(...ys)) * gy) / 12;
+      let d = Infinity;
+      for (const q of pins) d = Math.min(d, Math.hypot(q.x - x, q.y - y));
+      if (d > best[2]) best = [Math.round(x), Math.round(y), d];
+    }
+  return [best[0], best[1], Math.max(10, Math.min(60, Math.floor(best[2] * 0.5)))];
 }
 
 function tvwFixtureData(w: ByteWriter) {
@@ -560,6 +620,12 @@ export function writeTvw(b: SrcBoard): Uint8Array {
   const holes = b.vias.map((v) => ({ net: v.net ? netIdx.get(v.net)! : -1, tool: toolFor(v.d), x: v.x * U, y: v.y * U }));
   const routeTool = [10 * U];
   const slots = b.outlineSegs.map(([x1, y1, x2, y2]) => ({ net: -1, tool: 1, x1: x1 * U, y1: y1 * U, x2: x2 * U, y2: y2 * U }));
+  // A circular cutout made of two arc slots that both start at 0° (one CCW, one CW).
+  const [hx, hy, hr] = freeSpot(b);
+  const arcSlots: TvwArcSlot[] = [
+    { net: -1, tool: 1, cx: hx * U, cy: hy * U, r: hr * U, start: 0, sweep: 180 },
+    { net: -1, tool: 1, cx: hx * U, cy: hy * U, r: hr * U, start: 0, sweep: -180 },
+  ];
 
   const w = new ByteWriter();
   w.str8(tvwEncodeString('Tebo-ictview files.')).u32(1).str8(tvwEncodeString('BoardScope fixture')).u8(0).str8(tvwEncodeString('2026-10-09')).zeros(3).u32(0).u32(0).u32(0);
@@ -570,7 +636,7 @@ export function writeTvw(b: SrcBoard): Uint8Array {
   w.u32(0); // Object::Detect skips zero dwords before an object
   tvwLogic(w, 'INNER1', 3, shapes, [], innerLines);
   tvwThrough(w, 'DRILL', 11, tools, holes, []);
-  tvwThrough(w, 'OUTLINE', 12, routeTool, [], slots);
+  tvwThrough(w, 'OUTLINE', 12, routeTool, [], slots, arcSlots);
   tvwThrough(w, 'EMPTY', 11, [], [], []);
   w.zeros(16);
   w.u32(nets.length).u32(nets.length);
@@ -595,10 +661,21 @@ export function writeTvw(b: SrcBoard): Uint8Array {
   // parts
   const parts = b.parts;
   w.u32(parts.length).u32(0);
-  const decals = [...new Set(parts.map((p) => p.footprint || 'NONE'))];
+  // One decal per footprint (parts without a footprint get their own decal).
+  const decalKey = (p: SrcPart) => p.footprint || `NOFP_${p.name}`;
+  const decals: { name: string; outline: number[] }[] = [];
+  const decalIdx = new Map<string, number>();
+  for (const p of parts) {
+    const k = decalKey(p);
+    if (!decalIdx.has(k)) {
+      decalIdx.set(k, decals.length);
+      decals.push({ name: k, outline: localOutline(p, U) });
+    }
+  }
   parts.forEach((p, k) => {
     const [x0, y0, x1, y1] = p.bbox;
-    w.str8(p.name).vec(x0 * U, y0 * U).vec(x1 * U, y1 * U).vec(p.x * U, p.y * U).s32(p.rot).u32(decals.indexOf(p.footprint || 'NONE'));
+    // Real files store a part box that includes the refdes text: emulate an offset, enlarged box.
+    w.str8(p.name).vec(x0 * U, y0 * U).vec((x1 + 60) * U, (y1 + 25) * U).vec(p.x * U, p.y * U).s32(p.rot).u32(decalIdx.get(decalKey(p))!);
     w.u32(/^C/.test(p.name) ? 5 : /^R/.test(p.name) ? 3 : /^J/.test(p.name) ? 17 : 0).u32(0).s32(500);
     const flag0 = k % 9 === 0;
     w.bool(flag0).str8(p.value.slice(0, 200)).str8('5%').str8('5%').str8(p.footprint.slice(0, 200));
@@ -607,14 +684,16 @@ export function writeTvw(b: SrcBoard): Uint8Array {
     const pads = partPads.get(p)!;
     p.pins.forEach((pin, i) => w.u32(pads[i] * 8).u32(0).u32(i + 1).str8(pin.number).u32(0));
   });
-  // decals (only names are used)
+  // decals: name + local outline (used for part bodies)
   w.u32(3).u32(decals.length);
   decals.forEach((d, i) => {
-    w.bool(true).str8(d.slice(0, 200)).u32(1).u32(2).u32(3).bool(false);
+    w.bool(true).str8(d.name.slice(0, 200)).u32(1).u32(2).u32(3).bool(false);
     w.bool(i === 0);
     if (i === 0) tvwLogic(w, 'DECAL_TOP', 1, [], [], []);
     w.bool(false).bool(false);
-    w.bool(true).u32(2).s32(-1).u32(4).vec(-100, -100).vec(100, -100).vec(100, 100).vec(-100, 100).u32(0).u32(0);
+    w.bool(true).u32(2).s32(-1).u32(d.outline.length / 2);
+    for (let v = 0; v < d.outline.length; v += 2) w.vec(d.outline[v], d.outline[v + 1]);
+    w.u32(0).u32(0);
   });
   return w.out();
 }

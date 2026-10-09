@@ -12,7 +12,7 @@ integrity, fuzz and browser tests. See FORMAT_MATRIX.md for details.
 
 | Format | Status | Fixture origin |
 |---|---|---|
-| TVW (Tebo-ICT View, standard header) | verified | synthetic, built from a real board and accepted by the reference reader |
+| TVW (Tebo-ICT View, standard header) | verified | synthetic, built from a real board and accepted by the reference reader; also checked locally on a real Lenovo X1 Carbon Gen9 board (arc slots and decal bodies fixed, see FORMAT_MATRIX.md) |
 | BRD Test_Link (plain / obfuscated / Lenovo) | verified | synthetic, reference-validated |
 | BRD2 / BRDOUT | verified | **real** (kicad-boardview, Glasgow) |
 | BDV | verified | synthetic, reference-validated |
@@ -32,7 +32,7 @@ the standard header, FlexBV-only formats. No vendor decryption keys are included
 
 ## Tests (all passing)
 
-- Vitest: **135 tests**. Unit (camera transforms, I/O, ciphers incl. the DES FIPS vector, builder,
+- Vitest: **140 tests** (plus opt-in checks on private boards via `BS_PRIVATE_FIXTURES`). Unit (camera transforms, I/O, ciphers incl. the DES FIPS vector, builder,
   search, export), 17 differential golden tests against the reference parsers, a cross-exporter
   geometry check (≤1.1 mil on 1,130+ pins, 0 net mismatches), 37 detection/diagnostic tests, and 18
   fuzz suites (truncation, flips, splices, extreme counts, random input) covering every fixture.
@@ -67,5 +67,5 @@ the standard header, FlexBV-only formats. No vendor decryption keys are included
 - No redistributable real-world TVW, FZ, BDV, ASC, Test_Link, CAD, CST or XZZ files. These formats are
   verified only against reference-validated synthetic files built from a real board.
 - Encrypted FZ, CAE and XZZ need user keys. XZZ part sides are not decoded (same as upstream).
-- Not drawn: TVW decal outlines and copper pours, BVR3 relative outlines, GenCAD artwork.
+- Not drawn: TVW copper pours, BVR3 relative outlines, GenCAD artwork.
 - No side-by-side comparison mode. Recent files are kept per session only.

@@ -14,11 +14,16 @@
  *    which matches KiCad's own BRD export to <1 mil (see cross-format test).
  *  - TVW: the reference adapter ignores drill holes; BoardScope exposes them
  *    as vias, so vias are excluded from the TVW test-point comparison.
+ *  - TVW: the reference reads route-layer arc records (drill code 0x0B) as
+ *    straight slots, producing stray lines (on a real Lenovo board: long
+ *    diagonals to the origin). BoardScope decodes them as arcs, so only the
+ *    straight route edges are compared; closure is tested in tvw.test.ts.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { parseKey44 } from '../../src/formats/fz';
+import { readTvw } from '../../src/formats/tvw';
 import { validateModel } from '../../src/model/validate';
 import { type BoardModel, PINKIND_TESTPOINT, SIDE_BOTH, SIDE_BOTTOM, SIDE_TOP } from '../../src/model/types';
 import type { ManifestEntry } from '../../tools/gen-fixtures';
@@ -150,7 +155,16 @@ function compare(e: ManifestEntry, m: BoardModel, g: Golden): string[] {
   const gSegs = g.outline_segments.length;
   const gPts = g.format.length;
   const ourSegs = m.outline.segs.length / 4;
-  if (m.outline.source === 'file') {
+  if (m.outline.source === 'file' && e.format === 'tvw') {
+    // Straight route edges only (see header comment); each must exist in ours.
+    const board = readTvw(readFileSync(resolve(ROOT, e.files[0])));
+    const arcRecords = board.layers.reduce((n, l) => n + (l.kind === 'through' ? l.arcs.length : 0), 0);
+    const straight = g.outline_segments.length - arcRecords;
+    const ours = new Set<string>();
+    for (let i = 0; i < m.outline.segs.length; i += 4) ours.add(m.outline.segs.slice(i, i + 4).map((v) => Math.round(v)).join(','));
+    const found = g.outline_segments.filter((sg) => ours.has(sg.join(','))).length;
+    if (found < straight) errs.push(`only ${found} of ${straight} straight route edges found`);
+  } else if (m.outline.source === 'file') {
     const want = gSegs || Math.max(0, gPts - 1);
     if (Math.abs(ourSegs - want) > Math.max(2, want * 0.02)) errs.push(`outline segments: ours ${ourSegs} vs reference ${want}`);
   }

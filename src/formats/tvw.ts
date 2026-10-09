@@ -95,7 +95,15 @@ export interface TvwThroughLayer {
   type: number;
   tools: number[]; // tool sizes (raw)
   holes: { net: number; tool: number; x: number; y: number }[];
+  /** Straight slots (drill code 0x0A): routed line from (x1,y1) to (x2,y2). */
   slots: { net: number; tool: number; x1: number; y1: number; x2: number; y2: number }[];
+  /**
+   * Arc slots (drill code 0x0B): centre, radius and float32 start/sweep angles
+   * in degrees (negative sweep = clockwise). Same record size as a straight
+   * slot; the reference reader misreads these as lines, which produces long
+   * stray outline segments (e.g. towards the origin when the start angle is 0).
+   */
+  arcs: { net: number; tool: number; cx: number; cy: number; r: number; start: number; sweep: number }[];
 }
 export type TvwLayer = TvwLogicLayer | TvwThroughLayer;
 
@@ -121,12 +129,19 @@ export interface TvwPart {
   layer: number;
   pins: TvwPin[];
 }
+export interface TvwDecal {
+  name: string;
+  /** Body outline polygon in decal-local raw units (x0,y0,x1,y1,…). */
+  outline: number[];
+  /** Up to three local layers (pads in decal-local coordinates). */
+  layers: (TvwLayer | null)[];
+}
 export interface TvwBoard {
   header: { type: string; customer: string; date: string; layerCount: number };
   layers: TvwLayer[];
   nets: string[];
   parts: TvwPart[];
-  decals: string[];
+  decals: TvwDecal[];
 }
 
 /** The fixed 20-byte prefix: length 0x13 + ciphered "Tebo-ictview files.". */
@@ -440,7 +455,7 @@ class TvwReader {
   through(): TvwThroughLayer {
     const r = this.r;
     const h = this.objectHeader();
-    const T: TvwThroughLayer = { kind: 'through', name: h.name, type: h.type, tools: [], holes: [], slots: [] };
+    const T: TvwThroughLayer = { kind: 'through', name: h.name, type: h.type, tools: [], holes: [], slots: [], arcs: [] };
     this.eq(r.u32(), 0, 'through-layer tag');
     this.eq(r.u32(), 0, 'through-layer tag');
     let tc = r.u32('tool count');
@@ -464,13 +479,21 @@ class TvwReader {
           tool = r.u32();
         const [x, y] = this.vec();
         T.holes.push({ net, tool, x, y });
-      } else if (code === 0x0a || code === 0x0b) {
+      } else if (code === 0x0a) {
         const net = r.s32(),
           tool = r.u32();
         const [x1, y1] = this.vec();
         const [x2, y2] = this.vec();
         r.u32();
         T.slots.push({ net, tool, x1, y1, x2, y2 });
+      } else if (code === 0x0b) {
+        const net = r.s32(),
+          tool = r.u32();
+        const [cx, cy] = this.vec();
+        const rad = r.s32('arc radius');
+        const start = r.f32('arc start angle'),
+          sweep = r.f32('arc sweep angle');
+        T.arcs.push({ net, tool, cx, cy, r: rad, start, sweep });
       } else this.fail(`Unrecognized drill code 0x${code.toString(16)}`, r.pos - 1);
     }
     return T;
@@ -609,19 +632,22 @@ class TvwReader {
     return { name, bbox: [x0, y0, x1, y1], x, y, angle, decal, type, height, value, tolP, tolN, desc, serial, layer, pins };
   }
 
-  decal(): string {
+  decal(): TvwDecal {
     const r = this.r;
     if (!r.bool8('decal flag')) this.fail('Decal record flag is not set', r.pos - 1);
     const name = r.str8('decal name');
     r.skip(12);
     r.bool8();
-    for (let i = 0; i < 3; i++) if (r.bool8('decal layer present')) this.object();
+    const layers: (TvwLayer | null)[] = [];
+    for (let i = 0; i < 3; i++) layers.push(r.bool8('decal layer present') ? this.object() : null);
     if (!r.bool8('decal outline flag')) this.fail('Decal outline flag is not set', r.pos - 1);
     r.u32();
     r.s32();
     const vc = this.count(r.u32('decal outline vertex count'), 'decal vertex', 8);
-    r.skip(vc * 8 + 8, 'decal outline');
-    return name;
+    const outline: number[] = [];
+    for (let i = 0; i < vc; i++) outline.push(r.s32(), r.s32());
+    r.skip(8, 'decal outline tail');
+    return { name, outline, layers };
   }
 
   read(progress?: (f: number) => void): TvwBoard {
@@ -654,7 +680,7 @@ class TvwReader {
     const parts: TvwPart[] = [];
     for (let i = 0; i < pc; i++) parts.push(this.part());
     progress?.(0.9);
-    const decals: string[] = [];
+    const decals: TvwDecal[] = [];
     try {
       this.eq(r.u32(), 3, 'decal section tag');
       const dc = this.count(r.u32('decal count'), 'decal', 30);
@@ -693,6 +719,37 @@ const PART_TYPES: Record<number, string> = {
 
 const U = 1 / 100; // raw → mil
 
+/**
+ * Places a decal-local outline polygon (raw units) on the board: rotate by
+ * `angle` degrees counter-clockwise, mirror X for bottom-side parts, translate
+ * to the part position. Returns closed-polygon segments in mils, or null.
+ */
+export function placeOutline(outline: number[], px: number, py: number, angle: number, bottom: boolean): number[] | null {
+  const n = Math.floor(outline.length / 2);
+  if (n < 2) return null;
+  const a = (angle * Math.PI) / 180;
+  // Snap exact quarter turns so axis-aligned bodies stay exactly axis-aligned.
+  const c = Math.abs(Math.cos(a)) < 1e-12 ? 0 : Math.cos(a),
+    s = Math.abs(Math.sin(a)) < 1e-12 ? 0 : Math.sin(a);
+  const pts: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = outline[2 * i],
+      y = outline[2 * i + 1];
+    let u = x * c - y * s;
+    const v = x * s + y * c;
+    if (bottom) u = -u;
+    pts.push((px + u) * U, (py + v) * U);
+  }
+  const segs: number[] = [];
+  const closed = n > 2;
+  for (let i = 0; i < (closed ? n : n - 1); i++) {
+    const j = (i + 1) % n;
+    if (pts[2 * i] === pts[2 * j] && pts[2 * i + 1] === pts[2 * j + 1]) continue;
+    segs.push(pts[2 * i], pts[2 * i + 1], pts[2 * j], pts[2 * j + 1]);
+  }
+  return segs.length ? segs : null;
+}
+
 function padShape(s: TvwShape): { shape: PadShape; w: number; h: number; rot: number } {
   const w = Math.abs(s.sx) * U,
     h = Math.abs(s.sy) * U;
@@ -726,7 +783,8 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
 
   const netName = (n: number) => (n >= 0 && n < board.nets.length ? board.nets[n] : '');
   let skipped = 0,
-    missingPad = 0;
+    missingPad = 0,
+    noDecal = 0;
   const xs: number[] = [],
     ys: number[] = [];
   for (const part of board.parts) {
@@ -747,6 +805,15 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
     if (part.tolP || part.tolN) attrs.push(['Tolerance', `+${part.tolP || '?'} / -${part.tolN || '?'}`]);
     if (part.serial) attrs.push(['Serial', part.serial]);
     if (part.height) attrs.push(['Height', `${(part.height * U).toFixed(2)} mil`]);
+    // Body outline: the decal (footprint) outline placed like the pads are —
+    // rotated by the part angle (CCW) and, on the bottom side, mirrored in X
+    // after the rotation. Verified on a real board where this reproduces every
+    // pad of every part from the decal's local pads. The part record's own
+    // "Bbox" is not used: it includes the reference-designator text and is
+    // offset from the body for rotated parts.
+    const decal = board.decals[part.decal];
+    const body = decal ? placeOutline(decal.outline, part.x, part.y, part.angle, !top) : null;
+    if (!body) noDecal++;
     const idx = b.addPart({
       name: part.name,
       side: top ? SIDE_TOP : SIDE_BOTTOM,
@@ -754,9 +821,9 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
       x: part.x * U,
       y: part.y * U,
       rot: part.angle,
-      bbox: [part.bbox[0] * U, part.bbox[1] * U, part.bbox[2] * U, part.bbox[3] * U],
+      body,
       value: part.value || null,
-      footprint: board.decals[part.decal] ?? null,
+      footprint: board.decals[part.decal]?.name ?? null,
       attrs,
     });
     for (const pin of part.pins) {
@@ -787,6 +854,7 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
       });
     }
   }
+  if (noDecal) b.info('tvw.nodecal', `${noDecal} part(s) have no decal outline; their bodies are derived from pin positions`);
   if (skipped) b.info('tvw.innerparts', `${skipped} part(s) are not placed on the top/bottom copper layers and are not shown`);
   if (missingPad) b.warn('tvw.missingpad', `${missingPad} pin(s) reference a pad that does not exist; placed at the part origin without a net`);
 
@@ -803,6 +871,12 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
   }
   let outlineSegs = 0,
     strays = 0;
+  const near = (x: number, y: number) => {
+    if (!Number.isFinite(bx0)) return true;
+    const mx = Math.max(2000, (bx1 - bx0) / 2),
+      my = Math.max(2000, (by1 - by0) / 2);
+    return x >= bx0 - mx && x <= bx1 + mx && y >= by0 - my && y <= by1 + my;
+  };
   for (const l of board.layers) {
     if (l.kind !== 'through' || l.type !== TvwLayerType.Roul) continue;
     for (const s of l.slots) {
@@ -810,16 +884,34 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
         y1 = s.y1 * U,
         x2 = s.x2 * U,
         y2 = s.y2 * U;
-      if (Number.isFinite(bx0)) {
-        const mx = Math.max(2000, (bx1 - bx0) / 2),
-          my = Math.max(2000, (by1 - by0) / 2);
-        const inR = (x: number, y: number) => x >= bx0 - mx && x <= bx1 + mx && y >= by0 - my && y <= by1 + my;
-        if (!inR(x1, y1) || !inR(x2, y2)) {
-          strays++;
-          continue;
-        }
+      if (!near(x1, y1) || !near(x2, y2)) {
+        strays++;
+        continue;
       }
       b.addOutlineSeg(x1, y1, x2, y2);
+      outlineSegs++;
+    }
+    for (const a of l.arcs) {
+      const cx = a.cx * U,
+        cy = a.cy * U,
+        rad = Math.abs(a.r) * U;
+      if (!near(cx, cy) || !Number.isFinite(a.start) || !Number.isFinite(a.sweep) || Math.abs(a.sweep) > 720) {
+        strays++;
+        continue;
+      }
+      const n = Math.max(2, Math.min(64, Math.ceil(Math.abs(a.sweep) / 7.5)));
+      const s0 = (a.start * Math.PI) / 180,
+        sw = (a.sweep * Math.PI) / 180;
+      let px = cx + rad * Math.cos(s0),
+        py = cy + rad * Math.sin(s0);
+      for (let k = 1; k <= n; k++) {
+        const t = s0 + (sw * k) / n;
+        const x = cx + rad * Math.cos(t),
+          y = cy + rad * Math.sin(t);
+        b.addOutlineSeg(px, py, x, y);
+        px = x;
+        py = y;
+      }
       outlineSegs++;
     }
   }

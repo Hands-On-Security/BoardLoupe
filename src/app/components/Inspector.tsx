@@ -192,7 +192,7 @@ function PartDetails({ b, k }: { b: LoadedBoard; k: number }) {
         <Field label="Rotation">{Number.isNaN(m.parts.rot[k]) ? <Unavailable /> : `${m.parts.rot[k]}°`}</Field>
         <Field label="Size">
           {Number.isFinite(bx[0]) ? `${formatLength(bx[2] - bx[0], u, true)} × ${formatLength(bx[3] - bx[1], u, true)}` : <Unavailable />}
-          {Number.isFinite(bx[0]) && <span class="text-faint"> {m.parts.bboxFromFile[k] ? '(from file)' : '(pin extent)'}</span>}
+          {Number.isFinite(bx[0]) && <span class="text-faint"> {m.parts.bodyStart[k + 1] > m.parts.bodyStart[k] ? '(body outline from file)' : m.parts.bboxFromFile[k] ? '(from file)' : '(pin extent)'}</span>}
         </Field>
         {(m.parts.attrs[k] ?? []).map(([a, v]) => (
           <Field key={a} label={a}>

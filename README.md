@@ -35,7 +35,7 @@ Formats are recognised **by content**, not by file extension. The full details
 
 | Format | Status | Tested with |
 |---|---|---|
-| Tebo-ICT View `.tvw` (standard header) | verified | reference-validated synthetic board with traces, drills and outline |
+| Tebo-ICT View `.tvw` (standard header) | verified | reference-validated synthetic board with traces, drills, arcs and decal outlines; also checked locally on a real Lenovo board |
 | BRD Test_Link (plain, obfuscated, Lenovo variant) `.brd` `.bv` | verified | reference-validated synthetic |
 | BRD2 / BRDOUT (Toptest, kicad-boardview) `.brd` | verified | **real** file |
 | BDV `.bdv` | verified | reference-validated synthetic |
@@ -138,6 +138,7 @@ decompression output is capped, and input size is capped at 400 MB.
 | `npm run build` | Builds `dist/boardview.html` and verifies it is self-contained |
 | `npm test` | All unit, format, differential and fuzz tests (Vitest) |
 | `npm run test:formats` | Format tests only |
+| `BS_PRIVATE_FIXTURES=/dir npm test` | Also runs integrity and geometry checks on your own (non-redistributable) boardviews in `/dir` |
 | `npm run test:e2e` | Playwright on the built file over `file://` (Chromium, Firefox, WebKit). Run `npm run build` first. |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run fixtures` | Regenerate synthetic fixtures from the real Glasgow board |
@@ -193,8 +194,8 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
   built from a real board and validated by the original open-source parsers. Real-world variants
   the reference does not handle are not handled here either; they produce a precise error.
 - Encrypted FZ, CAE and XZZ need user-supplied keys.
-- Part body outlines are only drawn when the file provides them (GenCAD shapes) or as boxes.
-  TVW decal outlines and BVR3 relative outlines are not drawn.
+- Part body outlines are drawn when the file provides them (TVW decals, GenCAD shapes); otherwise
+  boxes around the pins are shown. BVR3 relative outlines are not drawn.
 - Copper pours (TVW surfaces) and GenCAD artwork are not drawn. Traces are shown only for formats
   that store them (TVW, GenCAD routes).
 - Comparison mode (two boards side by side) is not implemented. Recent files are kept per session only.

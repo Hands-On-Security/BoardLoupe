@@ -33,7 +33,7 @@ emits exactly one `dist/boardview.html`.
 ## Next (not done)
 
 - Altium ASCII and IPC-D-356 parsers (fixture for IPC-D-356 already present)
-- TVW decal outlines and copper pours; BVR3 relative outlines
+- TVW copper pours; BVR3 relative outlines
 - Side-by-side comparison of two boards
 - Real-world fixtures for TVW/FZ/BDV once redistributable samples exist
 
