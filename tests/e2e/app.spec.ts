@@ -296,6 +296,12 @@ test.describe('BoardScope single-file app', () => {
     await page.getByRole('option').filter({ hasText: 'net' }).first().click();
     await page.keyboard.press('a'); // add to group (focus left the search box on click)
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    type V = { cx: number; cy: number; scale: number; width: number; height: number };
+    const viewNow = () => page.evaluate(() => {
+      const v = (window as unknown as { boardscope: { viewer: { view: V } } }).boardscope.viewer.view;
+      return [v.cx, v.cy, v.scale, v.width, v.height];
+    });
+    const before = await viewNow();
     await page.keyboard.press('Control+p');
     const dlg = page.getByRole('dialog', { name: 'Report' });
     await expect(dlg).toBeVisible();
@@ -306,6 +312,11 @@ test.describe('BoardScope single-file app', () => {
     await expect(frame.locator('h1')).toHaveText('I2C <script>alert(1)</script> audit');
     await expect(frame.locator('table.data')).toContainText('/SDA');
     await expect(frame.locator('figure img')).toHaveCount(1);
+    // The board image fills the report's 184 x 116 mm frame (extended view, no letterbox) ...
+    const [iw, ih] = await frame.locator('figure img').evaluate((img) => [(img as HTMLImageElement).naturalWidth, (img as HTMLImageElement).naturalHeight]);
+    expect(Math.abs(iw / ih - 184 / 116)).toBeLessThan(0.01);
+    // ... and capturing it leaves the on-screen view untouched.
+    expect(await viewNow()).toEqual(before);
     const [dl] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: /Download HTML/ }).click()]);
     const html = readFileSync((await dl.path())!, 'utf8');
     expect(html.startsWith('<!doctype html>')).toBe(true);

@@ -18,6 +18,12 @@ import { formatBytes, formatLength } from './format';
 
 export const APP_VERSION: string = version;
 export const REPORT_URL = 'hos.direct/boardscope';
+/**
+ * Shape of the board-view frame in the report: the A4 content width (210 mm
+ * minus 2 × 13 mm margins) by 116 mm. The view is captured at exactly this
+ * aspect so the frame is filled with board, not margins.
+ */
+export const REPORT_IMAGE_ASPECT = 184 / 116;
 const REPORT_HREF = 'https://hos.direct/boardscope';
 
 export interface ReportOptions {
@@ -219,7 +225,7 @@ dl.meta dt { color: #56565e; }
 dl.meta dd { margin: 0; word-break: break-word; }
 .notes { border-left: 0.8mm solid #b1253d; background: #faf3f4; padding: 2.5mm 3.5mm; margin: 4mm 0 0; white-space: pre-wrap; }
 figure { margin: 0; break-inside: avoid; page-break-inside: avoid; }
-figure img { display: block; width: 100%; max-height: 116mm; object-fit: contain; border: 0.25mm solid #d8d8dd; border-radius: 1mm; background: #f4f5f7; }
+figure img { display: block; width: 100%; height: auto; aspect-ratio: 184 / 116; object-fit: contain; border: 0.25mm solid #d8d8dd; border-radius: 1mm; background: #f4f5f7; }
 h2 { break-after: avoid; page-break-after: avoid; }
 figcaption { color: #56565e; font-size: 8pt; margin-top: 1.5mm; }
 table.data { width: 100%; border-collapse: collapse; font-size: 8.5pt; }

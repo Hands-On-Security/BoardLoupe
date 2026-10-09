@@ -1,7 +1,7 @@
 import { FileDown, ImageDown, Printer } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { downloadText, exportBaseName, highlightFor, viewer } from '../actions';
-import { type ReportImage, type ReportOptions, type ReportView, collectReport, renderReportHtml } from '../report';
+import { REPORT_IMAGE_ASPECT, type ReportImage, type ReportOptions, type ReportView, collectReport, renderReportHtml } from '../report';
 import { store, toast, useStore } from '../store';
 import { saveViewPng } from './Groups';
 import { Button, Dialog, Kbd, Toggle } from './ui';
@@ -29,7 +29,8 @@ export function ReportDialog() {
   const key = opts.lightImage ? 'light' : 'dark';
   useEffect(() => {
     if (!opts.includeImage || images[key] !== undefined) return;
-    const img = viewer.captureImage({ light: opts.lightImage });
+    // Same centre and zoom as on screen, extended to fill the report's frame.
+    const img = viewer.captureImage({ light: opts.lightImage, aspect: REPORT_IMAGE_ASPECT });
     setImages((prev) => ({ ...prev, [key]: img }));
   }, [key, opts.includeImage]);
 

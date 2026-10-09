@@ -265,31 +265,46 @@ export class Viewer {
    * palette for a print-friendly image. Everything happens synchronously in
    * one task, so the on-screen canvas never shows the intermediate frame and
    * the WebGL drawing buffer is still valid when it is read.
+   *
+   * With `aspect` (width / height) the image gets exactly that shape: the
+   * rendered area is extended around the same centre and zoom, never cropped,
+   * so everything visible on screen is in the image and the rest of the frame
+   * shows more of the board instead of empty margins.
    */
   captureImage(
-    o: { light?: boolean; minDpr?: number; decorate?: (ctx: CanvasRenderingContext2D, width: number, height: number, dpr: number) => void } = {},
+    o: { light?: boolean; minDpr?: number; aspect?: number; decorate?: (ctx: CanvasRenderingContext2D, width: number, height: number, dpr: number) => void } = {},
   ): { url: string; width: number; height: number } | null {
     const r = this.renderer,
       gl = this.glCanvas,
       ov = this.overlayCanvas;
     if (!r || !gl || !this.model || !this.scene) return null;
-    const w = this.view.width,
-      h = this.view.height;
+    const prevView = this.view;
+    const w0 = prevView.width,
+      h0 = prevView.height;
+    let w = w0,
+      h = h0;
+    if (o.aspect && o.aspect > 0 && w0 > 0 && h0 > 0) {
+      if (w0 / h0 < o.aspect) w = h0 * o.aspect;
+      else h = w0 / o.aspect;
+    }
     const prevDpr = this.dpr,
       prevLight = this.opts.light;
-    const dpr = Math.min(3, Math.max(o.minDpr ?? 2, prevDpr));
+    // At least 2x for print, but the longest side stays within 4096 px so the
+    // drawing buffer is never silently clamped by the GPU.
+    const dpr = Math.min(3, Math.max(o.minDpr ?? 2, prevDpr), 4096 / Math.max(w, h));
     const swapTheme = o.light !== undefined && o.light !== prevLight;
-    const size = (d: number) => [Math.max(1, Math.round(w * d)), Math.max(1, Math.round(h * d))] as const;
+    const size = (cw: number, ch: number, d: number) => [Math.max(1, Math.round(cw * d)), Math.max(1, Math.round(ch * d))] as const;
     try {
       this.dpr = dpr;
+      this.view = { ...prevView, width: w, height: h };
       r.resize(w, h, dpr);
-      if (ov) [ov.width, ov.height] = size(dpr);
+      if (ov) [ov.width, ov.height] = size(w, h, dpr);
       if (swapTheme) {
         this.opts = { ...this.opts, light: !!o.light };
         this.colorsDirty = true;
       }
       this.renderNow();
-      const [cw, ch] = size(dpr);
+      const [cw, ch] = size(w, h, dpr);
       const c = document.createElement('canvas');
       c.width = cw;
       c.height = ch;
@@ -305,13 +320,14 @@ export class Viewer {
     } catch {
       return null;
     } finally {
+      this.view = prevView;
       this.dpr = prevDpr;
       if (swapTheme) {
         this.opts = { ...this.opts, light: prevLight };
         this.colorsDirty = true;
       }
-      r.resize(w, h, prevDpr);
-      if (ov) [ov.width, ov.height] = size(prevDpr);
+      r.resize(w0, h0, prevDpr);
+      if (ov) [ov.width, ov.height] = size(w0, h0, prevDpr);
       this.renderNow();
     }
   }
