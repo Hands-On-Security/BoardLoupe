@@ -1,9 +1,10 @@
-import { Copy, Crosshair, Eye, EyeOff, Focus, Layers } from 'lucide-preact';
+import { Copy, Crosshair, Eye, EyeOff, Focus, Layers, Wrench } from 'lucide-preact';
 import { useMemo } from 'preact/hooks';
+import { type SolderPoint, solderPoints } from '../../model/solder';
 import { type BoardModel, MOUNT_UNKNOWN, NETFLAG_GROUND, NETFLAG_NOCONNECT, NETFLAG_POWER, NO_PROBE, PINKIND_TESTPOINT, mountLabel, sideLabel } from '../../model/types';
 import { RATSNEST_MAX_PINS } from '../../scene/ratsnest';
 import { collator } from '../../search/search';
-import { copyText, focusSelection, selectNet, selectPart, selectPin } from '../actions';
+import { copyText, focusSelection, selectNet, selectPart, selectPin, selectVia } from '../actions';
 import { formatCoord, formatLength, plural } from '../format';
 import { type LoadedBoard, store, useStore } from '../store';
 import { Badge, Field, IconButton, SectionTitle, Unavailable, cx } from './ui';
@@ -264,6 +265,7 @@ function PinDetails({ b, i }: { b: LoadedBoard; i: number }) {
         {m.pins.hole[i] > 0 && <Field label="Drill">{formatLength(m.pins.hole[i], m.units, true)}</Field>}
         {m.pins.probe[i] !== NO_PROBE && <Field label="Probe">{m.pins.probe[i]}</Field>}
       </dl>
+      {n >= 0 && !(m.nets.flags[n] & NETFLAG_NOCONNECT) && <SolderPoints b={b} n={n} exclude={i} max={8} />}
       {n >= 0 && (
         <>
           <SectionTitle>Net members</SectionTitle>
@@ -271,6 +273,60 @@ function PinDetails({ b, i }: { b: LoadedBoard; i: number }) {
         </>
       )}
     </div>
+  );
+}
+
+function reasonVar(reasons: string[]): string {
+  if (reasons.includes('test point')) return 'var(--ok)';
+  if (reasons.includes('through-hole') || reasons.includes('connector')) return 'var(--info)';
+  if (reasons.includes('passive terminal') || reasons.includes('large pad')) return 'var(--accent)';
+  if (reasons.includes('fine pitch')) return 'var(--faint)';
+  return 'var(--muted)';
+}
+
+/**
+ * Ranked, clickable list of the easiest points to tap a wire onto for this net
+ * — test points first, then through-holes, connectors and large pads, with
+ * fine-pitch IC pads last. The teaching workflow: reach a bus somewhere
+ * accessible instead of on a BGA ball.
+ */
+function SolderPoints({ b, n, exclude = -1, max = 14 }: { b: LoadedBoard; n: number; exclude?: number; max?: number }) {
+  const m = b.model;
+  const s = b.scene;
+  const pts = useMemo(() => solderPoints(m, s.pinHW, s.pinHH, s.typicalPin, n, 60), [m, s, n]);
+  const list = pts.filter((p: SolderPoint) => !(p.kind === 'pin' && p.index === exclude));
+  if (!list.length) return null;
+  const go = (p: SolderPoint) => (p.kind === 'via' ? selectVia(p.index) : selectPin(p.index));
+  return (
+    <>
+      <SectionTitle right={<span class="text-[10px] text-faint normal-case tracking-normal font-normal">easiest first</span>}>
+        <span class="inline-flex items-center gap-1.5">
+          <Wrench size={12} /> Solder / probe points
+        </span>
+      </SectionTitle>
+      <div class="px-1.5 pb-2">
+        {list.slice(0, max).map((p) => {
+          const col = reasonVar(p.reasons);
+          return (
+            <button
+              key={p.kind + p.index}
+              class="w-full flex items-center gap-2 px-2 h-7 rounded-md hover:bg-raised text-left"
+              onClick={() => go(p)}
+              title={`${p.reasons.join(', ')} · score ${p.score}`}
+            >
+              <span class="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: col }} />
+              <span class="font-mono text-[12px] text-fg w-28 truncate">{p.label}</span>
+              <span class="flex-1 min-w-0 truncate text-[11px]" style={{ color: col }}>
+                {p.reasons[0]}
+              </span>
+              <span class={cx('text-[10px] w-4 text-center shrink-0', p.side === 2 ? 'text-info' : 'text-faint')} title={sideLabel(p.side)}>
+                {p.side === 2 ? 'B' : p.side === 1 ? 'T' : '±'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -340,6 +396,7 @@ function NetDetails({ b, n }: { b: LoadedBoard; n: number }) {
         <p class="px-3 pt-2 text-[12px] text-warn">This name marks unconnected pins. Pins sharing it are not electrically connected.</p>
       ) : null}
       {ratsOn && count > RATSNEST_MAX_PINS && <p class="px-3 pt-2 text-[12px] text-faint">Air wires are not drawn for nets with more than {RATSNEST_MAX_PINS} pins.</p>}
+      {!(f & NETFLAG_NOCONNECT) && <SolderPoints b={b} n={n} />}
       <SectionTitle>Parts on this net</SectionTitle>
       <div class="px-3 pb-2 flex flex-wrap gap-1 max-h-40 overflow-auto scroll-thin">
         {parts.slice(0, 400).map((k) => (

@@ -20,6 +20,11 @@ export interface Palette {
   selNet: RGBA;
   selPin: RGBA;
   multi: RGBA;
+  /** Bright ring drawn around every emphasised pad so a highlighted net stays
+   * visible at any zoom (even when the pad itself is sub-pixel). */
+  highlightHalo: RGBA;
+  /** Distinct, high-contrast colours for a multi-net (bus) selection. */
+  busColors: RGBA[];
   ratsnest: RGBA;
   measure: RGBA;
   label: string;
@@ -43,11 +48,22 @@ export const DARK: Palette = {
   testpoint: [226, 118, 196, 255],
   via: [120, 128, 140, 255],
   holeEdge: [158, 168, 182, 255],
-  selPart: [255, 110, 100, 255],
-  selNet: [64, 224, 255, 255],
+  selPart: [255, 94, 110, 255],
+  selNet: [66, 214, 255, 255],
   selPin: [255, 255, 255, 255],
   multi: [190, 140, 255, 255],
-  ratsnest: [64, 224, 255, 210],
+  highlightHalo: [255, 255, 255, 255],
+  busColors: [
+    [66, 214, 255, 255], // cyan
+    [255, 158, 54, 255], // orange
+    [120, 230, 120, 255], // green
+    [255, 110, 196, 255], // pink
+    [190, 150, 255, 255], // violet
+    [250, 222, 74, 255], // yellow
+    [120, 190, 255, 255], // sky
+    [120, 236, 210, 255], // teal
+  ],
+  ratsnest: [66, 214, 255, 210],
   measure: [240, 184, 80, 255],
   label: 'rgba(226,232,240,0.95)',
   labelDim: 'rgba(160,172,190,0.75)',
@@ -79,11 +95,22 @@ export const LIGHT: Palette = {
   testpoint: [196, 60, 150, 255],
   via: [140, 146, 156, 255],
   holeEdge: [92, 100, 112, 255],
-  selPart: [214, 52, 42, 255],
-  selNet: [0, 136, 220, 255],
+  selPart: [200, 30, 56, 255],
+  selNet: [0, 122, 200, 255],
   selPin: [10, 10, 10, 255],
   multi: [124, 58, 237, 255],
-  ratsnest: [0, 136, 220, 230],
+  highlightHalo: [17, 20, 26, 255],
+  busColors: [
+    [0, 122, 200, 255], // blue
+    [200, 92, 0, 255], // orange
+    [24, 140, 70, 255], // green
+    [196, 40, 150, 255], // magenta
+    [120, 58, 214, 255], // violet
+    [150, 110, 0, 255], // amber
+    [0, 140, 160, 255], // teal
+    [160, 40, 40, 255], // brick
+  ],
+  ratsnest: [0, 122, 200, 230],
   measure: [185, 119, 14, 255],
   label: 'rgba(20,26,36,0.95)',
   labelDim: 'rgba(70,80,96,0.8)',

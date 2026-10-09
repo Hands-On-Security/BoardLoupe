@@ -56,6 +56,9 @@ export interface Colors {
   part: Uint8Array;
   via: Uint8Array;
   trace: Uint8Array;
+  /** 1 for pads/vias that get an on-top halo so they stay visible when zoomed out. */
+  pinEmph: Uint8Array;
+  viaEmph: Uint8Array;
 }
 
 function put(a: Uint8Array, i: number, c: RGBA, alpha = c[3]) {
@@ -79,9 +82,19 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
   const part = new Uint8Array(parts.count * 4);
   const via = new Uint8Array(vias.count * 4);
   const trace = new Uint8Array(traces.count * 4);
+  const pinEmph = new Uint8Array(pins.count);
+  const viaEmph = new Uint8Array(vias.count);
 
   const netSel = new Uint8Array(nets.count);
   for (const n of h.nets) if (n >= 0 && n < nets.count) netSel[n] = 1;
+  // A multi-net (bus) selection gets a distinct colour per net; a single net
+  // keeps the plain selection colour. Index follows h.nets order (selection order).
+  const multiBus = h.nets.length > 1;
+  const busOf = (n: number): RGBA => {
+    if (!multiBus) return p.selNet;
+    const i = h.nets.indexOf(n);
+    return i < 0 ? p.selNet : p.busColors[i % p.busColors.length];
+  };
   const partSel = new Uint8Array(parts.count);
   for (const k of h.parts) if (k >= 0 && k < parts.count) partSel[k] = 2;
   if (h.part >= 0 && h.part < parts.count) partSel[h.part] = 1;
@@ -89,14 +102,15 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
   const dimAlpha = o.light ? 70 : 60;
   const isolate = h.isolate && anySel;
 
-  // Parts touched by a highlighted net get a hint of the net colour.
-  const partTouch = new Uint8Array(parts.count);
+  // Parts touched by a highlighted net get a hint of that net's colour.
+  // Stores netIndex+1 of the first selected net reaching the part (0 = none).
+  const partTouch = new Int32Array(parts.count);
   if (h.nets.length) {
     for (const n of h.nets) {
       if (n < 0 || n >= nets.count) continue;
       for (let j = nets.pinStart[n]; j < nets.pinStart[n + 1]; j++) {
         const k = pins.part[nets.pinIndex[j]];
-        if (k >= 0) partTouch[k] = 1;
+        if (k >= 0 && partTouch[k] === 0) partTouch[k] = n + 1;
       }
     }
   }
@@ -113,21 +127,28 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
     else if (pins.hole[i] > 0 || (k >= 0 && parts.mount[k] === MOUNT_TH)) c = p.padTH;
     else c = p.pad;
     let hl = false;
+    let emph = false;
     if (n >= 0 && netSel[n]) {
-      c = p.selNet;
+      c = busOf(n);
       hl = true;
+      emph = true;
     } else if (k >= 0 && partSel[k]) {
       c = mix(c, partSel[k] === 1 ? p.selPart : p.multi, 0.6);
       hl = true;
+      // Small parts (ICs, passives) get a halo so a selected component is
+      // findable when zoomed out; large parts (BGAs) rely on their outline.
+      if (parts.pinCount[k] <= 64) emph = true;
     }
     if (i === h.pin) {
       c = p.selPin;
       hl = true;
+      emph = true;
     }
     let a = c[3];
     if ((isolate || (h.hideUnselectedNets && h.nets.length)) && !hl) a = h.hideUnselectedNets && h.nets.length ? 0 : dimAlpha;
     // While a net is highlighted, other pads recede so the net stands out.
-    else if (h.nets.length && !hl) c = mix(c, p.bg, 0.55);
+    else if (h.nets.length && !hl) c = mix(c, p.bg, 0.6);
+    if (emph && a > 0) pinEmph[i] = 1;
     put(pin, i, c, a);
   }
 
@@ -141,7 +162,7 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
       c = p.multi;
       hl = true;
     } else if (partTouch[k]) {
-      c = mix(c, p.selNet, 0.45);
+      c = mix(c, busOf(partTouch[k] - 1), 0.45);
       hl = true;
     }
     if (h.nets.length && !hl && !isolate) c = mix(c, p.bg, 0.4);
@@ -151,7 +172,8 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
   for (let i = 0; i < vias.count; i++) {
     const n = vias.net[i];
     const sel = n >= 0 && netSel[n] === 1;
-    const c = sel ? p.selNet : o.colorByNet && n >= 0 ? netColor(n, o.light) : p.via;
+    const c = sel ? busOf(n) : o.colorByNet && n >= 0 ? netColor(n, o.light) : p.via;
+    if (sel) viaEmph[i] = 1;
     put(via, i, c, (isolate || (h.hideUnselectedNets && h.nets.length)) && !sel ? dimAlpha / 2 : c[3]);
   }
 
@@ -162,8 +184,9 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
     const sel = n >= 0 && netSel[n] === 1;
     const li = layerIdx.get(traces.layer[i]) ?? traces.layer[i];
     const base = p.traceLayers[li % p.traceLayers.length];
-    const c = sel ? ([p.selNet[0], p.selNet[1], p.selNet[2], 235] as RGBA) : o.colorByNet && n >= 0 ? ([...netColor(n, o.light).slice(0, 3), base[3]] as RGBA) : base;
+    const bc = sel ? busOf(n) : p.selNet;
+    const c = sel ? ([bc[0], bc[1], bc[2], 235] as RGBA) : o.colorByNet && n >= 0 ? ([...netColor(n, o.light).slice(0, 3), base[3]] as RGBA) : base;
     put(trace, i, c, anySel && h.nets.length && !sel ? Math.round(c[3] * 0.35) : c[3]);
   }
-  return { pin, part, via, trace };
+  return { pin, part, via, trace, pinEmph, viaEmph };
 }

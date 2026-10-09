@@ -122,6 +122,25 @@ test.describe('BoardScope single-file app', () => {
     await expect(insp.getByText('Nothing selected.')).toBeVisible();
   });
 
+  test('net → ranked solder / probe points, jump to one', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
+    await page.keyboard.press('/');
+    await page.keyboard.type('SDA');
+    await expect(page.getByRole('option').first()).toBeVisible();
+    // Select the net result explicitly.
+    await page.getByRole('option').filter({ hasText: 'NET' }).first().click();
+    const insp = page.getByTestId('inspector');
+    await expect(insp.getByText('Solder / probe points')).toBeVisible();
+    await expect(insp.getByText('easiest first')).toBeVisible();
+    // Jump to the top-ranked point; selection moves to a pin/test point or via.
+    const firstPoint = insp.locator('button', { hasText: /test point|via|pad|through-hole|connector/ }).first();
+    await expect(firstPoint).toBeVisible();
+    await firstPoint.click();
+    // Selection moved to an individual point (pin, test point or via).
+    await expect(insp.getByText(/^(Pin|Test point|Via \/ hole)$/).first()).toBeVisible();
+  });
+
   test('side switching, mirror, rotate, zoom and fit', async ({ page }) => {
     await openApp(page);
     await load(page, FX('real/glasgow/glasgow-kicad-boardview.brd'));

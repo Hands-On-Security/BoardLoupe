@@ -1,6 +1,7 @@
 import { AlertTriangle, CircuitBoard, FolderOpen, KeyRound, Loader2, ShieldCheck, Upload, X } from 'lucide-preact';
 import { FORMATS } from '../../formats/registry';
 import { cancelLoad } from '../actions';
+import { HOS_URL, HosLogo } from '../brand';
 import { store, useStore } from '../store';
 import { openPicker } from './Toolbar';
 import { Badge, Button, Kbd } from './ui';
@@ -13,14 +14,26 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
   return (
     <div class="absolute inset-0 overflow-auto scroll-thin flex items-start md:items-center justify-center p-6">
       <div class="w-full max-w-[860px] fade-in">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="w-11 h-11 rounded-xl bg-accent-soft flex items-center justify-center">
-            <CircuitBoard size={24} class="text-accent" />
+        <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-accent-soft flex items-center justify-center">
+              <CircuitBoard size={24} class="text-accent" />
+            </div>
+            <div>
+              <h1 class="text-[22px] font-semibold tracking-tight">BoardScope</h1>
+              <p class="text-muted text-[13px]">Offline boardview viewer — identify components, trace nets, find solder points</p>
+            </div>
           </div>
-          <div>
-            <h1 class="text-[22px] font-semibold tracking-tight">BoardScope</h1>
-            <p class="text-muted text-[13px]">Offline boardview viewer for PCB repair and inspection</p>
-          </div>
+          <a
+            href={HOS_URL}
+            target="_blank"
+            rel="noopener noreferrer external"
+            class="flex flex-col items-start gap-1.5 rounded-xl border border-line2 px-3.5 py-2.5 hover:bg-raised transition-colors"
+            title="BoardScope is a Hands-On Security tool — open the project portal"
+          >
+            <HosLogo height={26} />
+            <span class="text-[10.5px] text-faint">Practical hardware security training</span>
+          </a>
         </div>
         <div
           class={`dropzone-dash rounded-2xl ${dragging ? 'dropzone-active' : 'bg-panel/60'} transition-colors px-6 py-10 flex flex-col items-center text-center`}
@@ -71,6 +84,12 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
             </ul>
           </section>
         </div>
+        <p class="mt-6 pt-4 border-t border-line text-[12px] text-faint flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="inline-flex items-center gap-1.5">
+            A <HosLogo height={13} /> tool.
+          </span>
+          <span class="text-muted">Understand the attack. Build the skills to defend.</span>
+        </p>
       </div>
     </div>
   );

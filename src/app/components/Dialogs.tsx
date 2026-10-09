@@ -7,6 +7,7 @@ import { type BoardModel, sideLabel, unitLabel } from '../../model/types';
 import { modelToJson, toCsv } from '../export';
 import { collator } from '../../search/search';
 import { copyText, downloadText, selectNet, selectPart, selectPin } from '../actions';
+import { HOS_URL, HosByline, HosLogo } from '../brand';
 import { saveKeys, setPrefs, store, useStore } from '../store';
 import { Badge, Button, Dialog, Kbd, Toggle, cx } from './ui';
 import { VirtualList } from './VirtualList';
@@ -343,7 +344,17 @@ export function HelpDialog() {
               Current board units: <span class="text-fg">{unitLabel(board.model.units)}</span>
             </p>
           )}
-          <p class="text-faint text-[11.5px]">BoardScope — single-file offline viewer. Parsers derived from OpenBoardView (MIT) and eagleview (MIT). See bundled notices in the source repository.</p>
+          <div class="border-t border-line pt-3 flex flex-col gap-1.5">
+            <a href={HOS_URL} target="_blank" rel="noopener noreferrer external" class="w-fit hover:opacity-80 transition-opacity">
+              <HosLogo height={22} />
+            </a>
+            <p class="text-muted text-[11.5px]">
+              BoardScope is a <a href={HOS_URL} target="_blank" rel="noopener noreferrer external" class="text-brand hover:underline font-medium">Hands-On Security</a> tool — practical
+              hardware security training on real hardware. Used in class to find the TPM and better solder points where the same bus connects.
+            </p>
+            <HosByline class="text-[11px]" />
+            <p class="text-faint text-[11px]">Single-file offline viewer. Parsers derived from OpenBoardView (MIT) and eagleview (MIT). See bundled notices in the source repository.</p>
+          </div>
         </section>
       </div>
     </Dialog>

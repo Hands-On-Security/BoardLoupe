@@ -69,7 +69,7 @@ for (const [re, what] of checks) {
   if (hit) problems.push(`${what}: …${html.slice(Math.max(0, hit.index - 60), hit.index + 80).replace(/\s+/g, ' ')}…`);
 }
 // Every absolute http(s) URL must be in the allow-list of inert strings (XML namespaces, licence/docs links in comments/strings).
-const allowed = [/^http:\/\/www\.w3\.org\//, /^https?:\/\/(?:github\.com|openboardview\.org|www\.w3\.org|kicad\.org|react\.dev|preactjs\.com|lucide\.dev|tailwindcss\.com|developer\.mozilla\.org)\b/];
+const allowed = [/^http:\/\/www\.w3\.org\//, /^https?:\/\/(?:github\.com|openboardview\.org|www\.w3\.org|kicad\.org|react\.dev|preactjs\.com|lucide\.dev|tailwindcss\.com|developer\.mozilla\.org|hands-on-security\.com|hos\.direct)\b/];
 const urls = [...new Set(html.match(/https?:\/\/[^\s"'`)<>]+/g) ?? [])];
 const unknownUrls = urls.filter((u) => !allowed.some((a) => a.test(u)));
 if (unknownUrls.length) problems.push(`Unexpected absolute URLs in output (review): ${unknownUrls.slice(0, 10).join(' ')}`);

@@ -5,6 +5,11 @@ Open `dist/boardview.html` by double-clicking it. It runs in Chrome, Edge,
 Firefox and Safari with no installation, no server, no network access and no
 account. Boardview files are parsed in your browser and never leave your machine.
 
+A [**Hands-On Security**](https://hos.direct/boardscope) tool — built for the hardware
+security classroom: identify components, trace a bus across the board, and find better,
+more accessible solder and probe points on the same net (for example reaching the SPI/LPC
+bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch ball).
+
 ![Net highlighted with air wires](docs/screenshots/dark-net.png)
 
 | | |
@@ -70,12 +75,21 @@ source) on the fixture, plus integrity, fuzz and browser tests.
 - **Search** (<kbd>/</kbd> or <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd>). Results are ranked exact, then prefix, then substring, then fuzzy, across
   parts, nets and values. Examples: `U42`, `R101`, `GND`, `+3V3`, `USB_D+`, `U12.4`, `U12 pin 4`, and
   `pin 17` (pin 17 of the selected part first). <kbd>↑</kbd>/<kbd>↓</kbd> move, <kbd>Enter</kbd> jumps.
+- **Highlighting that reads at any zoom.** A selected net, pin or component is drawn as a bright
+  **beacon** — a haloed pad with a minimum on-screen size — so it stays visible even when the pad
+  itself is sub-pixel on a zoomed-out board. Everything else recedes so the selection stands out.
+- **Trace a bus.** <kbd>Shift</kbd>-click (or add from *Nets*) several nets to build a multi-net
+  selection; each net gets its own high-contrast colour, so you can follow an SPI / LPC / eSPI bus
+  across the board at a glance. <kbd>I</kbd> isolates the selection and <kbd>H</kbd> hides other nets.
+- **Find a solder / probe point.** The inspector ranks every physical point on a net by how practical
+  it is to tap a wire onto — **test points first, then through-holes, connectors and large pads, with
+  fine-pitch IC pads last** — each with its board side. Click one to jump straight to it. This is the
+  classroom workflow for reaching a bus somewhere accessible instead of on a BGA ball.
 - **Inspect.** Click a part to see refdes, side, mount, position, rotation, footprint, value,
   attributes, its pin table with nets, and parts it connects to on signal nets. Click a pin to see its
   part, number, name, net and pad, and to highlight its net. Click a net (in the inspector, search or
   *Nets*) to highlight all its pins and parts and fit the view to it.
-  <kbd>Shift</kbd>-click adds parts or nets to a multi-selection. <kbd>I</kbd> isolates the selection and
-  <kbd>H</kbd> hides other nets. <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> step through the selection history. <kbd>Esc</kbd> clears.
+  <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> step through the selection history. <kbd>Esc</kbd> clears.
 - **Layers & display** (<kbd>L</kbd>). Toggle outline, bodies, pins, vias, real copper traces (when the
   file has them, per layer), labels, net colouring, and **air wires**. Air wires are dashed, inferred
   straight connections between a net's pins; they are never real traces.
@@ -217,7 +231,8 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 
 ## Credits and licences
 
-BoardScope is MIT-licensed. The parsers are re-implementations informed by
+BoardScope is published by [Hands-On Security](https://hos.direct/boardscope) and is MIT-licensed.
+The parsers are re-implementations informed by
 [OpenBoardView](https://github.com/OpenBoardView/OpenBoardView) (MIT) and
 [eagleview](https://github.com/nitrocaster/eagleview) by Pavel Kovalenko (MIT, TVW). Real fixtures
 come from [kicad-boardview](https://github.com/whitequark/kicad-boardview) (0BSD, Glasgow board).

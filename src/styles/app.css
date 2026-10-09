@@ -15,6 +15,9 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
   --color-net: var(--net);
   --color-part: var(--part);
   --color-ok: var(--ok);
@@ -39,6 +42,10 @@
   --accent: #e8b04a;
   --accent-fg: #1a1408;
   --accent-soft: rgba(232, 176, 74, 0.14);
+  /* Hands-On Security brand accent (used for the wordmark and the back-link). */
+  --brand: #f04c64;
+  --brand-strong: #b1253d;
+  --brand-soft: rgba(240, 76, 100, 0.16);
   --net: #40e0ff;
   --part: #ff6e64;
   --ok: #4cc38a;
@@ -63,6 +70,9 @@
   --accent: #b9770e;
   --accent-fg: #ffffff;
   --accent-soft: rgba(185, 119, 14, 0.12);
+  --brand: #c81e38;
+  --brand-strong: #b1253d;
+  --brand-soft: rgba(177, 37, 61, 0.1);
   --net: #0078c2;
   --part: #d6342a;
   --ok: #1f8a57;
@@ -117,6 +127,17 @@ button:focus:not(:focus-visible) {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Official Hands-On Security logo. It is black; on the dark theme (the default)
+   it is recoloured to white, preserving its transparency. */
+.hos-logo {
+  display: inline-block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+:root:not([data-theme='light']) .hos-logo {
+  filter: brightness(0) invert(1);
 }
 
 .board-cursor-grab {

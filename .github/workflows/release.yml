@@ -1,0 +1,30 @@
+name: Release
+
+# Builds the single-file viewer and attaches it to a GitHub Release when a
+# version tag (e.g. v1.0.0) is pushed.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck && npm run lint && npm test
+      - run: npm run build
+      - name: Create / update release with the single-file viewer
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/boardview.html
+          generate_release_notes: true
+          fail_on_unmatched_files: true

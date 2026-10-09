@@ -23,6 +23,7 @@ layout(location=4) in float a_shape;
 layout(location=5) in float a_side;
 layout(location=6) in vec4 a_color;
 layout(location=7) in float a_hole;
+layout(location=8) in float a_emph;
 uniform mat3 u_view;
 uniform vec2 u_viewport;
 uniform float u_side;
@@ -32,6 +33,9 @@ uniform int u_hover;
 uniform float u_minPx;
 uniform float u_scale;
 uniform float u_holePass;
+uniform float u_emphPass;
+uniform float u_emphMinPx;
+uniform float u_haloPx;
 out vec2 v_local;
 out vec2 v_half;
 flat out float v_shape;
@@ -43,10 +47,16 @@ void main() {
   bool draw = (u_pass == 0.0) ? other : !other;
   // Hole pass: drills go through the board, so every drilled pad is drawn.
   if (u_holePass > 0.5) draw = a_hole > 0.0;
+  // Emphasis pass: only highlighted pads, drawn on top with a halo.
+  if (u_emphPass > 0.5) draw = a_emph > 0.5;
   if (!draw || a_color.a == 0.0 || (other && u_ghost == 0.0 && u_holePass < 0.5)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   v_hole = a_hole * u_scale;
   vec2 halfPx = max(a_half * u_scale, vec2(u_minPx));
-  vec2 local = a_corner * (halfPx + 1.5);
+  // Emphasised pads never shrink below a legible size, so a highlighted net
+  // stays visible however far out the board is zoomed.
+  if (u_emphPass > 0.5) halfPx = max(halfPx, vec2(u_emphMinPx));
+  float expand = (u_emphPass > 0.5) ? (u_haloPx + 1.5) : 1.5;
+  vec2 local = a_corner * (halfPx + expand);
   float r = radians(a_rot);
   float c = cos(r), s = sin(r);
   vec2 w = vec2(local.x * c - local.y * s, local.x * s + local.y * c) / u_scale;
@@ -70,11 +80,34 @@ flat in float v_hole;
 uniform vec3 u_hoverColor;
 uniform vec3 u_holeColor;
 uniform vec3 u_holeEdge;
+uniform vec3 u_haloColor;
 uniform float u_holeOnly;
+uniform float u_emphPass;
+uniform float u_haloPx;
 out vec4 o;
 float box(vec2 p, vec2 b) { vec2 d = abs(p) - b; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0); }
+float shapeSdf(vec2 p, vec2 b, float shape) {
+  float m = min(b.x, b.y);
+  if (shape < 1.5) return length(p) - m;                         // default / circle
+  else if (shape < 2.5) return box(p, b);                        // rect
+  else if (shape < 3.5) { float r = 0.35 * m; return box(p, b - r) - r; }  // round rect
+  else if (shape < 4.5) return box(p, b - m) - m;                // oblong
+  else { float R = m; return abs(length(p) - R * 0.72) - R * 0.28; }       // ring
+}
 void main() {
   vec2 p = v_local;
+  if (u_emphPass > 0.5) {
+    // Bright halo ring hugging the pad plus a solid fill: a beacon that reads
+    // at any zoom. Fill uses the selection colour; the ring uses u_haloColor.
+    float d = shapeSdf(p, v_half, v_shape);
+    float fill = clamp(0.5 - d, 0.0, 1.0);
+    float halo = (1.0 - smoothstep(0.0, u_haloPx, d)) * step(-0.5, d);
+    float a = max(fill, halo * 0.92);
+    if (a <= 0.0) discard;
+    vec3 col = mix(u_haloColor, v_color.rgb, clamp(fill * 2.0, 0.0, 1.0));
+    o = vec4(col * a, a);
+    return;
+  }
   if (u_holeOnly > 0.5) {
     // Drawn after all pads so overlapping copper never hides a drill.
     if (v_hole <= 0.75) discard;
@@ -228,6 +261,7 @@ interface PadBatch {
   vao: WebGLVertexArrayObject;
   count: number;
   colorBuf: WebGLBuffer;
+  emphBuf: WebGLBuffer;
 }
 interface SegBatch {
   vao: WebGLVertexArrayObject;
@@ -266,7 +300,7 @@ export class GLRenderer implements Renderer {
     this.gl = gl;
     this.padProg = compile(gl, PAD_VS, PAD_FS);
     this.segProg = compile(gl, SEG_VS, SEG_FS);
-    for (const n of ['u_view', 'u_viewport', 'u_side', 'u_pass', 'u_ghost', 'u_hover', 'u_minPx', 'u_scale', 'u_hoverColor', 'u_holeColor', 'u_holeEdge', 'u_holeOnly', 'u_holePass']) this.u[n] = gl.getUniformLocation(this.padProg, n);
+    for (const n of ['u_view', 'u_viewport', 'u_side', 'u_pass', 'u_ghost', 'u_hover', 'u_minPx', 'u_scale', 'u_hoverColor', 'u_holeColor', 'u_holeEdge', 'u_haloColor', 'u_holeOnly', 'u_holePass', 'u_emphPass', 'u_emphMinPx', 'u_haloPx']) this.u[n] = gl.getUniformLocation(this.padProg, n);
     for (const n of ['u_view', 'u_viewport', 'u_side', 'u_pass', 'u_ghost', 'u_scale', 'u_minWidth', 'u_layerMask', 'u_widthScale', 'u_dash']) this.su[n] = gl.getUniformLocation(this.segProg, n);
     this.quad = this.buf(new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]));
     this.segQuad = this.buf(new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]));
@@ -303,8 +337,11 @@ export class GLRenderer implements Renderer {
     const colorBuf = this.buf(new Uint8Array(count * 4), gl.DYNAMIC_DRAW);
     this.attrib(6, colorBuf, 4, gl.UNSIGNED_BYTE, true);
     this.attrib(7, this.buf(hole ?? new Float32Array(count)), 1, gl.FLOAT);
+    // Not normalised: a raw 0/1 byte converts to 0.0/1.0 for the float attribute.
+    const emphBuf = this.buf(new Uint8Array(count), gl.DYNAMIC_DRAW);
+    this.attrib(8, emphBuf, 1, gl.UNSIGNED_BYTE, false);
     gl.bindVertexArray(null);
-    return { vao, count, colorBuf };
+    return { vao, count, colorBuf, emphBuf };
   }
 
   private makeSegs(seg: Float32Array, width: Float32Array, side: Float32Array, layer: Float32Array, count: number, color?: Uint8Array, dist?: Float32Array): SegBatch {
@@ -441,10 +478,14 @@ export class GLRenderer implements Renderer {
     if (this.pads && this.pads.count) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.pads.colorBuf);
       gl.bufferData(gl.ARRAY_BUFFER, c.pin, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.pads.emphBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, c.pinEmph, gl.DYNAMIC_DRAW);
     }
     if (this.vias) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vias.colorBuf);
       gl.bufferData(gl.ARRAY_BUFFER, c.via, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vias.emphBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, c.viaEmph, gl.DYNAMIC_DRAW);
     }
     for (const [batch, segPart] of [
       [this.bodies, this.bodySegPart],
@@ -548,8 +589,12 @@ export class GLRenderer implements Renderer {
       gl.uniform3f(this.u.u_hoverColor, hc[0], hc[1], hc[2]);
       gl.uniform3f(this.u.u_holeColor, palette.bg[0] / 255, palette.bg[1] / 255, palette.bg[2] / 255);
       gl.uniform3f(this.u.u_holeEdge, palette.holeEdge[0] / 255, palette.holeEdge[1] / 255, palette.holeEdge[2] / 255);
+      gl.uniform3f(this.u.u_haloColor, palette.highlightHalo[0] / 255, palette.highlightHalo[1] / 255, palette.highlightHalo[2] / 255);
       gl.uniform1f(this.u.u_holeOnly, 0);
       gl.uniform1f(this.u.u_holePass, 0);
+      gl.uniform1f(this.u.u_emphPass, 0);
+      gl.uniform1f(this.u.u_emphMinPx, 4.5);
+      gl.uniform1f(this.u.u_haloPx, 2.6);
     };
     const drawPads = (b: PadBatch | null, pass: number) => {
       if (!b || !b.count) return;
@@ -580,6 +625,18 @@ export class GLRenderer implements Renderer {
         padUniforms(f.hover.pin);
         drawPads(this.pads, pass);
       }
+    }
+    // Emphasis beacons: highlighted pads/vias on top, with a halo and a minimum
+    // on-screen size, so a selected net or part reads at any zoom level.
+    if (opts.showVias && this.vias) {
+      padUniforms(-1);
+      gl.uniform1f(this.u.u_emphPass, 1);
+      drawPads(this.vias, 1);
+    }
+    if (opts.showPins && this.pads) {
+      padUniforms(-1);
+      gl.uniform1f(this.u.u_emphPass, 1);
+      drawPads(this.pads, 1);
     }
     if (opts.showPins && this.pads) {
       padUniforms(-1);

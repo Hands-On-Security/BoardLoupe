@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Offline, single-file boardview viewer for PCB repair (TVW, BRD, BRD2, BDV, BVR, FZ, GenCAD, ASC and more).",
+  "author": "Hands-On Security (https://hos.direct/boardscope)",
   "license": "MIT",
   "type": "module",
   "scripts": {

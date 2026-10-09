@@ -156,6 +156,46 @@ export class Canvas2DRenderer implements Renderer {
         }
       }
     }
+    // Emphasis beacons: highlighted pads/vias on top with a halo and a minimum
+    // on-screen size, so a selected net or part reads at any zoom level.
+    const minR = 4.5 * px,
+      haloW = 2.6 * px;
+    const halo = `rgb(${palette.highlightHalo[0]},${palette.highlightHalo[1]},${palette.highlightHalo[2]})`;
+    if (opts.showVias && this.viaIdx) {
+      for (const i of this.viaIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY)) {
+        if (!c.viaEmph[i]) continue;
+        const r = Math.max(m.vias.d[i] > 0 ? m.vias.d[i] / 2 : s.typicalPin * 0.6, minR);
+        ctx.beginPath();
+        ctx.arc(m.vias.x[i], m.vias.y[i], r, 0, Math.PI * 2);
+        ctx.strokeStyle = halo;
+        ctx.lineWidth = haloW;
+        ctx.stroke();
+        ctx.fillStyle = rgba(c.via, i);
+        ctx.fill();
+      }
+    }
+    if (opts.showPins && this.pinIdx) {
+      for (const i of this.pinIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY)) {
+        if (!c.pinEmph[i]) continue;
+        const hw = Math.max(s.pinHW[i], minR),
+          hh = Math.max(s.pinHH[i], minR);
+        const x = m.pins.x[i],
+          y = m.pins.y[i];
+        const sh = m.pins.shape[i];
+        const path = () => {
+          ctx.beginPath();
+          if (sh === SHAPE_RECT || sh === SHAPE_ROUNDRECT || sh === SHAPE_OBLONG) ctx.rect(x - hw, y - hh, 2 * hw, 2 * hh);
+          else ctx.arc(x, y, Math.min(hw, hh), 0, Math.PI * 2);
+        };
+        path();
+        ctx.strokeStyle = halo;
+        ctx.lineWidth = haloW;
+        ctx.stroke();
+        path();
+        ctx.fillStyle = rgba(c.pin, i);
+        ctx.fill();
+      }
+    }
     // Drill holes after all pads (both sides), so overlapping copper never hides a drill.
     if (opts.showPins && this.pinIdx) {
       ctx.fillStyle = `rgb(${palette.bg[0]},${palette.bg[1]},${palette.bg[2]})`;

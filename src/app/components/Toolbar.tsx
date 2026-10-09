@@ -21,6 +21,7 @@ import {
 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { back, closeBoard, forward, openFiles, viewer } from '../actions';
+import { HosByline } from '../brand';
 import { type Prefs, setPrefs, store, useStore } from '../store';
 import { IconButton, Toggle, cx } from './ui';
 
@@ -110,6 +111,8 @@ export function Toolbar() {
         </>
       )}
       <div class="flex-1" />
+      <HosByline class="hidden lg:inline-flex mr-1.5" />
+      <Sep />
       <IconButton label={prefs.theme === 'dark' ? 'Light theme' : 'Dark theme'} onClick={() => setPrefs({ theme: prefs.theme === 'dark' ? 'light' : 'dark' })}>
         {prefs.theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </IconButton>

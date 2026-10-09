@@ -1,8 +1,23 @@
 # BoardScope — release report (2026-10-09)
 
-**Deliverable:** `dist/boardview.html`: one self-contained file, 383 KB (122 KB gzip),
+**Deliverable:** `dist/boardview.html`: one self-contained file, ~400 KB (~128 KB gzip),
 zero external references. The build verifies this and fails otherwise. Build it with
 `npm ci && npm run build`.
+
+BoardScope is published as a **Hands-On Security** tool (back-link `hos.direct/boardscope`),
+built for the hardware-security classroom.
+
+## Selection, bus tracing and solder points
+
+- **Beacons.** A highlighted net, pin or component is drawn as a haloed pad with a minimum
+  on-screen size, so it stays visible when the pad itself is sub-pixel on a zoomed-out board
+  (WebGL2 adds a dedicated on-top emphasis pass; the Canvas 2D fallback does the same). This
+  replaces the earlier thin-blue highlight that disappeared when zoomed out.
+- **Multi-net bus colouring.** Selecting several nets (Shift-click) gives each a distinct
+  high-contrast colour, so an SPI / LPC / eSPI bus can be followed across the board.
+- **Solder / probe point finder.** The net and pin inspectors rank every point on a net by how
+  practical it is to tap a wire onto — test points first, then through-holes, connectors and large
+  pads, with fine-pitch IC pads last — each with its side, click-to-jump. (`src/model/solder.ts`.)
 
 ## Formats: what is actually verified
 
