@@ -249,6 +249,9 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 - **"No supported boardview signature"**: the file is not one of the supported dialects. The message
   shows the first bytes and whether the content looks encrypted or compressed. Extensions such as
   `.brd` are shared by incompatible formats.
+- **Dropped a whole board folder**: BoardScope opens the boardview in it (also inside ZIPs, one level of
+  ZIP-in-ZIP, ignoring macOS metadata). If there is none, it lists what the files are — schematics, PDF
+  boardview drawings, BIOS/EC firmware dumps, programs — so you know what is missing.
 - **"Key required" / "parity check"**: the file is encrypted. Enter a valid key in Settings.
 - **ASC needs all files**: select `format.asc`, `pins.asc` and `nails.asc` together, or drop the folder or a ZIP.
 - **Blank or slow canvas**: your browser may have WebGL2 disabled or software-only. Enable

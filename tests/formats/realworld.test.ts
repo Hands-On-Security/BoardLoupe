@@ -165,3 +165,40 @@ describe('firmware, programs and archives in repair folders', () => {
     expect(r.model!.source.formatId).toBe('bdv');
   });
 });
+
+describe('dropping a whole board folder', () => {
+  const pdf = (name: string): InputFile => ({ name, bytes: new TextEncoder().encode('%PDF-1.6\n%âãÏÓ\n1 0 obj\n') });
+  const bios = new Uint8Array(4096).fill(0xff);
+  bios.set([0x5a, 0xa5, 0xf0, 0x0f], 0x10);
+  const allegro = new Uint8Array(1024);
+  allegro.set([0x04, 0x15, 0x13, 0x00]);
+  allegro.set(new TextEncoder().encode('allv16-6'), 0xf8);
+
+  test('without a boardview: one summary of everything, PDF boardview drawings named as such', () => {
+    const r = parseFiles([pdf('NM-A531 schematic.pdf'), pdf('X260 NM-A531R10-SILK-BOT-BV.pdf'), { name: 'x260.BIN', bytes: bios }], DEFAULT_OPTIONS);
+    expect(r.ok).toBe(false);
+    const d = r.diagnostics.find((x) => x.level === 'error')!;
+    expect(d.code).toBe('noboard');
+    expect(d.message).toContain('None of the 3 files contains a boardview');
+    expect(d.message).toContain('boardview drawing as PDF (not boardview data): X260 NM-A531R10-SILK-BOT-BV.pdf');
+    expect(d.message).toContain('BIOS / SPI flash image: x260.BIN');
+    expect(d.message).not.toContain('ZIP archive');
+  });
+
+  test('an Allegro database next to a readable boardview does not block it', () => {
+    const r = parseFiles([{ name: 'board.brd', bytes: allegro }, ...vayoFiles()], DEFAULT_OPTIONS);
+    expect(r.ok).toBe(true);
+    expect(r.model!.source.formatId).toBe('asc');
+  });
+
+  test('an Allegro database with only documents reports the Allegro conversion route', () => {
+    const r = parseFiles([pdf('schematic.pdf'), { name: 'board.brd', bytes: allegro }], DEFAULT_OPTIONS);
+    expect(r.ok).toBe(false);
+    expect(r.diagnostics.find((x) => x.level === 'error')!.code).toBe('unsupported.allegro');
+  });
+
+  test('a single PDF named like a boardview is explained as a drawing', () => {
+    const r = parseFiles([pdf('BoardView PDF.pdf')], DEFAULT_OPTIONS);
+    expect(r.diagnostics[0].message).toMatch(/boardview drawing saved as PDF/);
+  });
+});

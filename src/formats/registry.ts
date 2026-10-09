@@ -97,7 +97,10 @@ export function describeUnknown(file: InputFile, sniff: Sniff): string {
   const b = file.bytes;
   const ext = sniff.ext ? `.${sniff.ext}` : '(no extension)';
   if (b.length === 0) return 'The file is empty.';
-  if (startsWithBytes(b, [0x25, 0x50, 0x44, 0x46])) return 'This is a PDF document (probably a schematic), not a boardview.';
+  if (startsWithBytes(b, [0x25, 0x50, 0x44, 0x46]))
+    return isBoardviewPdfName(file.name)
+      ? 'This is a boardview drawing saved as PDF (a printed silkscreen/net view), not boardview data. Open the boardview file itself (.brd, .tvw, .fz, .cad, ASC …).'
+      : 'This is a PDF document (probably a schematic), not a boardview.';
   if (startsWithBytes(b, [0x52, 0x61, 0x72, 0x21])) return 'This is a RAR archive. Extract it first and open the boardview file inside.';
   if (startsWithBytes(b, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c])) return 'This is a 7-Zip archive. Extract it first and open the boardview file inside.';
   if (startsWithBytes(b, [0x1f, 0x8b])) return 'This is a gzip-compressed file. Decompress it first.';
@@ -138,9 +141,12 @@ export function firmwareKind(b: Uint8Array): string | null {
 const baseOf = (n: string) => n.slice(n.lastIndexOf('/') + 1);
 
 /** One-phrase description of a file that is not a boardview (for archive summaries). */
+/** PDFs named like printed boardviews / silkscreen drawings. */
+const isBoardviewPdfName = (name: string) => /board\s*view|[-_ .]bv[-_ .]|[-_ .]bv$|silk/i.test(baseOf(name).replace(/\.pdf$/i, ''));
+
 function shortKind(f: InputFile): string {
   const b = f.bytes;
-  if (startsWithBytes(b, [0x25, 0x50, 0x44, 0x46])) return 'PDF';
+  if (startsWithBytes(b, [0x25, 0x50, 0x44, 0x46])) return isBoardviewPdfName(f.name) ? 'boardview drawing as PDF (not boardview data)' : 'PDF (schematic or document)';
   if (startsWithBytes(b, [0x89, 0x50, 0x4e, 0x47]) || startsWithBytes(b, [0xff, 0xd8, 0xff])) return 'image';
   if (startsWithBytes(b, [0x52, 0x61, 0x72, 0x21]) || startsWithBytes(b, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c])) return 'archive (extract it first)';
   const fw = firmwareKind(b);
@@ -223,6 +229,7 @@ export function parseFiles(input: InputFile[], options: ParseOptions, progress: 
   ranked.sort((a, b) => b.cand.detection.confidence - a.cand.detection.confidence || a.order - b.order);
 
   const tried = new Set<string>();
+  let definite: Diagnostic | null = null;
   for (const { file, cand } of ranked) {
     const key = `${file.name}\0${cand.format.id}`;
     if (tried.has(key)) continue;
@@ -254,13 +261,14 @@ export function parseFiles(input: InputFile[], options: ParseOptions, progress: 
       const err = e as ParseError;
       const loc = err.offset !== undefined ? ` (offset 0x${err.offset.toString(16)})` : err.line !== undefined ? ` (line ${err.line})` : '';
       attempts.push({ formatId: cand.format.id, confidence: cand.detection.confidence, error: err.message + (err.message.includes('offset 0x') ? '' : loc) });
-      // A definite failure on a strong signature should not be masked by weak guesses.
+      // A definite failure on a strong signature should not be masked by weak
+      // guesses: it is final for a single file; with several files (a folder,
+      // a ZIP) the others are still tried and it is reported if none opens.
       if (err.code === 'key-required' || err.code === 'key-invalid' || err.code === 'key-wrong' || err.code?.startsWith('unsupported.') || err.code === 'asc.missing') {
-        return {
-          ok: false,
-          attempts,
-          diagnostics: [...diagnostics, { level: 'error', code: err.code, message: err.message, offset: err.offset, line: err.line }],
-        };
+        const d: Diagnostic = { level: 'error', code: err.code, message: err.message, offset: err.offset, line: err.line };
+        if (files.length === 1) return { ok: false, attempts, diagnostics: [...diagnostics, d] };
+        definite ??= d;
+        continue;
       }
       if (!(e instanceof ParseError)) {
         // Internal error: report it rather than silently trying something else.
@@ -269,10 +277,11 @@ export function parseFiles(input: InputFile[], options: ParseOptions, progress: 
     }
   }
 
+  if (definite) return { ok: false, attempts, diagnostics: [...diagnostics, definite] };
   if (!attempts.length) {
     const main = files[0];
     const archive = files.find((f) => f.archive)?.archive;
-    if (archive) {
+    if (archive || files.length > 1) {
       // Group unique member names by what they are: "Windows program: a.exe, b.dll; image: c.jpg".
       const groups = new Map<string, Set<string>>();
       for (const f of files) {
@@ -287,7 +296,12 @@ export function parseFiles(input: InputFile[], options: ParseOptions, progress: 
       return {
         ok: false,
         attempts,
-        diagnostics: [...diagnostics, { level: 'error', code: 'zip.noboard', message: `The ZIP archive ${archive} contains no boardview. It holds ${parts.join('; ')}.` }],
+        diagnostics: [
+          ...diagnostics,
+          input.length === 1 && archive
+            ? { level: 'error', code: 'zip.noboard', message: `The ZIP archive ${archive} contains no boardview. It holds ${parts.join('; ')}.` }
+            : { level: 'error', code: 'noboard', message: `None of the ${files.length} files contains a boardview. Found ${parts.join('; ')}.` },
+        ],
       };
     }
     return { ok: false, attempts, diagnostics: [...diagnostics, { level: 'error', code: 'unrecognized', message: describeUnknown(main, makeSniff(main)) }] };
