@@ -32,11 +32,11 @@ the standard header, FlexBV-only formats. No vendor decryption keys are included
 
 ## Tests (all passing)
 
-- Vitest: **140 tests** (plus opt-in checks on private boards via `BS_PRIVATE_FIXTURES`). Unit (camera transforms, I/O, ciphers incl. the DES FIPS vector, builder,
+- Vitest: **143 tests** (plus opt-in checks on private boards via `BS_PRIVATE_FIXTURES`). Unit (camera transforms, I/O, ciphers incl. the DES FIPS vector, builder,
   search, export), 17 differential golden tests against the reference parsers, a cross-exporter
   geometry check (≤1.1 mil on 1,130+ pins, 0 net mismatches), 37 detection/diagnostic tests, and 18
   fuzz suites (truncation, flips, splices, extreme counts, random input) covering every fixture.
-- Playwright on the built file via `file://`: **53 tests** across Chromium 156, Firefox 157 and
+- Playwright on the built file via `file://`: **56 tests** across Chromium 156, Firefox 157 and
   WebKit 27.2. They cover the empty state, zero network requests (also with the browser set offline),
   real-board load in the worker, search → inspector, pin picking (top and mirrored bottom), history,
   sides/mirror/rotate/zoom/pan/fit, tables + CSV/JSON export, errors, the key-required message,

@@ -22,6 +22,7 @@ layout(location=3) in float a_rot;
 layout(location=4) in float a_shape;
 layout(location=5) in float a_side;
 layout(location=6) in vec4 a_color;
+layout(location=7) in float a_hole;
 uniform mat3 u_view;
 uniform vec2 u_viewport;
 uniform float u_side;
@@ -30,15 +31,20 @@ uniform float u_ghost;
 uniform int u_hover;
 uniform float u_minPx;
 uniform float u_scale;
+uniform float u_holePass;
 out vec2 v_local;
 out vec2 v_half;
 flat out float v_shape;
 out vec4 v_color;
 flat out float v_hover;
+flat out float v_hole;
 void main() {
   bool other = (a_side == 1.0 && u_side == 2.0) || (a_side == 2.0 && u_side == 1.0);
   bool draw = (u_pass == 0.0) ? other : !other;
-  if (!draw || a_color.a == 0.0 || (other && u_ghost == 0.0)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  // Hole pass: drills go through the board, so every drilled pad is drawn.
+  if (u_holePass > 0.5) draw = a_hole > 0.0;
+  if (!draw || a_color.a == 0.0 || (other && u_ghost == 0.0 && u_holePass < 0.5)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  v_hole = a_hole * u_scale;
   vec2 halfPx = max(a_half * u_scale, vec2(u_minPx));
   vec2 local = a_corner * (halfPx + 1.5);
   float r = radians(a_rot);
@@ -60,11 +66,28 @@ in vec2 v_half;
 flat in float v_shape;
 in vec4 v_color;
 flat in float v_hover;
+flat in float v_hole;
 uniform vec3 u_hoverColor;
+uniform vec3 u_holeColor;
+uniform vec3 u_holeEdge;
+uniform float u_holeOnly;
 out vec4 o;
 float box(vec2 p, vec2 b) { vec2 d = abs(p) - b; return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0); }
 void main() {
   vec2 p = v_local;
+  if (u_holeOnly > 0.5) {
+    // Drawn after all pads so overlapping copper never hides a drill.
+    if (v_hole <= 0.75) discard;
+    float hd0 = length(p) - v_hole;
+    float cov = clamp(0.5 - hd0 + 1.2, 0.0, 1.0);
+    if (cov <= 0.0) discard;
+    float inHole0 = clamp(0.5 - hd0, 0.0, 1.0);
+    float rim0 = 1.0 - smoothstep(0.0, 1.1, abs(hd0 + 0.6));
+    vec3 hc = mix(u_holeColor, u_holeEdge, rim0 * 0.85);
+    float al = max(inHole0, rim0 * 0.85) * cov;
+    o = vec4(hc * al, al);
+    return;
+  }
   vec2 b = v_half;
   float m = min(b.x, b.y);
   float d;
@@ -83,6 +106,16 @@ void main() {
     float ring = smoothstep(-2.5, -1.0, d);
     col = mix(col + 0.25, u_hoverColor, ring);
   }
+  // Drill hole (file size) cut into the pad, with a thin dark edge.
+  if (v_hole > 0.75) {
+    float hd = length(p) - v_hole;
+    float inHole = clamp(0.5 - hd, 0.0, 1.0);
+    col = mix(col, u_holeColor, inHole);
+    // 1 px neutral rim at the drill wall: visible on copper and for
+    // non-plated holes whose drill fills the whole pad.
+    float rim = 1.0 - smoothstep(0.0, 1.1, abs(hd + 0.6));
+    col = mix(col, u_holeEdge, rim * 0.85);
+  }
   float alpha = v_color.a * a;
   o = vec4(col * alpha, alpha);
 }`;
@@ -95,6 +128,7 @@ layout(location=2) in float a_width;
 layout(location=3) in float a_side;
 layout(location=4) in float a_layer;
 layout(location=5) in vec4 a_color;
+layout(location=6) in float a_dist;
 uniform mat3 u_view;
 uniform vec2 u_viewport;
 uniform float u_side;
@@ -109,6 +143,7 @@ out float v_across;
 out float v_len;
 out float v_hw;
 out vec4 v_color;
+out float v_dist;
 void main() {
   bool other = (a_side == 1.0 && u_side == 2.0) || (a_side == 2.0 && u_side == 1.0);
   bool draw = (u_pass == 0.0) ? other : !other;
@@ -130,6 +165,7 @@ void main() {
   v_across = a_corner.y * hw;
   v_len = len;
   v_hw = w * 0.5;
+  v_dist = a_dist * u_scale + along;
   v_color = vec4(a_color.rgb, a_color.a * (other ? u_ghost : 1.0));
 }`;
 
@@ -140,17 +176,37 @@ in float v_across;
 in float v_len;
 in float v_hw;
 in vec4 v_color;
+in float v_dist;
 uniform float u_dash;
 out vec4 o;
 void main() {
   float dx = max(max(-v_along, v_along - v_len), 0.0);
   float d = length(vec2(dx, v_across)) - v_hw;
   float a = clamp(0.5 - d, 0.0, 1.0) * clamp(v_hw + 0.5, 0.0, 1.0);
-  if (u_dash > 0.0 && mod(v_along, u_dash * 2.0) > u_dash) discard;
+  // Dash phase follows the distance along the whole polyline (a_dist), so
+  // outlines made of many short segments still show a dash pattern.
+  if (u_dash > 0.0 && mod(v_dist, u_dash * 2.0) > u_dash) discard;
   if (a <= 0.0) discard;
   float alpha = v_color.a * a;
   o = vec4(v_color.rgb * alpha, alpha);
 }`;
+
+/**
+ * Distance (world units) from the start of each polyline to each segment's
+ * start; a polyline continues while a segment starts where the previous one
+ * ended. Drives continuous dash patterns.
+ */
+function cumulativeDistance(seg: Float32Array, count: number): Float32Array {
+  const out = new Float32Array(count);
+  let acc = 0;
+  for (let i = 0; i < count; i++) {
+    const continues = i > 0 && Math.abs(seg[4 * i] - seg[4 * i - 2]) < 1e-3 && Math.abs(seg[4 * i + 1] - seg[4 * i - 1]) < 1e-3;
+    if (!continues) acc = 0;
+    out[i] = acc;
+    acc += Math.hypot(seg[4 * i + 2] - seg[4 * i], seg[4 * i + 3] - seg[4 * i + 1]);
+  }
+  return out;
+}
 
 function compile(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
   const mk = (type: number, src: string) => {
@@ -194,6 +250,8 @@ export class GLRenderer implements Renderer {
   private traces: SegBatch | null = null;
   private rats: SegBatch | null = null;
   private bodySegPart: Uint32Array = new Uint32Array(0);
+  private bodiesDashed: SegBatch | null = null;
+  private dashedSegPart: Uint32Array = new Uint32Array(0);
   private model: BoardModel | null = null;
   private scene: Scene | null = null;
   private u: Record<string, WebGLUniformLocation | null> = {};
@@ -208,7 +266,7 @@ export class GLRenderer implements Renderer {
     this.gl = gl;
     this.padProg = compile(gl, PAD_VS, PAD_FS);
     this.segProg = compile(gl, SEG_VS, SEG_FS);
-    for (const n of ['u_view', 'u_viewport', 'u_side', 'u_pass', 'u_ghost', 'u_hover', 'u_minPx', 'u_scale', 'u_hoverColor']) this.u[n] = gl.getUniformLocation(this.padProg, n);
+    for (const n of ['u_view', 'u_viewport', 'u_side', 'u_pass', 'u_ghost', 'u_hover', 'u_minPx', 'u_scale', 'u_hoverColor', 'u_holeColor', 'u_holeEdge', 'u_holeOnly', 'u_holePass']) this.u[n] = gl.getUniformLocation(this.padProg, n);
     for (const n of ['u_view', 'u_viewport', 'u_side', 'u_pass', 'u_ghost', 'u_scale', 'u_minWidth', 'u_layerMask', 'u_widthScale', 'u_dash']) this.su[n] = gl.getUniformLocation(this.segProg, n);
     this.quad = this.buf(new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]));
     this.segQuad = this.buf(new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]));
@@ -232,7 +290,7 @@ export class GLRenderer implements Renderer {
     gl.vertexAttribDivisor(loc, divisor);
   }
 
-  private makePads(center: Float32Array, half: Float32Array, rot: Float32Array, shape: Float32Array, side: Float32Array, count: number): PadBatch {
+  private makePads(center: Float32Array, half: Float32Array, rot: Float32Array, shape: Float32Array, side: Float32Array, count: number, hole?: Float32Array): PadBatch {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -244,11 +302,12 @@ export class GLRenderer implements Renderer {
     this.attrib(5, this.buf(side), 1, gl.FLOAT);
     const colorBuf = this.buf(new Uint8Array(count * 4), gl.DYNAMIC_DRAW);
     this.attrib(6, colorBuf, 4, gl.UNSIGNED_BYTE, true);
+    this.attrib(7, this.buf(hole ?? new Float32Array(count)), 1, gl.FLOAT);
     gl.bindVertexArray(null);
     return { vao, count, colorBuf };
   }
 
-  private makeSegs(seg: Float32Array, width: Float32Array, side: Float32Array, layer: Float32Array, count: number, color?: Uint8Array): SegBatch {
+  private makeSegs(seg: Float32Array, width: Float32Array, side: Float32Array, layer: Float32Array, count: number, color?: Uint8Array, dist?: Float32Array): SegBatch {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -263,8 +322,10 @@ export class GLRenderer implements Renderer {
     this.attrib(4, b4, 1, gl.FLOAT);
     const colorBuf = this.buf(color ?? new Uint8Array(count * 4), gl.DYNAMIC_DRAW);
     this.attrib(5, colorBuf, 4, gl.UNSIGNED_BYTE, true);
+    const b6 = this.buf(dist ?? cumulativeDistance(seg, count));
+    this.attrib(6, b6, 1, gl.FLOAT);
     gl.bindVertexArray(null);
-    return { vao, count, colorBuf, bufs: [b1, b2, b3, b4, colorBuf] };
+    return { vao, count, colorBuf, bufs: [b1, b2, b3, b4, colorBuf, b6] };
   }
 
   setScene(m: BoardModel, s: Scene) {
@@ -292,7 +353,10 @@ export class GLRenderer implements Renderer {
       shape[i] = sh === SHAPE_DEFAULT ? 0 : sh === SHAPE_CIRCLE ? 1 : sh === SHAPE_RECT ? 2 : sh === SHAPE_ROUNDRECT ? 3 : sh === SHAPE_OBLONG ? 4 : 1;
       side[i] = pins.side[i] || SIDE_BOTH;
     }
-    this.pads = this.makePads(center, half, rot, shape, side, n);
+    // Drill radius, never larger than the pad (a hole cannot exceed its copper).
+    const hole = new Float32Array(n);
+    for (let i = 0; i < n; i++) if (pins.hole[i] > 0) hole[i] = Math.min(pins.hole[i] / 2, Math.min(s.pinHW[i], s.pinHH[i]));
+    this.pads = this.makePads(center, half, rot, shape, side, n, hole);
 
     // Vias (rings)
     if (vias.count) {
@@ -311,26 +375,36 @@ export class GLRenderer implements Renderer {
       this.vias = this.makePads(c, h, r, sh, sd, vias.count);
     }
 
-    // Part bodies (1.2 px lines, side per part)
-    const nb = s.bodySegs.length / 4;
-    const bseg = new Float32Array(nb * 4),
-      bw = new Float32Array(nb).fill(-1.25),
-      bside = new Float32Array(nb),
-      blayer = new Float32Array(nb).fill(-1);
-    this.bodySegPart = new Uint32Array(nb);
-    for (let k = 0; k < parts.count; k++) {
-      for (let j = s.bodyStart[k]; j < s.bodyStart[k + 1]; j++) {
-        this.bodySegPart[j] = k;
-        bside[j] = parts.side[k] || SIDE_BOTH;
+    // Part bodies (1.25 px lines, side per part). Mechanical parts (mounting
+    // holes, fiducials) go into a separate batch drawn dashed: their outline is
+    // a keep-out, not copper or a hole.
+    for (const dashed of [0, 1]) {
+      const list: [number, number][] = []; // [segment, part]
+      for (let k = 0; k < parts.count; k++) if (s.bodyDashed[k] === dashed) for (let j = s.bodyStart[k]; j < s.bodyStart[k + 1]; j++) list.push([j, k]);
+      const nb = list.length;
+      if (!nb) continue;
+      const bseg = new Float32Array(nb * 4),
+        bw = new Float32Array(nb).fill(dashed ? -1 : -1.25),
+        bside = new Float32Array(nb),
+        blayer = new Float32Array(nb).fill(-1);
+      const segPart = new Uint32Array(nb);
+      list.forEach(([j, k], i) => {
+        segPart[i] = k;
+        bside[i] = parts.side[k] || SIDE_BOTH;
+        bseg[4 * i] = s.bodySegs[4 * j] - ox;
+        bseg[4 * i + 1] = s.bodySegs[4 * j + 1] - oy;
+        bseg[4 * i + 2] = s.bodySegs[4 * j + 2] - ox;
+        bseg[4 * i + 3] = s.bodySegs[4 * j + 3] - oy;
+      });
+      const batch = this.makeSegs(bseg, bw, bside, blayer, nb);
+      if (dashed) {
+        this.bodiesDashed = batch;
+        this.dashedSegPart = segPart;
+      } else {
+        this.bodies = batch;
+        this.bodySegPart = segPart;
       }
     }
-    for (let j = 0; j < nb; j++) {
-      bseg[4 * j] = s.bodySegs[4 * j] - ox;
-      bseg[4 * j + 1] = s.bodySegs[4 * j + 1] - oy;
-      bseg[4 * j + 2] = s.bodySegs[4 * j + 2] - ox;
-      bseg[4 * j + 3] = s.bodySegs[4 * j + 3] - oy;
-    }
-    if (nb) this.bodies = this.makeSegs(bseg, bw, bside, blayer, nb);
 
     // Outline
     const no = m.outline.segs.length / 4;
@@ -372,17 +446,21 @@ export class GLRenderer implements Renderer {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vias.colorBuf);
       gl.bufferData(gl.ARRAY_BUFFER, c.via, gl.DYNAMIC_DRAW);
     }
-    if (this.bodies) {
-      const nb = this.bodies.count;
+    for (const [batch, segPart] of [
+      [this.bodies, this.bodySegPart],
+      [this.bodiesDashed, this.dashedSegPart],
+    ] as const) {
+      if (!batch) continue;
+      const nb = batch.count;
       const bc = new Uint8Array(nb * 4);
       for (let j = 0; j < nb; j++) {
-        const k = this.bodySegPart[j];
+        const k = segPart[j];
         bc[4 * j] = c.part[4 * k];
         bc[4 * j + 1] = c.part[4 * k + 1];
         bc[4 * j + 2] = c.part[4 * k + 2];
         bc[4 * j + 3] = c.part[4 * k + 3];
       }
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.bodies.colorBuf);
+      gl.bindBuffer(gl.ARRAY_BUFFER, batch.colorBuf);
       gl.bufferData(gl.ARRAY_BUFFER, bc, gl.DYNAMIC_DRAW);
     }
     if (this.traces) {
@@ -468,6 +546,10 @@ export class GLRenderer implements Renderer {
       gl.uniform1f(this.u.u_scale, view.scale);
       const hc = opts.light ? [0, 0, 0] : [1, 1, 1];
       gl.uniform3f(this.u.u_hoverColor, hc[0], hc[1], hc[2]);
+      gl.uniform3f(this.u.u_holeColor, palette.bg[0] / 255, palette.bg[1] / 255, palette.bg[2] / 255);
+      gl.uniform3f(this.u.u_holeEdge, palette.holeEdge[0] / 255, palette.holeEdge[1] / 255, palette.holeEdge[2] / 255);
+      gl.uniform1f(this.u.u_holeOnly, 0);
+      gl.uniform1f(this.u.u_holePass, 0);
     };
     const drawPads = (b: PadBatch | null, pass: number) => {
       if (!b || !b.count) return;
@@ -490,10 +572,20 @@ export class GLRenderer implements Renderer {
         segUniforms(1);
         drawSegs(this.bodies, pass);
       }
+      if (opts.showBodies && this.bodiesDashed) {
+        segUniforms(1, 4);
+        drawSegs(this.bodiesDashed, pass);
+      }
       if (opts.showPins && this.pads) {
         padUniforms(f.hover.pin);
         drawPads(this.pads, pass);
       }
+    }
+    if (opts.showPins && this.pads) {
+      padUniforms(-1);
+      gl.uniform1f(this.u.u_holeOnly, 1);
+      gl.uniform1f(this.u.u_holePass, 1);
+      drawPads(this.pads, 1);
     }
     if (opts.showOutline && this.outline) {
       segUniforms(1, this.model.outline.source === 'derived' ? 6 : 0);
@@ -541,11 +633,11 @@ export class GLRenderer implements Renderer {
 
   private disposeBatches() {
     const gl = this.gl;
-    for (const b of [this.pads, this.vias, this.bodies, this.outline, this.traces, this.rats]) if (b) gl.deleteVertexArray(b.vao);
+    for (const b of [this.pads, this.vias, this.bodies, this.bodiesDashed, this.outline, this.traces, this.rats]) if (b) gl.deleteVertexArray(b.vao);
     for (const b of this.allBufs) if (b !== this.quad && b !== this.segQuad) gl.deleteBuffer(b);
     this.allBufs = [this.quad, this.segQuad];
     this.pads = this.vias = null;
-    this.bodies = this.outline = this.traces = this.rats = null;
+    this.bodies = this.bodiesDashed = this.outline = this.traces = this.rats = null;
     this.outlineColorKey = '';
     this.ratsColorKey = '';
   }

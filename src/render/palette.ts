@@ -14,6 +14,8 @@ export interface Palette {
   padNC: RGBA;
   testpoint: RGBA;
   via: RGBA;
+  /** Rim drawn at drill walls. */
+  holeEdge: RGBA;
   selPart: RGBA;
   selNet: RGBA;
   selPin: RGBA;
@@ -40,6 +42,7 @@ export const DARK: Palette = {
   padNC: [110, 96, 128, 255],
   testpoint: [226, 118, 196, 255],
   via: [120, 128, 140, 255],
+  holeEdge: [158, 168, 182, 255],
   selPart: [255, 110, 100, 255],
   selNet: [64, 224, 255, 255],
   selPin: [255, 255, 255, 255],
@@ -75,6 +78,7 @@ export const LIGHT: Palette = {
   padNC: [150, 136, 168, 255],
   testpoint: [196, 60, 150, 255],
   via: [140, 146, 156, 255],
+  holeEdge: [92, 100, 112, 255],
   selPart: [214, 52, 42, 255],
   selNet: [0, 136, 220, 255],
   selPin: [10, 10, 10, 255],

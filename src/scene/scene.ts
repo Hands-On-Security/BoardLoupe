@@ -1,5 +1,5 @@
 import Flatbush from 'flatbush';
-import type { BoardModel } from '../model/types';
+import { type BoardModel, PARTFLAG_MECHANICAL } from '../model/types';
 
 /**
  * Render-ready data derived from a BoardModel. Built in the worker (it is
@@ -17,6 +17,8 @@ export interface Scene {
   bodySegs: Float32Array;
   bodyStart: Uint32Array; // per part, in segments; length parts+1
   bodyDerived: Uint8Array; // per part
+  /** 1 for parts whose outline is drawn dashed (mechanical: mounting holes, fiducials). */
+  bodyDashed: Uint8Array;
   /** Spatial indexes (flatbush buffers). */
   pinIndex: ArrayBuffer | null;
   partIndex: ArrayBuffer | null;
@@ -211,6 +213,9 @@ export function buildScene(m: BoardModel): Scene {
     traceIndex = fb.data as ArrayBuffer;
   }
 
+  const bodyDashed = new Uint8Array(parts.count);
+  for (let k = 0; k < parts.count; k++) bodyDashed[k] = parts.flags[k] & PARTFLAG_MECHANICAL ? 1 : 0;
+
   return {
     pinHW,
     pinHH,
@@ -218,6 +223,7 @@ export function buildScene(m: BoardModel): Scene {
     bodySegs: Float32Array.from(segs),
     bodyStart,
     bodyDerived,
+    bodyDashed,
     pinIndex,
     partIndex,
     viaIndex,
@@ -229,7 +235,7 @@ export function buildScene(m: BoardModel): Scene {
 }
 
 export function sceneTransferables(s: Scene): ArrayBuffer[] {
-  const out: ArrayBuffer[] = [s.pinHW.buffer as ArrayBuffer, s.pinHH.buffer as ArrayBuffer, s.pinSizeFromFile.buffer as ArrayBuffer, s.bodySegs.buffer as ArrayBuffer, s.bodyStart.buffer as ArrayBuffer, s.bodyDerived.buffer as ArrayBuffer];
+  const out: ArrayBuffer[] = [s.pinHW.buffer as ArrayBuffer, s.pinHH.buffer as ArrayBuffer, s.pinSizeFromFile.buffer as ArrayBuffer, s.bodySegs.buffer as ArrayBuffer, s.bodyStart.buffer as ArrayBuffer, s.bodyDerived.buffer as ArrayBuffer, s.bodyDashed.buffer as ArrayBuffer];
   for (const b of [s.pinIndex, s.partIndex, s.viaIndex, s.traceIndex]) if (b) out.push(b);
   return out;
 }

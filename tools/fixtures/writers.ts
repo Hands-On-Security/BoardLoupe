@@ -618,6 +618,8 @@ export function writeTvw(b: SrcBoard): Uint8Array {
     return i + 1;
   };
   const holes = b.vias.map((v) => ({ net: v.net ? netIdx.get(v.net)! : -1, tool: toolFor(v.d), x: v.x * U, y: v.y * U }));
+  // Like real files, the drill table also lists the hole of every through-hole pin.
+  for (const p of b.parts) for (const pin of p.pins) if (pin.hole > 0) holes.push({ net: pin.net ? netIdx.get(pin.net)! : -1, tool: toolFor(pin.hole), x: pin.x * U, y: pin.y * U });
   const routeTool = [10 * U];
   const slots = b.outlineSegs.map(([x1, y1, x2, y2]) => ({ net: -1, tool: 1, x1: x1 * U, y1: y1 * U, x2: x2 * U, y2: y2 * U }));
   // A circular cutout made of two arc slots that both start at 0° (one CCW, one CW).
@@ -676,7 +678,8 @@ export function writeTvw(b: SrcBoard): Uint8Array {
     const [x0, y0, x1, y1] = p.bbox;
     // Real files store a part box that includes the refdes text: emulate an offset, enlarged box.
     w.str8(p.name).vec(x0 * U, y0 * U).vec((x1 + 60) * U, (y1 + 25) * U).vec(p.x * U, p.y * U).s32(p.rot).u32(decalIdx.get(decalKey(p))!);
-    w.u32(/^C/.test(p.name) ? 5 : /^R/.test(p.name) ? 3 : /^J/.test(p.name) ? 17 : 0).u32(0).s32(500);
+    // Part type: 21 = mechanical (mounting holes), 29 = fiducial, as in real files.
+    w.u32(/^MK\d/.test(p.name) ? 21 : /^FID\d/.test(p.name) ? 29 : /^C/.test(p.name) ? 5 : /^R/.test(p.name) ? 3 : /^J/.test(p.name) ? 17 : 0).u32(0).s32(500);
     const flag0 = k % 9 === 0;
     w.bool(flag0).str8(p.value.slice(0, 200)).str8('5%').str8('5%').str8(p.footprint.slice(0, 200));
     if (flag0) w.str8(`SN${k}`).u32(0);

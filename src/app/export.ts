@@ -30,6 +30,7 @@ export function modelToJson(m: BoardModel) {
       x: m.parts.x[k],
       y: m.parts.y[k],
       originFromFile: !!m.parts.originFromFile[k],
+      mechanical: !!(m.parts.flags[k] & 1),
       rotation: Number.isNaN(m.parts.rot[k]) ? null : m.parts.rot[k],
       bbox: Array.from(m.parts.bbox.subarray(4 * k, 4 * k + 4)),
       value: m.parts.value[k],

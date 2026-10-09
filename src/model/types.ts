@@ -34,6 +34,9 @@ export const PINKIND_PIN = 0; // component pin
 export const PINKIND_TESTPOINT = 1; // test point / nail / probe pad not owned by a component
 export type PinKind = 0 | 1;
 
+/** Part flags. Mechanical: no electrical function (mounting hole, fiducial, standoff). */
+export const PARTFLAG_MECHANICAL = 1;
+
 export const NETFLAG_GROUND = 1;
 export const NETFLAG_POWER = 2;
 export const NETFLAG_NOCONNECT = 4;
@@ -110,6 +113,8 @@ export interface Parts {
   name: string[];
   side: Uint8Array;
   mount: Uint8Array;
+  /** PARTFLAG_* bits. */
+  flags: Uint8Array;
   /** Placement origin; equals bbox centre when the file gives none. */
   x: Float64Array;
   y: Float64Array;

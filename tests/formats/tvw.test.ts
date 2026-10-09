@@ -94,3 +94,35 @@ describe('TVW part bodies', () => {
     expect(x1 - pinMax).toBeLessThan(40);
   });
 });
+
+describe('TVW drills and mechanical parts', () => {
+  const gencad = parse('fixtures/real/glasgow/glasgow-kicad10.cad').model!;
+
+  test('drill records of through-hole pins are not duplicated as vias', () => {
+    let drilledPins = 0;
+    for (let i = 0; i < m.pins.count; i++) if (m.pins.hole[i] > 0) drilledPins++;
+    expect(drilledPins).toBeGreaterThan(40);
+    const d = m.diagnostics.find((x) => x.code === 'tvw.pindrills');
+    expect(d?.message).toContain(`${drilledPins} drill record`);
+    // Only the real vias of the source board remain as vias.
+    expect(m.vias.count).toBe(gencad.vias.count);
+  });
+
+  test('drill sizes keep their file values (mil), so holes stay inside their copper', () => {
+    const k = m.parts.name.indexOf('MK1');
+    const g = gencad.parts.name.indexOf('MK1');
+    const i = m.parts.pinStart[k],
+      j = gencad.parts.pinStart[g];
+    expect(m.pins.hole[i]).toBeCloseTo(Math.round(gencad.pins.hole[j]), 0);
+    expect(m.pins.hole[i]).toBeLessThan(m.pins.w[i]);
+  });
+
+  test('mounting holes and fiducials are mechanical and drawn dashed', () => {
+    const s = buildScene(m);
+    for (let k = 0; k < m.parts.count; k++) {
+      const mech = /^(MK|FID)\d/.test(m.parts.name[k]);
+      expect(m.parts.flags[k] & 1, m.parts.name[k]).toBe(mech ? 1 : 0);
+      expect(s.bodyDashed[k], m.parts.name[k]).toBe(mech ? 1 : 0);
+    }
+  });
+});

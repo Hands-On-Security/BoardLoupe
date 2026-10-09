@@ -94,6 +94,8 @@ export interface TvwThroughLayer {
   name: string;
   type: number;
   tools: number[]; // tool sizes (raw)
+  /** Full tool records (flags and the five words the reference leaves unnamed). */
+  toolInfo: { flag1: boolean; flag2: boolean; size: number; data: number[]; color: number[] }[];
   holes: { net: number; tool: number; x: number; y: number }[];
   /** Straight slots (drill code 0x0A): routed line from (x1,y1) to (x2,y2). */
   slots: { net: number; tool: number; x1: number; y1: number; x2: number; y2: number }[];
@@ -455,7 +457,7 @@ class TvwReader {
   through(): TvwThroughLayer {
     const r = this.r;
     const h = this.objectHeader();
-    const T: TvwThroughLayer = { kind: 'through', name: h.name, type: h.type, tools: [], holes: [], slots: [], arcs: [] };
+    const T: TvwThroughLayer = { kind: 'through', name: h.name, type: h.type, tools: [], toolInfo: [], holes: [], slots: [], arcs: [] };
     this.eq(r.u32(), 0, 'through-layer tag');
     this.eq(r.u32(), 0, 'through-layer tag');
     let tc = r.u32('tool count');
@@ -463,10 +465,13 @@ class TvwReader {
     tc--;
     this.count(tc, 'tool', 29);
     for (let i = 0; i < tc; i++) {
-      r.bool8();
-      r.bool8();
-      T.tools.push(r.u32('tool size'));
-      r.skip(20 + 3);
+      const flag1 = r.bool8(),
+        flag2 = r.bool8();
+      const size = r.u32('tool size');
+      const data = [r.s32(), r.s32(), r.s32(), r.s32(), r.s32()];
+      const color = [r.u8(), r.u8(), r.u8()];
+      T.tools.push(size);
+      T.toolInfo.push({ flag1, flag2, size, data, color });
     }
     this.eq(r.u8(), 0, 'drill table tag');
     const dc = this.count(r.u32('drill count'), 'drill', 17);
@@ -787,6 +792,10 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
     noDecal = 0;
   const xs: number[] = [],
     ys: number[] = [];
+  // Drilled pin positions (0.1 mil grid): the drill table repeats every pin's
+  // own hole, which must not be drawn again as a separate via.
+  const pinHoles = new Set<string>();
+  const holeKey = (x: number, y: number) => `${Math.round(x / 10)},${Math.round(y / 10)}`;
   for (const part of board.parts) {
     const layer = part.layer === topIdx ? (board.layers[topIdx] as TvwLogicLayer) : part.layer === botIdx ? (board.layers[botIdx] as TvwLogicLayer) : null;
     if (!layer) {
@@ -822,6 +831,8 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
       y: part.y * U,
       rot: part.angle,
       body,
+      // Mechanical (mounting holes, standoffs) and fiducials have no electrical function.
+      mechanical: part.type === 21 || part.type === 29,
       value: part.value || null,
       footprint: board.decals[part.decal]?.name ?? null,
       attrs,
@@ -836,6 +847,7 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
         continue;
       }
       const sh = padShape(layer.shapes[pad.dcode - 10]);
+      if (pad.hasHole) pinHoles.add(holeKey(pad.x, pad.y));
       const x = pad.x * U,
         y = pad.y * U;
       xs.push(x);
@@ -946,10 +958,16 @@ export function tvwToModel(board: TvwBoard, b: BoardBuilder) {
         }
       }
     } else if (l.kind === 'through' && l.type === TvwLayerType.Drill) {
+      let pinDrills = 0;
       for (const h of l.holes) {
+        if (pinHoles.has(holeKey(h.x, h.y))) {
+          pinDrills++;
+          continue;
+        }
         const size = l.tools[h.tool - 1];
         b.addVia(h.x * U, h.y * U, size !== undefined ? size * U : 0, netName(h.net));
       }
+      if (pinDrills) b.info('tvw.pindrills', `${pinDrills} drill record(s) are the holes of through-hole pins; they are drawn as holes in those pads, not as separate vias`);
     }
   });
   b.layers = layerInfos;

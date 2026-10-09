@@ -21,7 +21,7 @@ explanation (format guess, reason, byte offset or line).
 
 | Format / variant | Ext. | Detection signature | Status | Fixtures (origin) | Reference | Units | Limitations |
 |---|---|---|---|---|---|---|---|
-| **Tebo-ICT View (TVW)**, standard header | `.tvw` | bytes 0–19 = `13` + ciphered `"Tebo-ictview files."` | **verified** | `glasgow.tvw` (synthetic, 6 layers incl. traces, drills, route outline with arc slots, empty through-layer, registries, decal outlines); also checked locally on a real Lenovo X1 Carbon Gen9 (NM-D341) board that cannot be redistributed | eagleview `TeboBoard` via OBV PR #366, with two corrections (below) | mil (1/100 mil fixed point) | No redistributable real TVW in the corpus. TVW files without the standard header, e.g. the Gigabyte layout described by other projects, fail with "different Teboview variant" + offset. Copper pours (surfaces) are parsed but not drawn. |
+| **Tebo-ICT View (TVW)**, standard header | `.tvw` | bytes 0–19 = `13` + ciphered `"Tebo-ictview files."` | **verified** | `glasgow.tvw` (synthetic, 6 layers incl. traces, drills, route outline with arc slots, empty through-layer, registries, decal outlines); also checked locally on a real Lenovo X1 Carbon Gen9 (NM-D341) board that cannot be redistributed | eagleview `TeboBoard` via OBV PR #366, with two corrections (below) | mil (1/100 mil fixed point) | No redistributable real TVW in the corpus. TVW files without the standard header, e.g. the Gigabyte layout described by other projects, fail with "different Teboview variant" + offset. Copper pours (surfaces) are parsed but not drawn. Polygon pad shapes are drawn as their bounding rectangle. |
 | **BRD Test_Link**, plain | `.brd`, `.bv` | text contains `str_length:` and `var_data:` | **verified** | `glasgow-testlink.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | Pin numbers are positional (format has no pin names). |
 | BRD Test_Link, obfuscated | `.brd` | starts with `23 E2 63 28` | **verified** | `glasgow-testlink-obfuscated.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | as above |
 | BRD Test_Link, Lenovo nail-net variant | `.brd` | as above; empty pin nets | **verified** | `glasgow-testlink-lenovo.brd` (synthetic) | OBV `BRDFile` | mil (assumed) | Nets resolved through nail probe numbers. |
@@ -56,6 +56,12 @@ Found on a real Lenovo X1 Carbon Gen9 (NM-D341) board and verified on all of its
    counter-clockwise by the part angle, then mirror X on the bottom side. This transform reproduces
    100% of the pads of all parts from their decals' local pads, and every pin then lies inside its
    part body.
+3. **Drills.** Tool sizes are 1/100 mil like all coordinates; on that board they match the hole size
+   stored in each pad record exactly (e.g. a 3.3 mm drill in a 6.0 mm GND screw pad). The drill
+   table also repeats the hole of every through-hole pin (243 records there). BoardScope draws those
+   as holes cut into the pads instead of as separate vias. Decal outlines of mechanical parts (part
+   type 21) and fiducials (type 29) are keep-out circles larger than the copper, so they are drawn
+   dashed.
 
 ## Not supported (yet)
 

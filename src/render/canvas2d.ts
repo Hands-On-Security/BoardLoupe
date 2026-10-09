@@ -108,6 +108,8 @@ export class Canvas2DRenderer implements Renderer {
         for (const k of this.partIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY)) {
           if (!want(m.parts.side[k] || 3)) continue;
           ctx.strokeStyle = rgba(c.part, k, mul);
+          // Mechanical outlines (mounting holes, fiducials) are keep-outs: dashed.
+          ctx.setLineDash(s.bodyDashed[k] ? [4 * px, 4 * px] : []);
           ctx.beginPath();
           for (let j = s.bodyStart[k]; j < s.bodyStart[k + 1]; j++) {
             ctx.moveTo(s.bodySegs[4 * j], s.bodySegs[4 * j + 1]);
@@ -115,6 +117,7 @@ export class Canvas2DRenderer implements Renderer {
           }
           ctx.stroke();
         }
+        ctx.setLineDash([]);
       }
       if (opts.showPins && this.pinIdx) {
         const ids = this.pinIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY);
@@ -143,12 +146,29 @@ export class Canvas2DRenderer implements Renderer {
             } else ctx.rect(x - hw, y - hh, 2 * hw, 2 * hh);
           } else ctx.arc(x, y, Math.min(hw, hh), 0, Math.PI * 2);
           ctx.fill();
+
           if (i === f.hover.pin) {
             ctx.strokeStyle = opts.light ? '#000' : '#fff';
             ctx.lineWidth = 1.5 * px;
             ctx.stroke();
           }
+
         }
+      }
+    }
+    // Drill holes after all pads (both sides), so overlapping copper never hides a drill.
+    if (opts.showPins && this.pinIdx) {
+      ctx.fillStyle = `rgb(${palette.bg[0]},${palette.bg[1]},${palette.bg[2]})`;
+      ctx.strokeStyle = `rgb(${palette.holeEdge[0]},${palette.holeEdge[1]},${palette.holeEdge[2]})`;
+      ctx.lineWidth = px;
+      for (const i of this.pinIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY)) {
+        if (!(m.pins.hole[i] > 0) || c.pin[4 * i + 3] === 0) continue;
+        const hr = Math.min(m.pins.hole[i] / 2, Math.min(s.pinHW[i], s.pinHH[i]));
+        if (hr * view.scale <= 0.75) continue;
+        ctx.beginPath();
+        ctx.arc(m.pins.x[i], m.pins.y[i], hr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
       }
     }
     if (opts.showOutline && m.outline.segs.length) {

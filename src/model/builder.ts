@@ -17,6 +17,7 @@ import {
   NETFLAG_NOCONNECT,
   NETFLAG_POWER,
   NO_PROBE,
+  PARTFLAG_MECHANICAL,
   PINKIND_PIN,
   SHAPE_DEFAULT,
   SIDE_NONE,
@@ -27,6 +28,8 @@ export interface PartInput {
   name: string;
   side?: Side;
   mount?: Mount;
+  /** No electrical function (mounting hole, fiducial): outline drawn dashed. */
+  mechanical?: boolean;
   x?: number;
   y?: number;
   rot?: number;
@@ -324,6 +327,7 @@ export class BoardBuilder {
       name: new Array<string>(P),
       side: new Uint8Array(P),
       mount: new Uint8Array(P),
+      flags: new Uint8Array(P),
       x: new Float64Array(P),
       y: new Float64Array(P),
       originFromFile: new Uint8Array(P),
@@ -344,6 +348,7 @@ export class BoardBuilder {
       parts.name[k] = p.name ?? '';
       parts.side[k] = p.side ?? SIDE_NONE;
       parts.mount[k] = p.mount ?? MOUNT_UNKNOWN;
+      parts.flags[k] = p.mechanical ? PARTFLAG_MECHANICAL : 0;
       parts.rot[k] = p.rot !== undefined && Number.isFinite(p.rot) ? p.rot : NaN;
       parts.pinStart[k] = start[k];
       parts.pinCount[k] = counts[k];

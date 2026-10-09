@@ -87,8 +87,10 @@ source) on the fixture, plus integrity, fuzz and browser tests.
 - **File info** (*File* tab). Detected format, support status, detection confidence, units, counts,
   capabilities, every parser diagnostic, and load timings.
 
-What you see is what the file contains. When a file lacks pad sizes, pads are sized from pin
-spacing (the inspector says so). When it lacks an outline, a dashed bounding rectangle is shown.
+What you see is what the file contains. Drilled pads show their real drill as a hole; holes are
+drawn above all copper, so overlapping pads never hide one. Outlines of mechanical parts (mounting
+holes, fiducials) are keep-outs and are drawn dashed. When a file lacks pad sizes, pads are sized
+from pin spacing (the inspector says so). When it lacks an outline, a dashed bounding rectangle is shown.
 Unavailable fields are labelled "not in file".
 
 ## Privacy

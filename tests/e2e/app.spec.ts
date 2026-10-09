@@ -248,6 +248,47 @@ test.describe('BoardScope single-file app', () => {
     await expect(insp.getByRole('heading', { name: `${name}.2` })).toBeVisible();
   });
 
+  test('drill holes are drawn inside their pads, even under overlapping copper', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('synthetic/glasgow.tvw'));
+    // Hide labels (the refdes sits on the hole centre), zoom to mounting hole MK1:
+    // one large drilled pad plus small stitching vias that lie on its copper ring.
+    await page.evaluate(`boardscope.store.set({ prefs: { ...boardscope.store.get().prefs, showPartLabels: false, showPinLabels: false, showNetLabels: false } })`);
+    const pts = (await page.evaluate(`(() => {
+      const v = boardscope.viewer, m = v.model;
+      const k = m.parts.name.indexOf('MK1');
+      const a = m.parts.pinStart[k], n = m.parts.pinCount[k];
+      let big = a, small = a;
+      for (let j = a; j < a + n; j++) {
+        if (m.pins.hole[j] > m.pins.hole[big]) big = j;
+        if (m.pins.hole[j] > 0 && m.pins.hole[j] < m.pins.hole[small]) small = j;
+      }
+      const r = m.pins.w[big];
+      v.focus({ minX: m.pins.x[big] - r, minY: m.pins.y[big] - r, maxX: m.pins.x[big] + r, maxY: m.pins.y[big] + r }, 1000);
+      return [boardscope.toScreen(m.pins.x[big], m.pins.y[big]), boardscope.toScreen(m.pins.x[small], m.pins.y[small])];
+    })()`)) as [number, number][];
+    await page.waitForTimeout(150);
+    const box = (await page.getByTestId('board-canvas').boundingBox())!;
+    for (const [sx, sy] of pts) {
+      // Sample a real screenshot (engine-independent; WebGL buffers are not readable everywhere).
+      const png = await page.screenshot({ clip: { x: box.x + sx - 1, y: box.y + sy - 1, width: 3, height: 3 } });
+      const rgb = (await page.evaluate(`new Promise((res) => {
+        const img = new Image();
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          const g = c.getContext('2d');
+          g.drawImage(img, 0, 0);
+          const d = g.getImageData(Math.floor(img.width / 2), Math.floor(img.height / 2), 1, 1).data;
+          res([d[0], d[1], d[2]]);
+        };
+        img.src = 'data:image/png;base64,${png.toString('base64')}';
+      })`)) as number[];
+      // Dark theme hole background is rgb(11,14,19); copper would be far brighter.
+      expect(Math.max(...rgb)).toBeLessThan(40);
+    }
+  });
+
   test('drag and drop a file onto the window', async ({ page }) => {
     await openApp(page);
     const b64 = readFileSync(FX('synthetic/glasgow.bdv')).toString('base64');
