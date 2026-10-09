@@ -139,7 +139,10 @@ export function computeColors(m: BoardModel, _s: Scene, o: RenderOptions, h: Hig
       // findable when zoomed out; large parts (BGAs) rely on their outline.
       if (parts.pinCount[k] <= 64) emph = true;
     }
-    if (i === h.pin) {
+    // The white "this exact pin" marker only makes sense for a single focal
+    // selection. In a multi-net (bus) selection there is no single focal pin,
+    // so the first-clicked pin keeps its own net's bus colour like the rest.
+    if (i === h.pin && !multiBus) {
       c = p.selPin;
       hl = true;
       emph = true;
