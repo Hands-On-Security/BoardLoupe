@@ -1214,3 +1214,191 @@ export function writeBv(b: SrcBoard): Uint8Array {
     },
   ]);
 }
+
+// ------------------------------------------------------------------ Cadence Allegro 16.6 database (minimal)
+
+/**
+ * An Allegro 16.6 board database holding just the records BoardScope reads:
+ * nets, net assignments, padstacks, pad definitions, reference designators,
+ * footprint definitions, placements (with pad offsets in the part's rotated,
+ * bottom-mirrored frame), placed pads, vias, tracks and the outline shape.
+ */
+export function writeAllegro(b: SrcBoard, opts: { v17?: boolean } = {}): Uint8Array {
+  const V = !!opts.v17;
+  // 17.x: small integer keys and string ids, larger records with fields moved (see src/formats/allegro.ts).
+  const S0 = V ? 0x2000 : 0x0f440000;
+  const strings: string[] = [];
+  const sid = new Map<string, number>();
+  const str = (s: string) => sid.get(s) ?? (sid.set(s, S0 + strings.length), strings.push(s), sid.get(s)!);
+  let nextKey = V ? 0x8000 : 0x19c00000;
+  const key = () => (nextKey += V ? 1 : 0x20);
+  const Z = V
+    ? { net: 60, assign: 20, fpDef: 76, ref: 40 + 8, refStr: 28, fp: 72, fpRef: 40, fpRot: 28, fpX: 32, fpPad: 48, def: 44, pad: 84, padNet: 12, padNext: 24, padOwner: 28, padDef: 36, padBox: 68, via: 80, viaX: 32, viaPs: 44, viaBox: 64, trk: 68, trkSeg: 56, seg: 44, segW: 24, shp: 76, shpSeg: 40, shpBox: 60, psBase: 948, psPer: 144, psCount: 44, psDrill: 64 }
+    : { net: 56, assign: 20, fpDef: 72, ref: 40, refStr: 20, fp: 64, fpRef: 12, fpRot: 24, fpX: 28, fpPad: 40, def: 40, pad: 76, padNet: 12, padNext: 20, padOwner: 24, padDef: 32, padBox: 60, via: 72, viaX: 24, viaPs: 36, viaBox: 56, trk: 60, trkSeg: 48, seg: 40, segW: 20, shp: 68, shpSeg: 32, shpBox: 52, psBase: 392, psPer: 84, psCount: 50, psDrill: 16 };
+  const recs: Uint8Array[] = [];
+  const rec = (size: number, tag: number, cls = 0, sub = 0) => {
+    const r = new Uint8Array(size);
+    const v = new DataView(r.buffer);
+    r[0] = tag;
+    r[2] = cls;
+    r[3] = sub;
+    recs.push(r);
+    return v;
+  };
+  const U = 100; // 1/100 mil
+  // Layer list (etch): TOP, IN1, BOTTOM.
+  const layerNames = ['TOP', 'IN1', 'BOTTOM'];
+  {
+    const v = rec(8 + 12 * layerNames.length, 0x2a);
+    v.setUint16(2, layerNames.length, true);
+    layerNames.forEach((n, i) => v.setUint32(4 + 12 * i, str(n), true));
+    v.setUint32(4 + 12 * layerNames.length, key(), true);
+  }
+  // Nets and one net assignment per net (pins, vias and tracks share it).
+  const assign = new Map<string, number>();
+  for (const n of b.nets) {
+    const nk = key();
+    const v = rec(Z.net, 0x1b);
+    v.setUint32(4, nk, true);
+    v.setUint32(12, str(n), true);
+    const ak = key();
+    const a = rec(Z.assign, 0x04);
+    a.setUint32(4, ak, true);
+    a.setUint32(12, nk, true);
+    assign.set(n, ak);
+  }
+  // Padstacks: one per (shape, size, drill).
+  const stacks = new Map<string, number>();
+  const stack = (round: boolean, w: number, h: number, drill: number) => {
+    const sk = `${round}:${w}:${h}:${drill}`;
+    let k = stacks.get(sk);
+    if (k === undefined) {
+      k = key();
+      const n = drill ? layerNames.length : 1;
+      const v = rec(Z.psBase + Z.psPer * n, 0x1c);
+      v.setUint32(4, k, true);
+      v.setUint32(12, str(`${round ? 'C' : 'R'}${w}X${h}${drill ? 'D' + drill : ''}`), true);
+      v.setInt32(Z.psDrill, drill * U, true);
+      v.setUint16(Z.psCount, n, true);
+      if (!V) v.setUint32(88, round ? 2 : 1, true);
+      stacks.set(sk, k);
+    }
+    return k;
+  };
+  // Footprints: one definition per part (keeps each pad definition in the part's own frame).
+  b.parts.forEach((p, pi) => {
+    const a = (p.rot * Math.PI) / 180;
+    const fpDef = key();
+    const def = rec(Z.fpDef, 0x2b);
+    def.setUint32(4, fpDef, true);
+    def.setUint32(8, str(p.footprint || `FP${pi}`), true);
+    const refKey = key();
+    const r7 = rec(Z.ref, 0x07);
+    r7.setUint32(4, refKey, true);
+    r7.setUint32(Z.refStr, str(p.name), true);
+    const fpKey = key();
+    const padKeys = p.pins.map(() => key());
+    const fp = rec(Z.fp, 0x2d, p.side === 'B' ? 1 : 0);
+    fp.setUint32(4, fpKey, true);
+    fp.setUint32(8, fpDef, true); // last (only) placement of its footprint → definition
+    fp.setUint32(Z.fpRef, refKey, true);
+    fp.setInt32(Z.fpRot, Math.round(p.rot * 1000), true);
+    fp.setInt32(Z.fpX, p.x * U, true);
+    fp.setInt32(Z.fpX + 4, p.y * U, true);
+    fp.setUint32(Z.fpPad, padKeys[0] ?? 0, true);
+    p.pins.forEach((pin, j) => {
+      // local = mirror · R(−θ) · (pin − origin), mirror = negate X on the bottom
+      const dx = (pin.x - p.x) * U,
+        dy = (pin.y - p.y) * U;
+      let lx = dx * Math.cos(-a) - dy * Math.sin(-a);
+      const ly = dx * Math.sin(-a) + dy * Math.cos(-a);
+      if (p.side === 'B') lx = -lx;
+      const dk = key();
+      const d = rec(Z.def, 0x0d);
+      d.setUint32(4, dk, true);
+      d.setUint32(8, str(pin.number || String(j + 1)), true);
+      d.setInt32(16, Math.round(lx), true);
+      d.setInt32(20, Math.round(ly), true);
+      d.setUint32(24, stack(pin.shape === 'round', pin.w, pin.h, pin.hole), true);
+      const pv = rec(Z.pad, 0x32);
+      pv.setUint32(4, padKeys[j], true);
+      pv.setUint32(Z.padNet, pin.net ? assign.get(pin.net)! : 0, true);
+      pv.setUint32(Z.padNext, padKeys[j + 1] ?? fpKey, true);
+      pv.setUint32(Z.padOwner, fpKey, true);
+      pv.setUint32(Z.padDef, dk, true);
+      pv.setInt32(Z.padBox, (pin.x - pin.w / 2) * U, true);
+      pv.setInt32(Z.padBox + 4, (pin.y - pin.h / 2) * U, true);
+      pv.setInt32(Z.padBox + 8, (pin.x + pin.w / 2) * U, true);
+      pv.setInt32(Z.padBox + 12, (pin.y + pin.h / 2) * U, true);
+    });
+  });
+  // Vias.
+  for (const v of b.vias) {
+    const r = rec(Z.via, 0x33);
+    r.setUint32(4, key(), true);
+    r.setUint32(12, v.net ? assign.get(v.net)! : 0, true);
+    r.setInt32(Z.viaX, v.x * U, true);
+    r.setInt32(Z.viaX + 4, v.y * U, true);
+    r.setUint32(Z.viaPs, stack(true, v.d, v.d, Math.max(1, Math.round(v.d / 2))), true);
+    r.setInt32(Z.viaBox, (v.x - v.d / 2) * U, true);
+    r.setInt32(Z.viaBox + 8, (v.x + v.d / 2) * U, true);
+  }
+  // Tracks: one etch track per segment.
+  const layerOf = { T: 0, I: 1, B: 2 } as const;
+  for (const t of b.traces) {
+    const tk = key(),
+      sk = key();
+    const tr = rec(Z.trk, 0x05, 6, layerOf[t.layer]);
+    tr.setUint32(4, tk, true);
+    tr.setUint32(12, t.net ? assign.get(t.net)! : 0, true);
+    tr.setUint32(Z.trkSeg, sk, true);
+    const s = rec(Z.seg, 0x15);
+    s.setUint32(4, sk, true);
+    s.setUint32(8, tk, true);
+    s.setUint32(12, tk, true);
+    s.setInt32(Z.segW, t.w * U, true);
+    [t.x1, t.y1, t.x2, t.y2].forEach((c, i) => s.setInt32(Z.segW + 4 + 4 * i, c * U, true));
+  }
+  // Outline: board geometry / OUTLINE shape with a chain of lines.
+  {
+    const ok = key();
+    const segKeys = b.outlineSegs.map(() => key());
+    const sh = rec(Z.shp, 0x28, 1, 0xfd);
+    sh.setUint32(4, ok, true);
+    sh.setUint32(Z.shpSeg, segKeys[0], true);
+    const xs = b.outline.map((q) => q[0]),
+      ys = b.outline.map((q) => q[1]);
+    [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].forEach((v, i) => sh.setInt32(Z.shpBox + 4 * i, v * U, true));
+    b.outlineSegs.forEach(([x1, y1, x2, y2], i) => {
+      const s = rec(Z.seg, 0x15);
+      s.setUint32(4, segKeys[i], true);
+      s.setUint32(8, segKeys[i + 1] ?? ok, true);
+      s.setUint32(12, ok, true);
+      [x1, y1, x2, y2].forEach((c, k) => s.setInt32(Z.segW + 4 + 4 * k, c * U, true));
+    });
+  }
+  // Header, string table, records.
+  const head = new Uint8Array(0x1200);
+  const hv = new DataView(head.buffer);
+  hv.setUint32(0, V ? 0x00140400 : 0x00131504, true);
+  hv.setUint32(4, 3, true);
+  hv.setUint32(8, 1, true);
+  head.set(enc.encode(V ? 'allv17-2 BoardScope fixture' : 'allv16-6 BoardScope fixture'), 0xf8);
+  hv.setUint32(0x194, strings.length, true);
+  const st: number[] = [];
+  strings.forEach((s, i) => {
+    const id = S0 + i;
+    st.push(id & 0xff, (id >> 8) & 0xff, (id >> 16) & 0xff, id >>> 24, ...enc.encode(s), 0);
+    while (st.length % 4) st.push(0);
+  });
+  const total = head.length + st.length + recs.reduce((n, r) => n + r.length, 0);
+  const out = new Uint8Array(total);
+  out.set(head, 0);
+  out.set(st, head.length);
+  let at = head.length + st.length;
+  for (const r of recs) {
+    out.set(r, at);
+    at += r.length;
+  }
+  return out;
+}

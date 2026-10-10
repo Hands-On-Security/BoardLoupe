@@ -37,7 +37,10 @@ const OPENS: Record<string, string[]> = {
   tvw: ['tvw'],
   f2b: ['f2b'],
   'bv-jet': ['bv'],
+  'allegro-brd': ['allegro'],
 };
+/** Samples that are expected not to open (with an explanation). */
+const EXPLAINED = [/LA-7201PR10-0221\.brd-156_final\.brd$/]; // Allegro 15.5: pre-16 record layout
 const SETS = new Set(['asc-split', 'con-companion', 'cst-companion', 'cst', 'f2b']);
 
 interface Row {
@@ -60,7 +63,7 @@ describe.skipIf(!rows.length)('research corpus (BS_RESEARCH)', () => {
             .map((f) => join(dirname(p), f))
         : [p];
       const out = parseFiles(paths.map((x) => ({ name: basename(x), bytes: new Uint8Array(readFileSync(x)) })), DEFAULT_OPTIONS);
-      const want = OPENS[r.format];
+      const want = EXPLAINED.some((re) => re.test(r.file)) ? undefined : OPENS[r.format];
       if (!want) {
         if (out.ok) return; // a format that started opening: add it to OPENS
         expect(out.diagnostics[0]?.message.length ?? 0).toBeGreaterThan(20);

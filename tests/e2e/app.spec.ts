@@ -355,6 +355,8 @@ test.describe('BoardScope single-file app', () => {
       'synthetic/glasgow.a3p',
       'synthetic/glasgow.f2b',
       'synthetic/glasgow.bv',
+      'synthetic/glasgow-allegro16.brd',
+      'synthetic/glasgow-allegro17.brd',
       'real/glasgow/glasgow.kicad_pcb',
     ];
     for (const f of files) {

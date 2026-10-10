@@ -78,7 +78,7 @@ describe('cross-format geometry (real board, independent exporters)', () => {
     expect(r.compared).toBeGreaterThan(1100);
     expect(r.worst).toBeLessThan(0.75);
   });
-  for (const f of ['glasgow.fatf', 'glasgow.far', 'glasgow.a3p', 'glasgow.f2b', 'glasgow.bv'])
+  for (const f of ['glasgow.fatf', 'glasgow.far', 'glasgow.a3p', 'glasgow.f2b', 'glasgow.bv', 'glasgow-allegro16.brd', 'glasgow-allegro17.brd'])
     test(`synthetic ${f} reproduces the source board (rotated, mirrored packages)`, () => {
       const m = parse('fixtures/synthetic/' + f).model!;
       const r = compare(parse('fixtures/real/glasgow/glasgow-kicad10.cad').model!, m);

@@ -91,6 +91,7 @@ interface Fields {
   /** 0x33 via: → net assignment, x/y, box. */
   viaNet: number;
   viaX: number;
+  viaPs: number;
   viaBox: number;
   /** 0x05 track: → net assignment, → first segment. */
   trkNet: number;
@@ -105,8 +106,8 @@ interface Fields {
   psDrill: number;
   psType: number;
 }
-const F16: Fields = { fpRot: 24, fpX: 28, fpY: 32, fpRef: 12, fpPad: 40, refStr: 20, padNet: 12, padNext: 20, padDef: 32, padBox: 60, viaNet: 12, viaX: 24, viaBox: 56, trkNet: 12, trkSeg: 48, shpSeg: 32, shpBox: 52, segW: 20, arcD: 40, psDrill: 16, psType: 88 };
-const F17: Fields = { fpRot: 28, fpX: 32, fpY: 36, fpRef: 40, fpPad: 48, refStr: 28, padNet: 12, padNext: 24, padDef: 36, padBox: 68, viaNet: 12, viaX: 32, viaBox: 64, trkNet: 12, trkSeg: 56, shpSeg: 40, shpBox: 60, segW: 24, arcD: 44, psDrill: 64, psType: 0 };
+const F16: Fields = { fpRot: 24, fpX: 28, fpY: 32, fpRef: 12, fpPad: 40, refStr: 20, padNet: 12, padNext: 20, padDef: 32, padBox: 60, viaNet: 12, viaX: 24, viaPs: 36, viaBox: 56, trkNet: 12, trkSeg: 48, shpSeg: 32, shpBox: 52, segW: 20, arcD: 40, psDrill: 16, psType: 88 };
+const F17: Fields = { fpRot: 28, fpX: 32, fpY: 36, fpRef: 40, fpPad: 48, refStr: 28, padNet: 12, padNext: 24, padDef: 36, padBox: 68, viaNet: 12, viaX: 32, viaPs: 44, viaBox: 64, trkNet: 12, trkSeg: 56, shpSeg: 40, shpBox: 60, segW: 24, arcD: 44, psDrill: 64, psType: 0 };
 
 export interface Layout {
   v17: boolean;
@@ -116,6 +117,9 @@ export interface Layout {
 }
 const LAYOUT16: Layout = { v17: false, sizes: SIZE16, table36: TABLE36_16, f: F16 };
 const LAYOUT17: Layout = { v17: true, sizes: SIZE17, table36: TABLE36_17, f: F17 };
+
+/** Plausibility bound for coordinates (1/100 mil): 100 inches. */
+const MAX_COORD = 10_000_000;
 
 interface Walk {
   /** Parallel arrays: tag and offset of every record, in file order. */
@@ -352,6 +356,7 @@ export const allegroFormat: FormatModule = {
     // Footprints and pins.
     ctx.progress('Building board');
     const partOrigins: [number, number][] = [];
+    const unnamedByFootprint = new Map<string, number>();
     let brokenChains = 0,
       anonymous = 0;
     for (let i = 0; i < w.count; i++) {
@@ -371,7 +376,27 @@ export const allegroFormat: FormatModule = {
         continue;
       }
       partOrigins.push([ox, oy]);
-      const pi = bb.addPart({ name: ref || `?${i}`, side: bottom ? SIDE_BOTTOM : SIDE_TOP, mount: MOUNT_SMD, x: ox * k, y: oy * k, rot: ((rot % 360) + 360) % 360 });
+      // Footprint: the placements of a footprint are chained (+8) back to its definition (0x2b, +8 name).
+      let footprint = '';
+      for (let key = a.u32(fp + 8), guard = 0; key && guard < 10000; guard++) {
+        const j = w.byKey.get(key);
+        if (j === undefined) break;
+        if (w.tags[j] === 0x2b) {
+          footprint = str(a.u32(w.offs[j] + 8));
+          break;
+        }
+        if (w.tags[j] !== 0x2d) break;
+        key = a.u32(w.offs[j] + 8);
+      }
+      // Parts without a reference designator (mounting holes, fiducials) are named after their footprint.
+      let name = ref;
+      if (!name) {
+        const base = footprint || 'UNNAMED';
+        const n = (unnamedByFootprint.get(base) ?? 0) + 1;
+        unnamedByFootprint.set(base, n);
+        name = `${base}#${n}`;
+      }
+      const pi = bb.addPart({ name, side: bottom ? SIDE_BOTTOM : SIDE_TOP, mount: MOUNT_SMD, x: ox * k, y: oy * k, rot: ((rot % 360) + 360) % 360, footprint: footprint || null, mechanical: !ref });
       const self = a.u32(fp + 4);
       let th = false;
       for (let key = a.u32(fp + F.fpPad), guard = 0; key && key !== self && guard < 20000; guard++) {
@@ -466,8 +491,12 @@ export const allegroFormat: FormatModule = {
       const t = w.tags[i],
         o = w.offs[i];
       if (t === 0x33) {
+        // A real via names its padstack; anything else is data that merely looks like a via.
+        const vx = a.i32(o + F.viaX),
+          vy = a.i32(o + F.viaX + 4);
+        if (at(a.u32(o + F.viaPs), 0x1c) < 0 || Math.abs(vx) > MAX_COORD || Math.abs(vy) > MAX_COORD) continue;
         const box = a.i32(o + F.viaBox + 8) - a.i32(o + F.viaBox);
-        bb.addVia(a.i32(o + F.viaX) * k, a.i32(o + F.viaX + 4) * k, Math.max(0, box) * k, netOfAssign(a.u32(o + F.viaNet)));
+        bb.addVia(vx * k, vy * k, Math.max(0, Math.min(box, 1e6)) * k, netOfAssign(a.u32(o + F.viaNet)));
       } else if (t === 0x05 && b[o + 2] === 6) {
         walkSegments(o, a.u32(o + F.trkSeg), b[o + 3], netOfAssign(a.u32(o + F.trkNet)));
       } else if (t === 0x28 && b[o + 2] === 1) {

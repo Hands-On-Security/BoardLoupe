@@ -237,6 +237,28 @@
     "license": "0BSD"
   },
   {
+    "id": "syn-allegro",
+    "files": [
+      "fixtures/synthetic/glasgow-allegro16.brd"
+    ],
+    "format": "allegro",
+    "obv": null,
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts as a minimal Allegro 16.6 database with the record layout of real boards.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-allegro17",
+    "files": [
+      "fixtures/synthetic/glasgow-allegro17.brd"
+    ],
+    "format": "allegro",
+    "obv": null,
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts as a minimal Allegro 17.2 database with the record layout of real boards.",
+    "license": "0BSD"
+  },
+  {
     "id": "syn-tvw",
     "files": [
       "fixtures/synthetic/glasgow.tvw"

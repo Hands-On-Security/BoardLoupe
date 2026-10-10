@@ -44,6 +44,7 @@ BoardScope parse matches the reference output (`tests/formats/differential.test.
 | `glasgow.a3p` | GenCAM 1.5 (IPC-2511) | no reference parser; patterns in each component's rotated/MIRRORed frame, COMPPIN nets, vias, routes, probes |
 | `glasgow.f2b` | Unisoft F2B (MFC CArchive v8) | no reference parser; layout of real files: trace lists, CPinList with CComponent objects, component map, NetNames with BGA labels |
 | `glasgow.bv` | BV boardview, Microsoft Jet 4 database | written by `writeJet4` (catalog, table definitions, data pages); Pin/Nail/Layout tables in inches |
+| `glasgow-allegro16.brd`, `glasgow-allegro17.brd` | Cadence Allegro 16.6 / 17.2 database (minimal) | no reference parser; header, string table and the records BoardScope reads, in the record sizes and field offsets measured on real boards |
 | `glasgow.tvw` | Tebo-ICT View | 6 layers (top/bottom/inner logic incl. "extra data" order, drill, route outline, empty through-layer), shapes of all types, surfaces with voids, test points, probe and fixture registries, decals |
 
 Large performance boards (1k–200k pins) are generated on demand by `npm run bench`
