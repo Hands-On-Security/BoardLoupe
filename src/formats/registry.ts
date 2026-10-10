@@ -10,6 +10,7 @@ import { bvr1Format, bvr3Format } from './bvr';
 import { cadPanelFormat } from './cad';
 import { extOf, makeSniff } from './common';
 import { cstFormat } from './cst';
+import { extractaFormat } from './extracta';
 import { f2bFormat } from './f2b';
 import { fabmasterFormat } from './fabmaster';
 import { caeFormat, fzFormat } from './fz';
@@ -36,6 +37,7 @@ export const FORMATS: FormatModule[] = [
   gencamFormat,
   cadPanelFormat,
   fabmasterFormat,
+  extractaFormat,
   cstFormat,
   f2bFormat,
   bvFormat,
