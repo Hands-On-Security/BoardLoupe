@@ -350,6 +350,8 @@ test.describe('BoardScope single-file app', () => {
       'real/glasgow/glasgow-kicad-boardview.bvr',
       'synthetic/glasgow-zlib.fz',
       'synthetic/glasgow-panel.cad',
+      'synthetic/glasgow.fatf',
+      'synthetic/glasgow.far',
       'real/glasgow/glasgow.kicad_pcb',
     ];
     for (const f of files) {

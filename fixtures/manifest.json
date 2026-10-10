@@ -182,6 +182,28 @@
     "license": "0BSD"
   },
   {
+    "id": "syn-fatf",
+    "files": [
+      "fixtures/synthetic/glasgow.fatf"
+    ],
+    "format": "fabmaster",
+    "obv": null,
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the Fabmaster FATF grammar of real jobs.",
+    "license": "0BSD"
+  },
+  {
+    "id": "syn-farc",
+    "files": [
+      "fixtures/synthetic/glasgow.far"
+    ],
+    "format": "fabmaster",
+    "obv": null,
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the Fabmaster FARC grammar of real jobs.",
+    "license": "0BSD"
+  },
+  {
     "id": "syn-tvw",
     "files": [
       "fixtures/synthetic/glasgow.tvw"

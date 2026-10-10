@@ -77,4 +77,14 @@ describe('cross-format geometry (real board, independent exporters)', () => {
     expect(r.compared).toBeGreaterThan(1100);
     expect(r.worst).toBeLessThan(0.75);
   });
+  for (const f of ['glasgow.fatf', 'glasgow.far'])
+    test(`synthetic Fabmaster ${f} reproduces the source board (rotated, mirrored packages)`, () => {
+      const m = parse('fixtures/synthetic/' + f).model!;
+      const r = compare(parse('fixtures/real/glasgow/glasgow-kicad10.cad').model!, m);
+      expect(r.compared).toBeGreaterThan(1100);
+      expect(r.worst).toBeLessThan(0.75);
+      expect(r.netMismatch).toBe(0);
+      expect(m.traces.count).toBeGreaterThan(4000);
+      expect(m.outline.source).toBe('file');
+    });
 });

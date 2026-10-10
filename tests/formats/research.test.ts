@@ -9,9 +9,11 @@
  * ASC tables, companion files) are opened as a whole directory, like a folder
  * drop.
  */
+import { unzipSync } from 'fflate';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { _fab, placePoint } from '../../src/formats/fabmaster';
 import { DEFAULT_OPTIONS, parseFiles } from '../../src/formats/registry';
 import { validateModel } from '../../src/model/validate';
 
@@ -29,6 +31,8 @@ const OPENS: Record<string, string[]> = {
   cst: ['cst'],
   'asc-split': ['asc'],
   'mentor-neutral': ['cad-panel'],
+  'fabmaster-fatf': ['fabmaster'],
+  faz: ['fabmaster'],
 };
 const SETS = new Set(['asc-split', 'con-companion', 'cst-companion', 'cst', 'f2b']);
 
@@ -65,4 +69,28 @@ describe.skipIf(!rows.length)('research corpus (BS_RESEARCH)', () => {
       expect(m.pins.count).toBeGreaterThan(0);
     });
   }
+});
+
+// Fabmaster placement: every FABXYDATA pin position of a real FARC job.
+const faz = rows.find((r) => r.format === 'faz' && /H61M/.test(r.file));
+describe.skipIf(!faz)('Fabmaster FARC placement against FABXYDATA (BS_RESEARCH)', () => {
+  test('every pin lands on its absolute position', () => {
+    const files = unzipSync(new Uint8Array(readFileSync(join(ROOT!, faz!.file))));
+    const far = Object.entries(files).find(([n]) => /\.far$/i.test(n))!;
+    const job = _fab.readFarc(new TextDecoder('latin1').decode(far[1]));
+    const parts = new Map(job.parts.map((p) => [p.id, p]));
+    let ok = 0,
+      total = 0;
+    for (const [key, [x, y]] of job.xy) {
+      const [id, idx] = key.split(':').map(Number);
+      const p = parts.get(id)!;
+      const pin = (job.packages.get(p.pkgKey ?? p.pkg) ?? job.packages.get(p.pkg))?.pins.get(idx);
+      if (!pin) continue;
+      total++;
+      const [px, py] = placePoint(p, pin.x, pin.y);
+      if (Math.hypot(px - x, py - y) < 0.02) ok++;
+    }
+    expect(total).toBeGreaterThan(6000);
+    expect(ok).toBe(total);
+  });
 });

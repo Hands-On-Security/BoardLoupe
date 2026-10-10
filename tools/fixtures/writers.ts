@@ -700,3 +700,128 @@ export function writeTvw(b: SrcBoard): Uint8Array {
   });
   return w.out();
 }
+
+// ------------------------------------------------------------------ Fabmaster FATF / FARC
+
+/**
+ * A Fabmaster job of the board: one package per part, in the part's local
+ * frame, so the reader's placement (negate Y on the bottom, rotate clockwise
+ * in tenths of a degree) is exercised for every rotation and side.
+ */
+interface FabPkg {
+  name: string;
+  rot10: number;
+  pins: { x: number; y: number; stack: number }[];
+}
+function fabJob(b: SrcBoard) {
+  const nets = new Map(b.nets.map((n, i) => [n, i + 1]));
+  const stacks = new Map<string, number>();
+  const stackOf = (shape: string, w: number, h: number, hole: number) => {
+    const k = `${shape}:${w}:${h}:${hole}`;
+    return stacks.get(k) ?? (stacks.set(k, stacks.size + 1), stacks.size);
+  };
+  const viaStack = new Map<number, number>();
+  for (const v of b.vias) if (!viaStack.has(v.d)) viaStack.set(v.d, stackOf('round', v.d, v.d, Math.max(1, Math.round(v.d / 2))));
+  const pkgs: FabPkg[] = b.parts.map((p) => {
+    // Fabmaster rotation: tenths of a degree clockwise. local = M · R(+θcw) · (abs − origin).
+    const rot10 = ((Math.round(-p.rot) % 360) + 360) % 360 * 10;
+    const a = (rot10 / 10) * (Math.PI / 180);
+    const c = Math.cos(a),
+      s = Math.sin(a);
+    return {
+      name: `PKG_${tok(p.name)}`,
+      rot10,
+      pins: p.pins.map((pin) => {
+        const dx = pin.x - p.x,
+          dy = pin.y - p.y;
+        const lx = dx * c - dy * s,
+          ly = dx * s + dy * c;
+        // Pads are axis-aligned on the board: swap w/h in a quarter-turned frame.
+        const q = rot10 === 900 || rot10 === 2700;
+        const [w, h] = q ? [pin.h, pin.w] : [pin.w, pin.h];
+        return { x: lx, y: p.side === 'B' ? -ly : ly, stack: stackOf(pin.shape === 'round' ? 'round' : 'rect', w, h, pin.hole) };
+      }),
+    };
+  });
+  return { nets, stacks, viaStack, pkgs };
+}
+
+const n5 = (mil: number) => String(Math.round(mil * 100)); // 1/100000 inch
+const fq = (s: string) => `"${s.replace(/"/g, "'")}"`;
+
+export function writeFatf(b: SrcBoard): Uint8Array {
+  const { nets, stacks, viaStack, pkgs } = fabJob(b);
+  const L: string[] = ['; ????????  FATF OUTPUT FILE  BoardScope synthetic fixture (Glasgow, 0BSD)', '', ':FABMASTER FATF REV 11.2;', '', ':UNITS = 1/100000 INCH;', '', ':BOARD_DATA', '1,JOB("GLASGOW",,01-01-2026,01-01-2026);'];
+  const ring = [...b.outline, b.outline[0]];
+  L.push(`2,CONTOUR (${ring.map(([x, y]) => `(${n5(x)},${n5(y)},0)`).join(',')});`, ':EOD', '', ':NOTRACE;', '', ':PARTS');
+  b.parts.forEach((p, i) => L.push(`${i + 1},${fq(p.name)},${fq(`${p.footprint || 'PART'}|${p.value}`)},${fq(pkgs[i].name)},${n5(p.x)},${n5(p.y)},${pkgs[i].rot10},${p.side === 'B' ? 'B' : 'T'};`));
+  L.push(':EOD', '', ':NETS');
+  const members = new Map<string, string[]>();
+  b.parts.forEach((p, i) => p.pins.forEach((pin, j) => pin.net && (members.get(pin.net) ?? members.set(pin.net, []).get(pin.net)!).push(`(${i + 1},${j + 1})`)));
+  for (const [n, id] of nets) {
+    const m = members.get(n) ?? [];
+    L.push(`${id},${fq(n)},S,`);
+    for (let k = 0; k < m.length; k += 8) L.push(`  ${k ? ' ' : '('}${m.slice(k, k + 8).join(',')}${k + 8 >= m.length ? ');' : ','}`);
+    if (!m.length) L.push('  ();');
+  }
+  L.push(':EOD', '', ':PACKAGES');
+  pkgs.forEach((pk, i) => {
+    L.push(`;PACKAGE ${pk.name}`, `${i + 1},${fq(pk.name)},0,0,0,0`);
+    L.push(` (PINS ${pk.pins.map((q, j) => `(${j + 1},${fq(b.parts[i].pins[j].number || String(j + 1))},${n5(q.x)},${n5(q.y)},${b.parts[i].th ? 'D' : 'T'})`).join('')})`);
+    L.push(` (${pk.pins.map((q, j) => `${j + 1},PAD (${q.stack} ((${n5(q.x)},${n5(q.y)})))`).join('\n ')});`);
+  });
+  L.push(':EOD', '', ':PAD_SYMBOLS');
+  for (const [k, id] of stacks) {
+    const [shape, w, h] = k.split(':');
+    L.push(shape === 'round' ? `${id},P_ROUND (${n5(+w)});` : `${id},P_BLOCK (${n5(-w / 2)},${n5(-h / 2)},${n5(+w / 2)},${n5(+h / 2)});`);
+  }
+  L.push(':EOD', '', ':PAD_STACKS');
+  for (const [k, id] of stacks) L.push(`${id},"S${id}",${n5(+k.split(':')[3])},${+k.split(':')[3] ? 'P' : 'B'},((1,${id}));`);
+  L.push(':EOD', '', ':LAYER_NAMES', '1,"COPPER___TOP",TOP,2,ELECTRICAL;', '2,"COPPERBOTTOM",BOTTOM,1,ELECTRICAL;', '3,"ETCH!INT1",TRANSPARENT,0,ELECTRICAL;', ':EOD', '', ':LAYER_SETS', '1,"ALL",(1,3,2);', ':EOD', '', ':LAYERS');
+  for (const t of b.traces) L.push(`${nets.get(t.net) ?? 0},LAYER (${t.layer === 'T' ? 1 : t.layer === 'B' ? 2 : 3} (TRACK(${n5(t.w)}(${n5(t.x1)},${n5(t.y1)})(${n5(t.x2)},${n5(t.y2)}))));`);
+  L.push(':EOD', '', ':PADS');
+  for (const v of b.vias) L.push(`${nets.get(v.net) ?? 0},${viaStack.get(v.d)},((${n5(v.x)},${n5(v.y)}));`);
+  L.push(':EOD', '', ':TEST_POINTS');
+  b.nails.forEach((n, i) => {
+    const p = b.parts.findIndex((q) => q.name === `TP${n.probe}`);
+    L.push(`${i + 1}(${n5(n.x)},${n5(n.y)})${n.side},${p + 1},1;`);
+  });
+  L.push(':EOD', '', ':EOF', '');
+  return enc.encode(L.join(CRLF));
+}
+
+const m2 = (mil: number) => (Math.round(mil * 100) / 100).toString();
+
+export function writeFarc(b: SrcBoard): Uint8Array {
+  const { nets, stacks, viaStack, pkgs } = fabJob(b);
+  const L: string[] = [':SECTION FABMASTER 1', '{           - FARC ASCII File - V8.F.2 -         }', ':EOSECTION', '', ':SECTION JOBDATA 1', '"GLASGOW (BoardScope synthetic fixture, 0BSD)"', ':EOSECTION', ''];
+  const ring = [...b.outline, b.outline[0]];
+  L.push(':SECTION FORMAT 1', `((TRACK 0.01[](${ring.map(([x, y]) => `(${x} ${y})`).join('')})))`, ':EOSECTION', '', ':SECTION PARTS 1', `${b.parts.length}(`);
+  // FARC names a package by its 8.3 outline file: keep only the last 8 characters.
+  const file83 = (n: string) => n.slice(-8);
+  b.parts.forEach((p, i) => L.push(`(${i + 1}${fq(p.name)}(${fq(`${p.footprint || 'PART'}|${p.value}`)}0 31 0[]())(${fq(pkgs[i].name)} ${fq(file83(pkgs[i].name))}[]())${p.x} ${p.y} ${pkgs[i].rot10}[${p.side === 'B' ? 'BOTTOM' : ''}]0 0 0 0 0 0 0)`));
+  L.push(')', ':EOSECTION', '', ':SECTION NETS 1', `${nets.size}(`);
+  const members = new Map<string, string[]>();
+  b.parts.forEach((p, i) => p.pins.forEach((pin, j) => pin.net && (members.get(pin.net) ?? members.set(pin.net, []).get(pin.net)!).push(`(${i + 1} ${j + 1})`)));
+  for (const [n, id] of nets) L.push(`(${id} ${id}${fq(n)}${(members.get(n) ?? []).length}[](${(members.get(n) ?? []).join('')}))`);
+  L.push(')', ':EOSECTION', '', ':SECTION LAYER_NAMES 1', '((1"COPPER___TOP"TOP 2 ELECTRICAL)(2"COPPERBOTTOM"BOTTOM 1 ELECTRICAL)(3"ETCH!INT1"', 'TRANSPARENT 0 ELECTRICAL))', ':EOSECTION', '', ':SECTION LAYER_SETS 1', '((1"ALL"(1 3 2)))', ':EOSECTION', '', ':SECTION PAD_SYMBOLS 1', '(');
+  for (const [k, id] of stacks) {
+    const [shape, w, h] = k.split(':');
+    L.push(shape === 'round' ? `(${id} ROUND ${w})` : `(${id} BLOCK(${-w / 2} ${-h / 2} ${+w / 2} ${+h / 2}))`);
+  }
+  L.push(')', ':EOSECTION', '', ':SECTION PAD_STACKS 1', `(${[...stacks].map(([k, id]) => `(${id} ${k.split(':')[3]}((1 ${id})))`).join('')})`, ':EOSECTION', '', ':SECTION TEST_POINTS 1', `${b.nails.length}(`);
+  b.nails.forEach((n, i) => L.push(`(${i + 1}(${n.x} ${n.y})${n.side} ${b.parts.findIndex((q) => q.name === `TP${n.probe}`) + 1} 1)`));
+  L.push(')', ':EOSECTION', '', ':SECTION PACKAGE 1', '(');
+  pkgs.forEach((pk, i) => {
+    const side = b.parts[i].th ? 'VIA' : 'TOP';
+    L.push(`(${fq(file83(pk.name) + '.OTL')}(0 0 0 0 0 0)(0 0 0 0)`);
+    L.push(`(${pk.pins.map((q, j) => `(${j + 1} ${m2(q.x)} ${m2(q.y)}${fq(b.parts[i].pins[j].number || String(j + 1))}[${side}])`).join('')})`);
+    L.push(`(${pk.pins.map((q, j) => `(${j + 1} ${q.stack} 1((${m2(q.x)} ${m2(q.y)}[NF]))${q.stack})`).join('\n')}`, ')', '())');
+  });
+  L.push(')', ':EOSECTION', '', ':SECTION PADS 1', '(');
+  for (const v of b.vias) L.push(`(${nets.get(v.net) ?? 0} ${viaStack.get(v.d)} 0((${v.x} ${v.y}[NF]))${viaStack.get(v.d)})`);
+  L.push(')', ':EOSECTION', '', ':SECTION LAYERS 1', '(');
+  for (const t of b.traces) L.push(`(${nets.get(t.net) ?? 0} ${t.layer === 'T' ? 1 : t.layer === 'B' ? 2 : 3}((TRACK ${t.w}[NF]((${t.x1} ${t.y1})(${t.x2} ${t.y2})))))`);
+  L.push(')', ':EOSECTION', '', ':SECTION EOARCHIVE 1', ':EOSECTION', '');
+  return enc.encode(L.join(CRLF));
+}

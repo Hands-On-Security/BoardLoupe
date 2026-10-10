@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CAE_KEY_PARITY, FZ_KEY_PARITY } from '../src/formats/fz';
 import { loadSource } from './fixtures/source';
-import { XZZ_TEST_KEY, testKey44, writeAscSet, writeBdv, writeBrdTestLink, writeBvr1, writeCadPanel, writeCst, writeFz, writeTvw, writeXzz } from './fixtures/writers';
+import { XZZ_TEST_KEY, testKey44, writeAscSet, writeBdv, writeBrdTestLink, writeBvr1, writeCadPanel, writeCst, writeFarc, writeFatf, writeFz, writeTvw, writeXzz } from './fixtures/writers';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = (p: string, data: Uint8Array) => {
@@ -49,6 +49,8 @@ out(S + 'glasgow-panel.cad', writeCadPanel(b));
 out(S + 'glasgow.cst', writeCst(b));
 out(S + 'glasgow-testkey.pcb', writeXzz(b));
 out(S + 'glasgow.tvw', writeTvw(b));
+out(S + 'glasgow.fatf', writeFatf(b));
+out(S + 'glasgow.far', writeFarc(b));
 
 const R = 'fixtures/real/glasgow/';
 const REAL_PROV = 'Glasgow interface explorer board; file shipped in whitequark/kicad-boardview (commit da24793, 0BSD), produced by its pcbnew exporter.';
@@ -78,6 +80,8 @@ const manifest: ManifestEntry[] = [
   { id: 'syn-cad-panel', files: [S + 'glasgow-panel.cad'], format: 'cad-panel', obv: 'cad', origin: 'synthetic', provenance: SRC, license: '0BSD' },
   { id: 'syn-cst', files: [S + 'glasgow.cst'], format: 'cst', obv: 'cst', origin: 'synthetic', provenance: SRC, license: '0BSD' },
   { id: 'syn-xzz', files: [S + 'glasgow-testkey.pcb'], format: 'xzz', obv: 'xzz', key: XZZ_TEST_KEY, origin: 'synthetic', provenance: SRC + ' Component records DES-encrypted with a generated TEST key.', license: '0BSD' },
+  { id: 'syn-fatf', files: [S + 'glasgow.fatf'], format: 'fabmaster', obv: null, origin: 'synthetic', provenance: SRC.replace('following the reference parser', 'following the Fabmaster FATF grammar of real jobs'), license: '0BSD' },
+  { id: 'syn-farc', files: [S + 'glasgow.far'], format: 'fabmaster', obv: null, origin: 'synthetic', provenance: SRC.replace('following the reference parser', 'following the Fabmaster FARC grammar of real jobs'), license: '0BSD' },
   { id: 'syn-tvw', files: [S + 'glasgow.tvw'], format: 'tvw', obv: 'tvw', origin: 'synthetic', provenance: SRC + ' Includes copper traces, vias, route-layer outline, probe/fixture registries and an empty through-layer.', license: '0BSD' },
 ];
 writeFileSync(resolve(root, 'fixtures/manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
