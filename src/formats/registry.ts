@@ -17,6 +17,7 @@ import { caeFormat, fzFormat } from './fz';
 import { gencadFormat } from './gencad';
 import { gencamFormat } from './gencam';
 import { kicadFormat } from './kicad';
+import { nbvFormat } from './nbv';
 import { toptestFormat } from './toptest';
 import { tvwFormat } from './tvw';
 import type { Detection, FormatModule, InputFile, ParseContext, ParseOptions, ParseOutcome, Sniff } from './types';
@@ -43,6 +44,7 @@ export const FORMATS: FormatModule[] = [
   bvFormat,
   xzzFormat,
   kicadFormat,
+  nbvFormat,
   allegroFormat,
 ];
 
