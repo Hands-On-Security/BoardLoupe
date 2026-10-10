@@ -325,9 +325,11 @@ test.describe('BoardLoupe single-file app', () => {
     await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
     await page.keyboard.press('/');
     await page.keyboard.type('/SDA');
-    await page.getByRole('option').filter({ hasText: 'net' }).first().click();
-    await page.keyboard.press('a'); // add to group (focus left the search box on click)
-    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.getByRole('option').filter({ hasText: '/SDA' }).filter({ hasText: 'net' }).first().click();
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector.getByRole('heading', { name: '/SDA' })).toBeVisible();
+    await inspector.getByRole('button', { name: /Group/ }).click();
+    await expect(page.getByTestId('highlight-legend')).toContainText('/SDA');
     type V = { cx: number; cy: number; scale: number; width: number; height: number };
     const viewNow = () => page.evaluate(() => {
       const v = (window as unknown as { boardloupe: { viewer: { view: V } } }).boardloupe.viewer.view;

@@ -54,6 +54,16 @@ test('dark: net highlighted with air wires', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/dark-net.png` });
 });
 
+test('dark: signal traced through series parts', async ({ page }) => {
+  await open(page, 'real/glasgow/glasgow-kicad10.cad');
+  await page.keyboard.press('/');
+  await page.keyboard.type('ENVA');
+  await page.getByText('/ENVA', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Highlight the whole series path' }).click();
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${SHOTS}/dark-series-trace.png` });
+});
+
 test('dark: bottom side with copper traces', async ({ page }) => {
   await open(page, 'synthetic/glasgow.tvw');
   await bs(page, `boardloupe.store.set({ prefs: { ...boardloupe.store.get().prefs, showTraces: true } })`);

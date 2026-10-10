@@ -1,25 +1,43 @@
 # BoardLoupe
 
-**An offline, private boardview viewer in a single HTML file.**
-Open `dist/boardloupe.html` by double-clicking it. It runs in Chrome, Edge,
-Firefox and Safari with no installation, no server, no network access and no
-account. Boardview files are parsed in your browser and never leave your machine.
+**Follow a signal to a place you can actually probe.**
 
-A [**Hands-On Security**](https://hos.direct/boardloupe) tool — built for the hardware
-security classroom: identify components, trace a bus across the board, and find better,
-more accessible solder and probe points on the same net (for example reaching the SPI/LPC
-bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch ball).
+BoardLoupe is a free boardview viewer for hardware work. Open a board, find a chip pin or
+net, follow it through series resistors, fuses and ferrite beads, and locate a more
+accessible test point, via, connector or pad. It runs offline from a single HTML file in
+Chrome, Edge, Firefox or Safari. Your boardview stays on your computer.
 
-![Net highlighted with air wires](docs/screenshots/dark-net.png)
+![A net traced across two series parts on the Glasgow reference board](docs/screenshots/dark-series-trace.png)
 
-| | |
-|---|---|
-| ![BGA part selected](docs/screenshots/dark-part.png) | ![Bottom side with copper traces](docs/screenshots/dark-bottom-traces.png) |
-| ![Highlight group with legend](docs/screenshots/dark-group.png) | ![A4 report preview](docs/screenshots/dark-report.png) |
+The example above follows `/ENVA` across two series parts to three nets. The inspector
+shows the crossed parts and ranks physical points you could probe. This is a real Glasgow
+boardview, not a TPM board; the same workflow applies when investigating a TPM's SPI,
+LPC or eSPI signals, or any other bus recorded in a boardview.
+
+## From chip pin to probe point
+
+1. **Find a signal.** Search for a chip, pin or net name. Select a net to light up all
+   its pads, and use the inspector to see its connected parts.
+2. **Follow series parts.** Choose **Highlight the whole series path** in the inspector.
+   BoardLoupe crosses two-pin resistors, fuses, inductors, ferrite beads and links,
+   highlighting each reached net in a different colour. It shows branches rather than
+   silently choosing one.
+3. **Build up a bus.** Repeat for each signal line; press <kbd>A</kbd> to keep a path in
+   the highlight group while you inspect the next. You can save the group for later.
+4. **Choose where to connect.** The inspector ranks test points, through-holes,
+   connectors, large pads and passive terminals ahead of fine-pitch chip pads. Click a
+   candidate to jump to its position and board side. Measure distances or export a
+   marked-up view for your bench notes.
+
+![A selected net with test points ranked first on the Glasgow reference board](docs/screenshots/dark-net.png)
+
+BoardLoupe follows connectivity in the file; it cannot infer a missing net or identify
+every bus line automatically. Dashed **air wires** show inferred connectivity, not the
+physical route. Where a format includes copper traces, you can display those by layer.
 
 ## Quick start
 
-1. Get `dist/boardloupe.html` (≈2.0 MB, ≈839 KB gzipped). It is the only file you need.
+1. Get [the single-file viewer](dist/boardloupe.html) (≈2.0 MB, ≈839 KB gzipped). It is the only file you need.
    Most of the size is the RAR/7z decoder, which is decoded and run only the first
    time you open a RAR or 7z — nothing is fetched, ever.
 2. Double-click it, or drag it into a browser window.
@@ -118,9 +136,10 @@ PADS and Eagle designs can still be opened through a KiCad import (KiCad PCB is 
 - **Highlighting that reads at any zoom.** A selected net, pin or component is drawn as a bright
   **beacon** — a haloed pad with a minimum on-screen size — so it stays visible even when the pad
   itself is sub-pixel on a zoomed-out board. Everything else recedes so the selection stands out.
-- **Trace a bus.** <kbd>Shift</kbd>-click (or add from *Nets*) several nets to build a multi-net
-  selection; each net gets its own high-contrast colour, so you can follow an SPI / LPC / eSPI bus
-  across the board at a glance. <kbd>I</kbd> isolates the selection and <kbd>H</kbd> hides other nets.
+- **Trace a bus.** On a selected net, **Highlight the whole series path** follows eligible
+  two-pin parts into adjacent nets. Add paths for other signals with <kbd>A</kbd>, or
+  <kbd>Shift</kbd>-click (or add from *Nets*) to select nets manually. Each highlighted
+  net gets its own colour. <kbd>I</kbd> isolates the selection and <kbd>H</kbd> hides other nets.
 - **Find a solder / probe point.** The inspector ranks every physical point on a net by how practical
   it is to tap a wire onto — **test points first, then through-holes, connectors and large pads, with
   fine-pitch IC pads last** — each with its board side. Click one to jump straight to it. This is the
@@ -192,7 +211,7 @@ File(s) ─► worker (Blob URL)                              main thread
   WebGL2 renderer, Canvas2D fallback, labels, picking, colour styles.
 - `src/app/`: store, actions, Preact components. Pan and zoom never re-render the component tree.
 - `tools/postbuild.mjs`: inlines the JS and CSS, embeds licence notices, and fails the build on any
-  external reference or a size-budget overrun (1.5 MB).
+  external reference or a size-budget overrun (2.6 MB).
 
 Safety: no `eval`, `new Function` or dynamic code (enforced by lint). File contents are never inserted
 as HTML. All binary reads are bounds-checked, counts are sanity-checked against the remaining bytes,
