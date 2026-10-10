@@ -19,7 +19,7 @@ bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch b
 
 ## Quick start
 
-1. Get `dist/boardview.html` (≈1.9 MB, ≈810 KB gzipped). It is the only file you need.
+1. Get `dist/boardview.html` (≈2.0 MB, ≈834 KB gzipped). It is the only file you need.
    Most of the size is the RAR/7z decoder, which is decoded and run only the first
    time you open a RAR or 7z — nothing is fetched, ever.
 2. Double-click it, or drag it into a browser window.

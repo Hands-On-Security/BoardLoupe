@@ -28,8 +28,9 @@ also embedded as a comment at the top of the built HTML file.
 | GenCAD 1.4 specification (Mitron/Cadence, public) | — | GenCAD grammar and units. |
 | FIPS PUB 46-3 (DES) | public standard | `src/io/des.ts` written from the standard; verified with the FIPS worked example. |
 
-No proprietary binaries were used or reverse-engineered for this project; no vendor
-decryption keys are included. Test keys in `fixtures/manifest.json` are randomly
+The distributable contains no proprietary viewer binaries or vendor decryption keys.
+Format behavior was also studied using locally analyzed reference software; that software
+is not distributed with BoardScope. Test keys in `fixtures/manifest.json` are randomly
 generated, parity-valid keys that only decrypt the synthetic test fixtures.
 
 ## Test-only material (not bundled)

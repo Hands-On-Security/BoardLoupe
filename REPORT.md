@@ -1,6 +1,6 @@
 # BoardScope — release report (2026-10-10)
 
-**Deliverable:** `dist/boardview.html`: one self-contained file, ~1.9 MB (~810 KB gzip),
+**Deliverable:** `dist/boardview.html`: one self-contained file, ~2.0 MB (~834 KB gzip),
 zero external references. Most of the size is the RAR/7z decoder (libarchive compiled to
 WebAssembly, inlined as base64); it is decoded and instantiated only the first time a RAR or
 7z is opened, and never fetched. The build verifies the single-file, no-network guarantee and
@@ -166,14 +166,13 @@ standard header, Allegro before 15, FlexBV-only formats. No vendor decryption ke
 
 ## Tests (all passing)
 
-- Vitest: **262 tests** (plus opt-in checks on private boards via `BS_PRIVATE_FIXTURES` and 72 corpus
-  checks via `BS_RESEARCH`, for 334 in all). Unit (camera transforms, I/O, ciphers incl. the DES FIPS
+- Vitest: **338 tests** with the research corpus and private fixtures enabled. Unit (camera transforms, I/O, ciphers incl. the DES FIPS
   vector, builder, search, export, the passphrase keystore, series-trace, RAR/7z extraction through the
   real WebAssembly), 17 differential golden tests against the reference parsers, a cross-exporter
   geometry check (≤1.1 mil on 1,130+ pins, 0 net mismatches), detection/diagnostic tests, and 18
   fuzz suites (truncation, flips, splices, extreme counts, random input) covering every fixture.
-- Playwright on the built file via `file://`: **91 tests** (94 with the research corpus) across
-  Chromium 156, Firefox 157 and WebKit 27.2. They cover the empty state, zero network requests (also
+- Playwright on the built file via `file://`: **109 tests** with the research corpus across
+  Chromium, Firefox and WebKit (plus 20 skipped non-Chromium screenshot checks). They cover the empty state, zero network requests (also
   with the browser set offline), real-board load in the worker, search → inspector, pin picking (top
   and mirrored bottom), history, sides/mirror/rotate/zoom/pan/fit, tables + CSV/JSON export, errors,
   the key-required message, the bring-your-own-key keystore (import, save, reload, unlock, remove),
