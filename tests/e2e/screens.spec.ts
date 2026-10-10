@@ -28,6 +28,8 @@ test('dark: empty state', async ({ page }) => {
   await open(page);
   // The Hands-On Security logo is an inline image: capture once it is decoded.
   await page.locator('img.hos-logo').first().evaluate((img) => (img as HTMLImageElement).decode());
+  // Let the fade-in finish (a capture mid-animation looks dimmed).
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
   await page.screenshot({ path: `${SHOTS}/dark-empty.png` });
 });
 
