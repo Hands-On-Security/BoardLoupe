@@ -1280,7 +1280,9 @@ export function writeAllegro(b: SrcBoard, opts: { v17?: boolean } = {}): Uint8Ar
       v.setUint32(12, str(`${round ? 'C' : 'R'}${w}X${h}${drill ? 'D' + drill : ''}`), true);
       v.setInt32(Z.psDrill, drill * U, true);
       v.setUint16(Z.psCount, n, true);
-      if (!V) v.setUint32(88, round ? 2 : 1, true);
+      // Pad shape code: 16.x at +88 (2 round / 1 rect), 17.x at +1020 (2 round / 6 rect).
+      if (V) v.setUint32(1020, round ? 2 : 6, true);
+      else v.setUint32(88, round ? 2 : 1, true);
       stacks.set(sk, k);
     }
     return k;
@@ -1331,6 +1333,37 @@ export function writeAllegro(b: SrcBoard, opts: { v17?: boolean } = {}): Uint8Ar
       pv.setInt32(Z.padBox + 8, (pin.x + pin.w / 2) * U, true);
       pv.setInt32(Z.padBox + 12, (pin.y + pin.h / 2) * U, true);
     });
+    // Part body: a silkscreen rectangle owned by a graphic group (0x14) that
+    // links back (+12) to this footprint; segments link back (+12) to the group.
+    if (p.pins.length) {
+      const xs = p.pins.map((q) => q.x),
+        ys = p.pins.map((q) => q.y);
+      const bx0 = Math.min(...xs) - 10,
+        bx1 = Math.max(...xs) + 10,
+        by0 = Math.min(...ys) - 10,
+        by1 = Math.max(...ys) + 10;
+      const ggKey = key();
+      const gg = rec(V ? 36 : 32, 0x14);
+      gg.setUint32(4, ggKey, true);
+      gg.setUint32(12, fpKey, true);
+      const corners = [
+        [bx0, by0],
+        [bx1, by0],
+        [bx1, by1],
+        [bx0, by1],
+        [bx0, by0],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const s = rec(Z.seg, 0x15);
+        s.setUint32(4, key(), true);
+        s.setUint32(12, ggKey, true);
+        s.setInt32(Z.segW, 1 * U, true);
+        s.setInt32(Z.segW + 4, corners[i][0] * U, true);
+        s.setInt32(Z.segW + 8, corners[i][1] * U, true);
+        s.setInt32(Z.segW + 12, corners[i + 1][0] * U, true);
+        s.setInt32(Z.segW + 16, corners[i + 1][1] * U, true);
+      }
+    }
   });
   // Vias.
   for (const v of b.vias) {

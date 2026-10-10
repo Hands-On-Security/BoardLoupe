@@ -34,7 +34,7 @@
  */
 import { ParseError } from '../io/bytes';
 import { BoardBuilder } from '../model/builder';
-import { type LayerInfo, MOUNT_SMD, MOUNT_TH, SHAPE_CIRCLE, SHAPE_OBLONG, SHAPE_RECT, SIDE_BOTH, SIDE_BOTTOM, SIDE_TOP } from '../model/types';
+import { type LayerInfo, MOUNT_SMD, MOUNT_TH, type PadShape, SHAPE_CIRCLE, SHAPE_OBLONG, SHAPE_RECT, SIDE_BOTH, SIDE_BOTTOM, SIDE_TOP } from '../model/types';
 import type { FormatModule } from './types';
 
 /** Header magic (low byte masked) → release. */
@@ -107,7 +107,7 @@ interface Fields {
   psType: number;
 }
 const F16: Fields = { fpRot: 24, fpX: 28, fpY: 32, fpRef: 12, fpPad: 40, refStr: 20, padNet: 12, padNext: 20, padDef: 32, padBox: 60, viaNet: 12, viaX: 24, viaPs: 36, viaBox: 56, trkNet: 12, trkSeg: 48, shpSeg: 32, shpBox: 52, segW: 20, arcD: 40, psDrill: 16, psType: 88 };
-const F17: Fields = { fpRot: 28, fpX: 32, fpY: 36, fpRef: 40, fpPad: 48, refStr: 28, padNet: 12, padNext: 24, padDef: 36, padBox: 68, viaNet: 12, viaX: 32, viaPs: 44, viaBox: 64, trkNet: 12, trkSeg: 56, shpSeg: 40, shpBox: 60, segW: 24, arcD: 44, psDrill: 64, psType: 0 };
+const F17: Fields = { fpRot: 28, fpX: 32, fpY: 36, fpRef: 40, fpPad: 48, refStr: 28, padNet: 12, padNext: 24, padDef: 36, padBox: 68, viaNet: 12, viaX: 32, viaPs: 44, viaBox: 64, trkNet: 12, trkSeg: 56, shpSeg: 40, shpBox: 60, segW: 24, arcD: 44, psDrill: 64, psType: 1020 };
 
 export interface Layout {
   v17: boolean;
@@ -120,6 +120,18 @@ const LAYOUT17: Layout = { v17: true, sizes: SIZE17, table36: TABLE36_17, f: F17
 
 /** Plausibility bound for coordinates (1/100 mil): 100 inches. */
 const MAX_COORD = 10_000_000;
+
+/**
+ * Pad shape from the padstack's shape code. The copper box (width/height) is
+ * exact; this only chooses round vs rectangular rendering. KiCad's Allegro
+ * importer collapses pad shapes, so this is checked by eye, not against it.
+ * 17.x code at +1020: 2/22 round, 6 rectangular. 16.x stores a per-shape code
+ * at +88 (2 round, 6 rounded/oblong).
+ */
+function padShape(v17: boolean, code: number): PadShape {
+  if (v17) return code === 6 ? SHAPE_RECT : code === 2 ? SHAPE_CIRCLE : code === 22 ? SHAPE_OBLONG : SHAPE_RECT;
+  return code === 2 ? SHAPE_CIRCLE : code === 6 ? SHAPE_OBLONG : SHAPE_RECT;
+}
 
 interface Walk {
   /** Parallel arrays: tag and offset of every record, in file order. */
@@ -317,6 +329,38 @@ export const allegroFormat: FormatModule = {
     if (verText) bb.metadata.push(['Version', verText]);
     const k = 0.01; // 1/100 mil → mil
 
+    // Line/arc segment endpoints (raw units); arcs are flattened.
+    function segPoints(o: number): [number, number, number, number][] {
+      const x1 = a.i32(o + F.segW + 4),
+        y1 = a.i32(o + F.segW + 8),
+        x2 = a.i32(o + F.segW + 12),
+        y2 = a.i32(o + F.segW + 16);
+      if (b[o] !== 0x01) return [[x1, y1, x2, y2]];
+      const cx = a.f64(o + F.arcD),
+        cy = a.f64(o + F.arcD + 8),
+        r = a.f64(o + F.arcD + 16);
+      if (!(r > 0 && Number.isFinite(cx) && Number.isFinite(cy))) return [[x1, y1, x2, y2]];
+      const cw = (b[o + 3] & 0x40) !== 0;
+      const a0 = Math.atan2(y1 - cy, x1 - cx);
+      let sweep = Math.atan2(y2 - cy, x2 - cx) - a0;
+      if (cw) {
+        if (sweep >= 0) sweep -= 2 * Math.PI;
+      } else if (sweep <= 0) sweep += 2 * Math.PI;
+      const n = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 18)));
+      const out: [number, number, number, number][] = [];
+      let px = x1,
+        py = y1;
+      for (let j = 1; j <= n; j++) {
+        const ang = a0 + (sweep * j) / n;
+        const qx = j === n ? x2 : cx + r * Math.cos(ang),
+          qy = j === n ? y2 : cy + r * Math.sin(ang);
+        out.push([px, py, qx, qy]);
+        px = qx;
+        py = qy;
+      }
+      return out;
+    }
+
     // Nets: unnamed nets get a stable generated name so connectivity is kept.
     const netNames = new Map<number, string>();
     let unnamed = 0;
@@ -359,6 +403,33 @@ export const allegroFormat: FormatModule = {
     const unnamedByFootprint = new Map<string, number>();
     let brokenChains = 0,
       anonymous = 0;
+
+    // Part bodies: silkscreen/assembly outlines. Each package-geometry graphic
+    // group (0x14) links back to its footprint (+12); each line/arc segment
+    // links back to its group (+12). Collect the segments per footprint; they
+    // are already in absolute board coordinates.
+    const groupToFp = new Map<number, number>();
+    for (let i = 0; i < w.count; i++) {
+      if (w.tags[i] !== 0x14) continue;
+      const go = w.offs[i];
+      const owner = a.u32(go + 12);
+      const oi = w.byKey.get(owner);
+      if (oi !== undefined && w.tags[oi] === 0x2d) groupToFp.set(a.u32(go + 4), owner);
+    }
+    const bodyByFp = new Map<number, number[]>();
+    for (let i = 0; i < w.count; i++) {
+      const t = w.tags[i];
+      if (t !== 0x15 && t !== 0x16 && t !== 0x17 && t !== 0x01) continue;
+      const so = w.offs[i];
+      const fpKey = groupToFp.get(a.u32(so + 12));
+      if (fpKey === undefined) continue;
+      const arr = bodyByFp.get(fpKey) ?? bodyByFp.set(fpKey, []).get(fpKey)!;
+      for (const p of segPoints(so)) {
+        if (p[0] === p[2] && p[1] === p[3]) continue;
+        arr.push(p[0] * k, p[1] * k, p[2] * k, p[3] * k);
+      }
+    }
+
     for (let i = 0; i < w.count; i++) {
       if (w.tags[i] !== 0x2d) continue;
       const fp = w.offs[i];
@@ -396,7 +467,8 @@ export const allegroFormat: FormatModule = {
         unnamedByFootprint.set(base, n);
         name = `${base}#${n}`;
       }
-      const pi = bb.addPart({ name, side: bottom ? SIDE_BOTTOM : SIDE_TOP, mount: MOUNT_SMD, x: ox * k, y: oy * k, rot: ((rot % 360) + 360) % 360, footprint: footprint || null, mechanical: !ref });
+      const body = bodyByFp.get(a.u32(fp + 4)) ?? null;
+      const pi = bb.addPart({ name, side: bottom ? SIDE_BOTTOM : SIDE_TOP, mount: MOUNT_SMD, x: ox * k, y: oy * k, rot: ((rot % 360) + 360) % 360, footprint: footprint || null, mechanical: !ref, body: body && body.length ? body : null });
       const self = a.u32(fp + 4);
       let th = false;
       for (let key = a.u32(fp + F.fpPad), guard = 0; key && key !== self && guard < 20000; guard++) {
@@ -413,7 +485,7 @@ export const allegroFormat: FormatModule = {
           y = oy + lx * s + ly * c;
         const ps = od >= 0 ? at(a.u32(od + 24), 0x1c) : -1;
         const drill = ps >= 0 ? a.i32(ps + F.psDrill) : 0;
-        const type = ps >= 0 && F.psType ? a.u32(ps + F.psType) : 0;
+        const type = ps >= 0 && F.psType && F.psType + 4 <= a.size(ps) ? a.u32(ps + F.psType) : 0;
         if (drill > 0) th = true;
         const w0 = a.i32(o + F.padBox + 8) - a.i32(o + F.padBox),
           h0 = a.i32(o + F.padBox + 12) - a.i32(o + F.padBox + 4);
@@ -424,7 +496,7 @@ export const allegroFormat: FormatModule = {
           number: od >= 0 ? str(a.u32(od + 8)) : '',
           net: netOfAssign(a.u32(o + F.padNet)),
           side: drill > 0 ? SIDE_BOTH : undefined,
-          shape: type === 2 ? SHAPE_CIRCLE : type === 6 ? SHAPE_OBLONG : SHAPE_RECT,
+          shape: padShape(a.L.v17, type),
           w: Math.max(0, w0) * k,
           h: Math.max(0, h0) * k,
           hole: drill > 0 ? drill * k : undefined,
@@ -436,42 +508,11 @@ export const allegroFormat: FormatModule = {
 
     // Vias, tracks and the board outline.
     const seg = (o: number, layer: number, net: string | null) => {
-      const t = b[o];
       const width = a.i32(o + F.segW) * k;
-      const x1 = a.i32(o + F.segW + 4),
-        y1 = a.i32(o + F.segW + 8),
-        x2 = a.i32(o + F.segW + 12),
-        y2 = a.i32(o + F.segW + 16);
-      const out: number[] = [];
-      if (t === 0x01) {
-        const cx = a.f64(o + F.arcD),
-          cy = a.f64(o + F.arcD + 8),
-          r = a.f64(o + F.arcD + 16);
-        if (!(r > 0 && Number.isFinite(cx) && Number.isFinite(cy))) out.push(x1, y1, x2, y2);
-        else {
-          const cw = (b[o + 3] & 0x40) !== 0;
-          const a0 = Math.atan2(y1 - cy, x1 - cx);
-          let sweep = Math.atan2(y2 - cy, x2 - cx) - a0;
-          if (cw) {
-            if (sweep >= 0) sweep -= 2 * Math.PI;
-          } else if (sweep <= 0) sweep += 2 * Math.PI;
-          const n = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 18)));
-          let px = x1,
-            py = y1;
-          for (let j = 1; j <= n; j++) {
-            const ang = a0 + (sweep * j) / n;
-            const qx = j === n ? x2 : cx + r * Math.cos(ang),
-              qy = j === n ? y2 : cy + r * Math.sin(ang);
-            out.push(px, py, qx, qy);
-            px = qx;
-            py = qy;
-          }
-        }
-      } else out.push(x1, y1, x2, y2);
-      for (let j = 0; j + 3 < out.length; j += 4) {
-        if (out[j] === out[j + 2] && out[j + 1] === out[j + 3]) continue;
-        if (layer < 0) bb.addOutlineSeg(out[j] * k, out[j + 1] * k, out[j + 2] * k, out[j + 3] * k);
-        else bb.addTrace(out[j] * k, out[j + 1] * k, out[j + 2] * k, out[j + 3] * k, width, layer, net);
+      for (const [x1, y1, x2, y2] of segPoints(o)) {
+        if (x1 === x2 && y1 === y2) continue;
+        if (layer < 0) bb.addOutlineSeg(x1 * k, y1 * k, x2 * k, y2 * k);
+        else bb.addTrace(x1 * k, y1 * k, x2 * k, y2 * k, width, layer, net);
       }
     };
     const walkSegments = (owner: number, first: number, layer: number, net: string | null) => {

@@ -4,7 +4,7 @@
  * be redistributed — see FORMAT_MATRIX.md for the comparison with KiCad).
  */
 import { describe, expect, test } from 'vitest';
-import { SIDE_BOTTOM } from '../../src/model/types';
+import { SHAPE_CIRCLE, SIDE_BOTTOM } from '../../src/model/types';
 import { validateModel } from '../../src/model/validate';
 import { loadSource } from '../../tools/fixtures/source';
 import { ROOT, parse } from '../helpers/load';
@@ -43,5 +43,19 @@ describe.each([
     let drilled = 0;
     for (let i = 0; i < m.pins.count; i++) if (m.pins.hole[i] > 0) drilled++;
     expect(drilled).toBe(src.parts.reduce((n, p) => n + p.pins.filter((q) => q.hole > 0).length, 0));
+  });
+
+  test('part body outlines from graphic groups, and round pad shapes', () => {
+    // Every part has a silkscreen body, read from the package-geometry graphic groups.
+    expect(m.caps.partBodies).toBe('file');
+    let withBody = 0;
+    for (let k = 0; k < m.parts.count; k++) if (m.parts.bodyStart[k + 1] > m.parts.bodyStart[k]) withBody++;
+    expect(withBody).toBe(m.parts.count);
+    // Round source pads are read as circles in both 16.x and 17.x.
+    const roundInSrc = src.parts.reduce((n, p) => n + p.pins.filter((q) => q.shape === 'round').length, 0);
+    let circles = 0;
+    for (let i = 0; i < m.pins.count; i++) if (m.pins.shape[i] === SHAPE_CIRCLE) circles++;
+    expect(roundInSrc).toBeGreaterThan(0);
+    expect(circles).toBe(roundInSrc);
   });
 });
