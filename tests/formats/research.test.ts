@@ -36,6 +36,7 @@ const OPENS: Record<string, string[]> = {
   'gencam-a3p': ['gencam'],
   tvw: ['tvw'],
   f2b: ['f2b'],
+  'bv-jet': ['bv'],
 };
 const SETS = new Set(['asc-split', 'con-companion', 'cst-companion', 'cst', 'f2b']);
 

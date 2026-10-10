@@ -4,6 +4,7 @@ import type { Diagnostic } from '../model/types';
 import { ascFormat, bdvFormat } from './asc';
 import { brdFormat } from './brd';
 import { brd2Format } from './brd2';
+import { bvFormat } from './bv';
 import { bvr1Format, bvr3Format } from './bvr';
 import { cadPanelFormat } from './cad';
 import { extOf, makeSniff } from './common';
@@ -65,6 +66,7 @@ export const FORMATS: FormatModule[] = [
   fabmasterFormat,
   cstFormat,
   f2bFormat,
+  bvFormat,
   xzzFormat,
   kicadFormat,
   allegroFormat,

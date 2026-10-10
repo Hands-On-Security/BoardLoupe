@@ -1014,3 +1014,203 @@ export function writeF2b(b: SrcBoard): Uint8Array {
   cstr('C:\\BOARDSCOPE\\GLASGOW-SYNTHETIC.NEU');
   return w.out();
 }
+
+// ------------------------------------------------------------------ BV (Microsoft Jet 4 database)
+
+type JetCol = { name: string; type: 'long' | 'int' | 'float' | 'text' };
+const JET_TYPE = { long: 0x04, int: 0x03, float: 0x06, text: 0x0a } as const;
+const JET_LEN = { long: 4, int: 2, float: 4, text: 255 } as const;
+
+/** A minimal Jet 4 database: catalog (MSysObjects) plus the given tables, one TDEF and n data pages each. */
+export function writeJet4(tables: { name: string; cols: JetCol[]; rows: (string | number | null)[][] }[]): Uint8Array {
+  const PG = 4096;
+  const pages: Uint8Array[] = [];
+  const newPage = () => {
+    pages.push(new Uint8Array(PG));
+    return pages.length - 1;
+  };
+  newPage(); // 0: header
+  newPage(); // 1: (unused)
+  const ucs2 = (s: string) => {
+    const o = new Uint8Array(s.length * 2);
+    for (let i = 0; i < s.length; i++) {
+      o[2 * i] = s.charCodeAt(i) & 0xff;
+      o[2 * i + 1] = s.charCodeAt(i) >> 8;
+    }
+    return o;
+  };
+  const head = pages[0];
+  head.set([0x00, 0x01, 0x00, 0x00]);
+  head.set(enc.encode('Standard Jet DB'), 4);
+  new DataView(head.buffer).setUint32(0x14, 1, true);
+
+  const tdef = (pg: number, cols: JetCol[], rowCount: number) => {
+    const p = pages[pg],
+      v = new DataView(p.buffer);
+    p[0] = 0x02;
+    p[1] = 0x01;
+    v.setUint32(16, rowCount, true);
+    p[40] = 0x4e;
+    const varCols = cols.filter((c) => c.type === 'text').length;
+    v.setUint16(41, cols.length, true);
+    v.setUint16(43, varCols, true);
+    v.setUint16(45, cols.length, true);
+    let at = 63,
+      fixedOff = 0,
+      varIdx = 0;
+    cols.forEach((c, i) => {
+      p[at] = JET_TYPE[c.type];
+      v.setUint16(at + 5, i, true);
+      v.setUint16(at + 9, i, true);
+      if (c.type === 'text') v.setUint16(at + 7, varIdx++, true);
+      else {
+        p[at + 15] = 0x01 | 0x02;
+        v.setUint16(at + 21, fixedOff, true);
+        fixedOff += JET_LEN[c.type];
+      }
+      if (c.type === 'text') p[at + 15] = 0x02;
+      v.setUint16(at + 23, JET_LEN[c.type], true);
+      at += 25;
+    });
+    for (const c of cols) {
+      const n = ucs2(c.name);
+      v.setUint16(at, n.length, true);
+      p.set(n, at + 2);
+      at += 2 + n.length;
+    }
+    v.setUint32(8, at, true);
+  };
+  const encodeRow = (cols: JetCol[], row: (string | number | null)[]) => {
+    const fixed: number[] = [],
+      vars: Uint8Array[] = [];
+    const mask = new Uint8Array((cols.length + 7) >> 3);
+    cols.forEach((c, i) => {
+      const val = row[i];
+      if (val !== null && val !== undefined) mask[i >> 3] |= 1 << (i & 7);
+      if (c.type === 'text') vars.push(val === null || val === undefined ? new Uint8Array(0) : ucs2(String(val)));
+      else {
+        const t = new Uint8Array(JET_LEN[c.type]),
+          dv = new DataView(t.buffer);
+        const n = typeof val === 'number' ? val : 0;
+        if (c.type === 'long') dv.setInt32(0, n, true);
+        else if (c.type === 'int') dv.setInt16(0, n, true);
+        else dv.setFloat32(0, n, true);
+        fixed.push(...t);
+      }
+    });
+    const out: number[] = [cols.length & 0xff, cols.length >> 8, ...fixed];
+    const offs: number[] = [];
+    for (const d of vars) {
+      offs.push(out.length);
+      out.push(...d);
+    }
+    offs.push(out.length); // end of variable data
+    for (let i = offs.length - 1; i >= 0; i--) out.push(offs[i] & 0xff, offs[i] >> 8);
+    out.push(vars.length & 0xff, vars.length >> 8, ...mask);
+    return Uint8Array.from(out);
+  };
+  const data = (tdefPg: number, cols: JetCol[], rows: (string | number | null)[][]) => {
+    let pg = -1,
+      n = 0,
+      top = PG;
+    for (const row of rows) {
+      const r = encodeRow(cols, row);
+      if (pg < 0 || 14 + 2 * (n + 1) + r.length > top) {
+        pg = newPage();
+        n = 0;
+        top = PG;
+        const p = pages[pg];
+        p[0] = 0x01;
+        p[1] = 0x01;
+        new DataView(p.buffer).setUint32(4, tdefPg, true);
+      }
+      const p = pages[pg],
+        v = new DataView(p.buffer);
+      top -= r.length;
+      p.set(r, top);
+      v.setUint16(14 + 2 * n, top, true);
+      v.setUint16(12, ++n, true);
+    }
+  };
+  // Catalog at page 2, its data page next; each table: TDEF, then data pages.
+  const sysCols: JetCol[] = [
+    { name: 'Id', type: 'long' },
+    { name: 'ParentId', type: 'long' },
+    { name: 'Name', type: 'text' },
+    { name: 'Type', type: 'int' },
+    { name: 'Flags', type: 'long' },
+  ];
+  const catPg = newPage();
+  const catRows: (string | number | null)[][] = [];
+  const tdefPages = tables.map(() => -1);
+  // Reserve the catalog's data page first so table pages follow it.
+  const catDataPg = newPage();
+  tables.forEach((t, i) => {
+    tdefPages[i] = newPage();
+    tdef(tdefPages[i], t.cols, t.rows.length);
+    data(tdefPages[i], t.cols, t.rows);
+    catRows.push([tdefPages[i], 0x0f000001, t.name, 1, 0]);
+  });
+  tdef(catPg, sysCols, catRows.length);
+  {
+    const p = pages[catDataPg],
+      v = new DataView(p.buffer);
+    p[0] = 0x01;
+    p[1] = 0x01;
+    v.setUint32(4, catPg, true);
+    let top = PG;
+    catRows.forEach((row, n) => {
+      const r = encodeRow(sysCols, row);
+      top -= r.length;
+      p.set(r, top);
+      v.setUint16(14 + 2 * n, top, true);
+    });
+    v.setUint16(12, catRows.length, true);
+  }
+  const out = new Uint8Array(pages.length * PG);
+  pages.forEach((p, i) => out.set(p, i * PG));
+  return out;
+}
+
+/** BV boardview database of the board (inches, Pin/Nail/Layout tables). */
+export function writeBv(b: SrcBoard): Uint8Array {
+  const inch = (mil: number) => mil / 1000;
+  const pinRows: (string | number | null)[][] = [];
+  for (const p of b.parts)
+    p.pins.forEach((pin, j) => pinRows.push([p.name, p.side === 'B' ? '(B)' : '(T)', j + 1, pin.number || String(j + 1), inch(pin.x), inch(pin.y), p.th ? 0 : p.side === 'B' ? 2 : 1, pin.net || null]));
+  const nailRows = b.nails.map((n) => [`$${n.probe}`, inch(n.x), inch(n.y), 1, 'A1', n.side === 'B' ? '(B)' : '(T)', `#${b.nets.indexOf(n.net) + 1}`, n.net || null, null]);
+  const ring = [...b.outline, b.outline[0]];
+  const layoutRows = ring.map(([x, y]) => [inch(x), inch(y), 0, 2]);
+  return writeJet4([
+    { name: 'Layout', cols: [{ name: 'X', type: 'float' }, { name: 'Y', type: 'float' }, { name: 'R', type: 'float' }, { name: 'Group', type: 'int' }], rows: layoutRows },
+    {
+      name: 'Nail',
+      cols: [
+        { name: 'Nail', type: 'text' },
+        { name: 'X', type: 'float' },
+        { name: 'Y', type: 'float' },
+        { name: 'Type', type: 'long' },
+        { name: 'Grid', type: 'text' },
+        { name: 'TB', type: 'text' },
+        { name: 'NET', type: 'text' },
+        { name: 'NetName', type: 'text' },
+        { name: 'VirtualPinVia', type: 'text' },
+      ],
+      rows: nailRows,
+    },
+    {
+      name: 'Pin',
+      cols: [
+        { name: 'Part', type: 'text' },
+        { name: 'TB', type: 'text' },
+        { name: 'Pin', type: 'long' },
+        { name: 'Name', type: 'text' },
+        { name: 'X', type: 'float' },
+        { name: 'Y', type: 'float' },
+        { name: 'Layer', type: 'int' },
+        { name: 'Net', type: 'text' },
+      ],
+      rows: pinRows,
+    },
+  ]);
+}

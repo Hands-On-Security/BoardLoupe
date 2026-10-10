@@ -11,10 +11,11 @@ import { parse } from '../helpers/load';
 
 function pinsByPart(m: BoardModel) {
   const map = new Map<string, { x: number; y: number; net: string }[]>();
+  const mil = (m.units.toMm ?? 0.0254) / 0.0254; // compare in mils whatever the file's unit
   for (let k = 0; k < m.parts.count; k++) {
     const arr = [];
     for (let j = m.parts.pinStart[k]; j < m.parts.pinStart[k] + m.parts.pinCount[k]; j++)
-      arr.push({ x: m.pins.x[j], y: m.pins.y[j], net: m.pins.net[j] >= 0 ? m.nets.name[m.pins.net[j]].replace(/^\//, '') : '' });
+      arr.push({ x: m.pins.x[j] * mil, y: m.pins.y[j] * mil, net: m.pins.net[j] >= 0 ? m.nets.name[m.pins.net[j]].replace(/^\//, '') : '' });
     if (arr.length) map.set(m.parts.name[k], arr);
   }
   return map;
@@ -77,14 +78,14 @@ describe('cross-format geometry (real board, independent exporters)', () => {
     expect(r.compared).toBeGreaterThan(1100);
     expect(r.worst).toBeLessThan(0.75);
   });
-  for (const f of ['glasgow.fatf', 'glasgow.far', 'glasgow.a3p', 'glasgow.f2b'])
+  for (const f of ['glasgow.fatf', 'glasgow.far', 'glasgow.a3p', 'glasgow.f2b', 'glasgow.bv'])
     test(`synthetic ${f} reproduces the source board (rotated, mirrored packages)`, () => {
       const m = parse('fixtures/synthetic/' + f).model!;
       const r = compare(parse('fixtures/real/glasgow/glasgow-kicad10.cad').model!, m);
       expect(r.compared).toBeGreaterThan(1100);
       expect(r.worst).toBeLessThan(0.75);
       expect(r.netMismatch).toBe(0);
-      expect(m.traces.count).toBeGreaterThan(4000);
+      if (!f.endsWith('.bv')) expect(m.traces.count).toBeGreaterThan(4000); // BV stores no copper
       if (!f.endsWith('.f2b')) expect(m.outline.source).toBe('file'); // F2B stores no outline
     });
 });
