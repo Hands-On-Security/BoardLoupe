@@ -2,6 +2,9 @@
 
 **Follow a signal to a place you can actually probe.**
 
+[Open BoardLoupe in your browser](https://hands-on-security.github.io/BoardLoupe/) ·
+[Get the single-file viewer](dist/boardloupe.html)
+
 BoardLoupe is a free boardview viewer for hardware work. Open a board, find a chip pin or
 net, follow it through series resistors, fuses and ferrite beads, and locate a more
 accessible test point, via, connector or pad. It runs offline from a single HTML file in
@@ -218,6 +221,16 @@ as HTML. All binary reads are bounds-checked, counts are sanity-checked against 
 decompression output is capped, and input size is capped at 400 MB.
 
 ## Development
+
+### Publishing a release
+
+Once the repository is public, enable **Settings → Pages → Build and deployment →
+GitHub Actions** once. Push a version tag such as `v1.0.0`, or publish a release
+with a `v*` tag in GitHub. The release workflow builds and tests the viewer,
+attaches `boardloupe.html` to the release, and deploys the identical file as the
+[live viewer](https://hands-on-security.github.io/BoardLoupe/). GitHub Free does
+not provide Pages for a private organization repository, so the live link starts
+working after the repository is public and the first release has deployed.
 
 | Command | What it does |
 |---|---|
