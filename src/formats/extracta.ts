@@ -12,7 +12,7 @@
  *   REFDES + SYM_X/SYM_Y           components (rotation, mirror = bottom side, part number, value)
  *   REFDES + PIN_NUMBER + PIN_X/Y  pins with NET_NAME and TEST_POINT
  *   GRAPHIC_DATA_NAME              graphics: LINE / ARC / RECTANGLE on CLASS/SUBCLASS
- *                                  (board outline, etch with NET_NAME)
+ *                                  (board outline, etch with NET_NAME, part bodies)
  *   VIA_X/VIA_Y                    vias with NET_NAME
  *
  * No real file is available in this corpus; the reader follows the
@@ -123,6 +123,16 @@ export const extractaFormat: FormatModule = {
         );
       }
     }
+    // Standard exports keep connectivity in EXTRACT_NETS, separate from the
+    // position rows in EXTRACT_PINS. Some exports combine them instead.
+    const pinNets = new Map<string, { net: string; name: string }>();
+    for (const t of tables) {
+      if (!has(t, 'REFDES', 'PINNUMBER', 'NETNAME')) continue;
+      for (const r of t.rows) {
+        const ref = r.get('REFDES') ?? '', number = r.get('PINNUMBER') ?? '';
+        if (ref) pinNets.set(`${ref}\u0000${number}`, { net: r.get('NETNAME') ?? '', name: r.get('PINNAME') ?? '' });
+      }
+    }
     // Pins (with nets and test access).
     let probes = 0;
     const seenPin = new Set<string>();
@@ -143,7 +153,8 @@ export const extractaFormat: FormatModule = {
         }
         const tp = r.get('TESTPOINT') ?? '';
         const probe = /^(T|B|TOP|BOTTOM|YES|Y)$/i.test(tp) ? ++probes : undefined;
-        b.addPin({ part: pi, x, y, number: no, name: r.get('PINNAME') || undefined, net: r.get('NETNAME') || null, probe });
+        const conn = pinNets.get(key);
+        b.addPin({ part: pi, x, y, number: no, name: r.get('PINNAME') || conn?.name || undefined, net: r.get('NETNAME') || conn?.net || null, probe });
       }
     }
     // Graphics: outline and etch.
@@ -157,6 +168,7 @@ export const extractaFormat: FormatModule = {
       return i;
     };
     let outline = 0;
+    const bodies = new Map<number, Map<string, number[]>>();
     for (const t of tables) {
       if (!has(t, 'GRAPHICDATANAME')) continue;
       for (const r of t.rows) {
@@ -166,7 +178,9 @@ export const extractaFormat: FormatModule = {
         const g = (i: number) => n(r, `GRAPHICDATA${i}`);
         const isOutline = /BOARD GEOMETRY/.test(cls) ? /OUTLINE/.test(sub) : sub === 'OUTLINE' || sub === 'DESIGN_OUTLINE';
         const isEtch = cls === 'ETCH';
-        if (!isOutline && !isEtch) continue;
+        const bodyPart = parts.get(r.get('REFDES') ?? '');
+        const isBody = bodyPart !== undefined && /^(?:SILKSCREEN|ASSEMBLY|PLACE_BOUND)_(?:TOP|BOTTOM)$/.test(sub);
+        if (!isOutline && !isEtch && !isBody) continue;
         const segs: number[] = [];
         let width = 0;
         if (kind === 'LINE') {
@@ -202,9 +216,21 @@ export const extractaFormat: FormatModule = {
           if (isOutline) {
             b.addOutlineSeg(segs[k], segs[k + 1], segs[k + 2], segs[k + 3]);
             outline++;
-          } else b.addTrace(segs[k], segs[k + 1], segs[k + 2], segs[k + 3], Number.isFinite(width) ? width : 0, layerOf(sub), r.get('NETNAME') || null);
+          } else if (isEtch) b.addTrace(segs[k], segs[k + 1], segs[k + 2], segs[k + 3], Number.isFinite(width) ? width : 0, layerOf(sub), r.get('NETNAME') || null);
+          else if (isBody) {
+            let byLayer = bodies.get(bodyPart!);
+            if (!byLayer) bodies.set(bodyPart!, (byLayer = new Map()));
+            const body = byLayer.get(sub) ?? [];
+            body.push(...segs.slice(k, k + 4));
+            byLayer.set(sub, body);
+          }
         }
       }
+    }
+    for (const [part, byLayer] of bodies) {
+      const side = b.partInput(part).side === SIDE_BOTTOM ? 'BOTTOM' : 'TOP';
+      const body = byLayer.get(`SILKSCREEN_${side}`) ?? byLayer.get(`ASSEMBLY_${side}`) ?? byLayer.get(`PLACE_BOUND_${side}`);
+      if (body?.length) b.partInput(part).body = body;
     }
     // Vias.
     for (const t of tables) {

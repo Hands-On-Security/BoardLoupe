@@ -46,4 +46,27 @@ describe('Allegro Extracta', () => {
     expect([m.traces.count, m.vias.count]).toEqual([1, 1]);
     expect(m.nets.name[m.traces.net[0]]).toBe('VCC');
   });
+
+  test('joins separate net and pin tables and draws package graphics', () => {
+    const text = `A!NET_NAME!REFDES!PIN_NUMBER!PIN_NAME!PIN_GROUND!PIN_POWER!
+J!board.brd!MILS!
+S!VCC!R1!1!SUPPLY!NO!YES!
+A!REFDES!COMP_CLASS!SYM_NAME!SYM_MIRROR!SYM_X!SYM_Y!
+J!board.brd!MILS!
+S!R1!DISCRETE!R0402!NO!100!200!
+A!SYM_NAME!SYM_MIRROR!PIN_NAME!PIN_NUMBER!PIN_X!PIN_Y!PAD_STACK_NAME!REFDES!PIN_ROTATION!TEST_POINT!
+J!board.brd!MILS!
+S!R0402!NO!!1!90!200!SMD!R1!0!YES!
+A!GRAPHIC_DATA_NAME!GRAPHIC_DATA_NUMBER!RECORD_TAG!GRAPHIC_DATA_1!GRAPHIC_DATA_2!GRAPHIC_DATA_3!GRAPHIC_DATA_4!GRAPHIC_DATA_5!SUBCLASS!SYM_NAME!REFDES!
+J!board.brd!MILS!
+S!LINE!1!1 1!80!190!120!190!0!SILKSCREEN_TOP!R0402!R1!
+`;
+    const out = parseBytes('separate-tables.fil', new TextEncoder().encode(text));
+    expect(out.ok, out.diagnostics.map((d) => d.message).join('; ')).toBe(true);
+    const model = out.model!;
+    expect(validateModel(model)).toEqual([]);
+    expect(model.nets.name[model.pins.net[0]]).toBe('VCC');
+    expect(model.pins.name[0]).toBe('SUPPLY');
+    expect(model.parts.bodyStart[1] - model.parts.bodyStart[0]).toBe(1);
+  });
 });
