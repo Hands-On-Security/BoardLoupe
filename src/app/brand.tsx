@@ -8,6 +8,15 @@
 import type { JSX } from 'preact';
 import { cx } from './components/ui';
 import { HOS_LOGO } from './brand-logo';
+import markSvg from './brand-mark.svg?raw';
+
+/** One source for the app mark, favicon and standalone report. */
+export const BRAND_MARK_URI = `data:image/svg+xml,${encodeURIComponent(markSvg)}`;
+export const BRAND_MARK_REPORT_SVG = markSvg.replace('<svg ', '<svg width="22" height="22" aria-hidden="true" ');
+
+export function BrandMark({ size = 20, class: cls }: { size?: number; class?: string }) {
+  return <img src={BRAND_MARK_URI} alt="" aria-hidden="true" data-testid="brand-mark" class={cls} width={size} height={size} draggable={false} />;
+}
 
 /** Short URL (managed by Hands-On Security) → redirects to the project portal. */
 export const HOS_URL = 'https://hos.direct/boardloupe';

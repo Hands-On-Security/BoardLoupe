@@ -53,6 +53,10 @@ test.describe('BoardLoupe single-file app', () => {
     const errors = await openApp(page);
     await expect(page.getByRole('button', { name: /Browse files/ })).toBeVisible();
     await expect(page.getByText('Private by design')).toBeVisible();
+    const icon = await page.locator('link[rel="icon"]').getAttribute('href');
+    expect(icon).toMatch(/^data:image\/svg\+xml,/);
+    expect(await page.getByTestId('brand-mark').first().getAttribute('src')).toBe(icon);
+    expect(decodeURIComponent(icon!)).toContain('M19 34h11v-9h13');
     await page.screenshot({ path: `${SHOTS}/${info.project.name}-empty.png` });
     expect(net).toEqual([]);
     expect(errors).toEqual([]);
@@ -311,6 +315,7 @@ test.describe('BoardLoupe single-file app', () => {
     const frame = page.frameLocator('[data-testid=report-preview]');
     await expect(frame.locator('h1')).toHaveText('I2C <script>alert(1)</script> audit');
     await expect(frame.locator('table.data')).toContainText('/SDA');
+    await expect(frame.locator('.brand svg path[d="M19 34h11v-9h13"]')).toHaveCount(1);
     await expect(frame.locator('figure img')).toHaveCount(1);
     // The board image fills the report's 184 x 116 mm frame (extended view, no letterbox) ...
     const [iw, ih] = await frame.locator('figure img').evaluate((img) => [(img as HTMLImageElement).naturalWidth, (img as HTMLImageElement).naturalHeight]);

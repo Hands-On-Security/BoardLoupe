@@ -1,8 +1,9 @@
-import { CircuitBoard, Cpu, FileText, Highlighter, Search, Spline, X } from 'lucide-preact';
+import { Cpu, FileText, Highlighter, Search, Spline, X } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { NETFLAG_GROUND, NETFLAG_NOCONNECT, NETFLAG_POWER, unitLabel } from '../../model/types';
 import { type SearchHit, collator } from '../../search/search';
 import { selectNet, selectPart, selectPin } from '../actions';
+import { BrandMark } from '../brand';
 import { formatBytes, plural } from '../format';
 import { type Panel, store, useStore } from '../store';
 import { GroupsPanel } from './Groups';
@@ -437,7 +438,7 @@ function InfoPanel() {
         <Field label="Parsed in">{board.timings.mode}</Field>
       </dl>
       <div class="px-3 pt-4 text-[11px] text-faint flex items-center gap-1.5">
-        <CircuitBoard size={12} /> Processed locally in your browser. Nothing is uploaded.
+        <BrandMark size={12} /> Processed locally in your browser. Nothing is uploaded.
       </div>
     </div>
   );

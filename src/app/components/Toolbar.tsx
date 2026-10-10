@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
-  CircuitBoard,
   Eye,
   EyeOff,
   FlipHorizontal2,
@@ -24,7 +23,7 @@ import {
 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { back, closeBoard, forward, openFiles, viewer } from '../actions';
-import { HosByline } from '../brand';
+import { BrandMark, HosByline } from '../brand';
 import { type Prefs, setPrefs, store, useStore } from '../store';
 import { IconButton, Toggle, cx } from './ui';
 
@@ -53,7 +52,7 @@ export function Toolbar() {
   return (
     <header class="h-11 shrink-0 flex items-center gap-1 px-2 border-b border-line bg-panel" role="toolbar" aria-label="Main toolbar">
       <div class="flex items-center gap-2 pl-1 pr-2 min-w-0">
-        <CircuitBoard size={18} class="text-accent shrink-0" aria-hidden="true" />
+        <BrandMark size={20} class="shrink-0" />
         <span class="font-semibold tracking-tight text-[14px] hidden md:inline">BoardLoupe</span>
       </div>
       <IconButton label="Toggle explorer" shortcut="[" active={prefs.sidebar} onClick={() => setPrefs({ sidebar: !prefs.sidebar })}>

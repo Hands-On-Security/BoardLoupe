@@ -1,7 +1,7 @@
-import { AlertTriangle, CircuitBoard, FolderOpen, KeyRound, Loader2, ShieldCheck, Upload, X } from 'lucide-preact';
+import { AlertTriangle, FolderOpen, KeyRound, Loader2, ShieldCheck, Upload, X } from 'lucide-preact';
 import { FORMATS } from '../../formats/registry';
 import { cancelLoad } from '../actions';
-import { HOS_URL, HosLogo } from '../brand';
+import { BrandMark, HOS_URL, HosLogo } from '../brand';
 import { store, useStore } from '../store';
 import { openPicker } from './Toolbar';
 import { Badge, Button, Kbd } from './ui';
@@ -16,9 +16,7 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
       <div class="w-full max-w-[860px] fade-in">
         <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
           <div class="flex items-center gap-3">
-            <div class="w-11 h-11 rounded-xl bg-accent-soft flex items-center justify-center">
-              <CircuitBoard size={24} class="text-accent" />
-            </div>
+            <BrandMark size={44} />
             <div>
               <h1 class="text-[22px] font-semibold tracking-tight">BoardLoupe</h1>
               <p class="text-muted text-[13px]">Offline boardview viewer — identify components, trace nets, find solder points</p>

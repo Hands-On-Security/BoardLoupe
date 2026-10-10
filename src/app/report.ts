@@ -13,6 +13,7 @@ import { type BoardModel, NETFLAG_GROUND, NETFLAG_NOCONNECT, NETFLAG_POWER, side
 import { DARK, LIGHT, type RGBA } from '../render/palette';
 import { type Highlight, netHighlightColor } from '../render/style';
 import type { Scene } from '../scene/scene';
+import { BRAND_MARK_REPORT_SVG } from './brand';
 import { HOS_LOGO } from './brand-logo';
 import { formatBytes, formatLength } from './format';
 
@@ -198,8 +199,6 @@ function fmtDate(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-const BOARD_MARK = `<svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#19191c"/><rect x="7" y="9" width="18" height="14" rx="2" fill="none" stroke="#e8b04a" stroke-width="2"/><circle cx="12" cy="14" r="1.8" fill="#e8b04a"/><circle cx="20" cy="18" r="1.8" fill="#e8b04a"/></svg>`;
-
 const STYLE = `
 @page { size: A4 portrait; margin: 11mm 13mm 12mm; }
 @page { @bottom-right { content: counter(page) " / " counter(pages); font: 7.5pt -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #8a8a93; } }
@@ -282,7 +281,7 @@ export function renderReportHtml(d: ReportData): string {
 <title>${esc(d.title)} — BoardLoupe report</title>
 <style>${STYLE}</style></head>
 <body><div class="sheet"><div class="ftr fixed">${footer}</div><table class="page">
-<thead><tr><td><div class="hdr"><div class="brand">${BOARD_MARK}<div><b>BoardLoupe</b><span>Boardview analysis report</span></div></div><img class="hos" src="data:${dataImage(HOS_LOGO)}" alt="Hands-On Security"></div></td></tr></thead>
+<thead><tr><td><div class="hdr"><div class="brand">${BRAND_MARK_REPORT_SVG}<div><b>BoardLoupe</b><span>Boardview analysis report</span></div></div><img class="hos" src="data:${dataImage(HOS_LOGO)}" alt="Hands-On Security"></div></td></tr></thead>
 <tfoot><tr><td><div class="ftr spacer">${footer}</div></td></tr></tfoot>
 <tbody><tr><td>
 <h1>${esc(d.title)}</h1>
