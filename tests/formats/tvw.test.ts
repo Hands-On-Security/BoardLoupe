@@ -12,7 +12,9 @@ import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { placeOutline, readTvw } from '../../src/formats/tvw';
 import { buildScene } from '../../src/scene/scene';
-import { ROOT, parse } from '../helpers/load';
+import { writeTvw } from '../../tools/fixtures/writers';
+import { loadSource } from '../../tools/fixtures/source';
+import { ROOT, parse, parseBytes } from '../helpers/load';
 
 const FILE = 'fixtures/synthetic/glasgow.tvw';
 const m = parse(FILE).model!;
@@ -124,5 +126,16 @@ describe('TVW drills and mechanical parts', () => {
       expect(m.parts.flags[k] & 1, m.parts.name[k]).toBe(mech ? 1 : 0);
       expect(s.bodyDashed[k], m.parts.name[k]).toBe(mech ? 1 : 0);
     }
+  });
+});
+
+describe('TVW writer variants', () => {
+  test('Gigabyte layout (password set, shorter settings block) reads like the standard file', () => {
+    const v = parseBytes('gigabyte.tvw', writeTvw(loadSource(ROOT), { shortSettings: true }));
+    expect(v.ok, v.diagnostics.map((d) => d.message).join('; ')).toBe(true);
+    const g = v.model!;
+    expect([g.parts.count, g.pins.count, g.nets.count, g.traces.count]).toEqual([m.parts.count, m.pins.count, m.nets.count, m.traces.count]);
+    expect([...g.pins.x]).toEqual([...m.pins.x]);
+    expect(g.parts.name).toEqual(m.parts.name);
   });
 });

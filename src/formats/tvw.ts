@@ -601,6 +601,32 @@ class TvwReader {
     r.skip(16 + 2);
   }
 
+  partTable(): TvwPart[] {
+    const r = this.r;
+    const pc = this.count(r.u32('part count'), 'part', 60);
+    r.u32();
+    const parts: TvwPart[] = [];
+    for (let i = 0; i < pc; i++) parts.push(this.part());
+    return parts;
+  }
+
+  /** Tries part-table starts after the settings block; the first offset whose whole table parses wins. */
+  resyncParts(from: number, original: unknown): TvwPart[] {
+    const r = this.r;
+    for (let at = from + 24; at <= Math.min(from + 160, r.end - 8); at++) {
+      r.seek(at);
+      const pc = r.u32();
+      if (pc === 0 || pc > r.remaining / 60) continue;
+      try {
+        r.seek(at);
+        return this.partTable();
+      } catch {
+        // not the table
+      }
+    }
+    throw original;
+  }
+
   part(): TvwPart {
     const r = this.r;
     const name = r.str8('part name');
@@ -660,7 +686,8 @@ class TvwReader {
     const type = tvwDecodeString(r.str8('header type'));
     r.u32();
     const customer = tvwDecodeString(r.str8('customer'));
-    r.u8();
+    // Password: metadata only, usually empty (a single zero length byte).
+    r.str8('password');
     const date = tvwDecodeString(r.str8('date'));
     r.skip(3 + 12);
     const layerCount = r.u32('layer count');
@@ -679,11 +706,16 @@ class TvwReader {
     for (let i = 0; i < nc; i++) nets.push(r.str8('net name'));
     this.probes();
     this.fixtures();
-    this.mysteriousBlock();
-    const pc = this.count(r.u32('part count'), 'part', 60);
-    r.u32();
-    const parts: TvwPart[] = [];
-    for (let i = 0; i < pc; i++) parts.push(this.part());
+    const settings = r.pos;
+    let parts: TvwPart[];
+    try {
+      this.mysteriousBlock();
+      parts = this.partTable();
+    } catch (e) {
+      // Some writers (e.g. Gigabyte's) emit a shorter settings block before the
+      // part table: find the table by validating candidate offsets.
+      parts = this.resyncParts(settings, e);
+    }
     progress?.(0.9);
     const decals: TvwDecal[] = [];
     try {

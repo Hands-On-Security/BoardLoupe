@@ -572,7 +572,8 @@ function tvwFixtureData(w: ByteWriter) {
   w.u8(1).s32(2).s32(3).s32(4).s32(5);
 }
 
-export function writeTvw(b: SrcBoard): Uint8Array {
+/** `shortSettings`: the variant written by Gigabyte's exporter (password set, settings block 2 bytes shorter). */
+export function writeTvw(b: SrcBoard, opts: { shortSettings?: boolean } = {}): Uint8Array {
   const U = 100; // raw units per mil
   const nets = b.nets;
   const netIdx = new Map(nets.map((n, i) => [n, i]));
@@ -630,7 +631,7 @@ export function writeTvw(b: SrcBoard): Uint8Array {
   ];
 
   const w = new ByteWriter();
-  w.str8(tvwEncodeString('Tebo-ictview files.')).u32(1).str8(tvwEncodeString('BoardScope fixture')).u8(0).str8(tvwEncodeString('2026-10-09')).zeros(3).u32(0).u32(0).u32(0);
+  w.str8(tvwEncodeString('Tebo-ictview files.')).u32(1).str8(tvwEncodeString('BoardScope fixture')).str8(opts.shortSettings ? tvwEncodeString('secret') : '').str8(tvwEncodeString('2026-10-09')).zeros(3).u32(0).u32(0).u32(0);
   const LAYERS = 6;
   w.u32(LAYERS);
   tvwLogic(w, 'TOP', 1, shapes, top, topLines, { arcs: true, extras: true });
@@ -659,7 +660,9 @@ export function writeTvw(b: SrcBoard): Uint8Array {
   w.vec(100000, 80000);
   w.u32(3).str8('Bottom fixture').u32(0).u32(0).vec(100000, 80000);
   // mysterious block
-  w.u32(50).u32(12452).vec(500000, 300000).u32(3).u32(1).bool(true).bool(false).u8(1).u8(2).zeros(16).bool(false).bool(true).bool(false).bool(false).bool(true).bool(false).u32(10000).u32(0).u32(0).u32(0).u8(0).u8(0);
+  w.u32(50).u32(12452).vec(500000, 300000).u32(3).u32(1).bool(true).bool(false).u8(1).u8(2).zeros(16).bool(false).bool(true).bool(false).bool(false);
+  if (!opts.shortSettings) w.bool(true).bool(false);
+  w.u32(10000).u32(0).u32(0).u32(0).u8(0).u8(0);
   // parts
   const parts = b.parts;
   w.u32(parts.length).u32(0);
