@@ -16,6 +16,7 @@ import { caeFormat, fzFormat } from './fz';
 import { gencadFormat } from './gencad';
 import { gencamFormat } from './gencam';
 import { kicadFormat } from './kicad';
+import { toptestFormat } from './toptest';
 import { tvwFormat } from './tvw';
 import type { Detection, FormatModule, InputFile, ParseContext, ParseOptions, ParseOutcome, Sniff } from './types';
 import { xzzFormat } from './xzz';
@@ -24,6 +25,7 @@ export const FORMATS: FormatModule[] = [
   tvwFormat,
   brdFormat,
   brd2Format,
+  toptestFormat,
   bdvFormat,
   ascFormat,
   bvr1Format,
@@ -132,7 +134,7 @@ function shortKind(f: InputFile): string {
   return makeSniff(f).isText ? 'text, not a boardview format' : 'unrecognised binary';
 }
 
-const BOARD_EXTS = new Set(['tvw', 'brd', 'bv', 'brd2', 'bdv', 'asc', 'bvr', 'bvr3', 'fz', 'cae', 'cad', 'gcd', 'gencad', 'cst', 'pcb', 'kicad_pcb']);
+const BOARD_EXTS = new Set(['tvw', 'brd', 'bv', 'brd2', 'bdv', 'asc', 'bvr', 'bvr3', 'fz', 'cae', 'cad', 'gcd', 'gencad', 'cst', 'pcb', 'kicad_pcb', 'con', 'fatf', 'fat', 'far', 'a3p', 'f2b', 'neu', 'fil', 'mdb']);
 
 /** macOS resource forks and Finder metadata that ride along in ZIPs. */
 const isJunkMember = (name: string) => name.startsWith('__MACOSX/') || /(^|\/)\._/.test(name) || /(^|\/)\.DS_Store$/.test(name) || /(^|\/)Thumbs\.db$/i.test(name);
