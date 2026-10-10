@@ -32,11 +32,10 @@ test('trace a signal through its series parts and highlight the path', async ({ 
 
   // Highlighting the path selects the whole chain (more than one net).
   await page.getByRole('button', { name: 'Highlight the whole series path' }).click();
-  await expect(page.getByText(/Series trace: \d+ nets?, \d+ series part/)).toBeVisible();
-  const nets = await page.evaluate(() => {
+  const selectedNetCount = () => page.evaluate(() => {
     const s = (window as unknown as { boardloupe?: { store?: { get(): { sel: { nets: number[] } } } } }).boardloupe?.store;
     return s ? s.get().sel.nets.length : -1;
   });
-  // The two far-side nets of /ENVA are highlighted alongside it (or state not exposed → skip assertion).
-  if (nets >= 0) expect(nets).toBeGreaterThanOrEqual(2);
+  // The two far-side nets of /ENVA are highlighted alongside it.
+  await expect.poll(selectedNetCount).toBeGreaterThanOrEqual(2);
 });

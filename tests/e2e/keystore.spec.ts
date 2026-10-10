@@ -51,8 +51,8 @@ test('import a keyfile, then encrypted FZ/CAE/XZZ fixtures open', async ({ page 
     [XZZ, true],
   ] as const) {
     await load(page, file);
-    await expect(page.getByTestId('file-name')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('loading')).toHaveCount(0);
+    await expect(page.getByTestId('file-name')).toHaveText(basename(file), { timeout: 30_000 });
+    await expect(page.getByTestId('loading')).toHaveCount(0, { timeout: 30_000 });
     if (parts) await expect(page.getByText(/\d[\d,]* parts · [\d,]+ pins/)).toBeVisible();
   }
 });

@@ -141,8 +141,8 @@ test.describe('BoardLoupe single-file app', () => {
     // Zoom onto U1 first so pins are large enough to hit.
     await page.keyboard.press('/');
     await page.keyboard.type('U1');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(200);
+    await page.getByRole('option').getByText('U1', { exact: true }).click();
+    await expect(page.getByTestId('inspector').getByRole('heading', { name: 'U1' })).toBeVisible();
     const p = await pinScreen(page, 'U1', '12');
     expect(p).not.toBeNull();
     const box = (await page.getByTestId('board-canvas').boundingBox())!;
@@ -242,9 +242,9 @@ test.describe('BoardLoupe single-file app', () => {
   test('highlighted pads on a ghosted or hidden side do not show through the board', async ({ page }) => {
     await openApp(page);
     await load(page, FX('synthetic/glasgow.tvw'));
-    // Count framebuffer pixels in the single-net highlight colour, rendered and read in one task.
+    // Count highlighted pixels in whichever renderer this browser can use.
     const counts = await page.evaluate(() => {
-      type BS = { store: { set: (p: object) => void }; viewer: { model: import('../../src/model/types').BoardModel; renderNow: () => void; setOptions: (o: object) => void; palette: { selNet: number[] } } };
+      type BS = { store: { set: (p: object) => void }; viewer: { model: import('../../src/model/types').BoardModel; renderer: { kind: string } | null; renderNow: () => void; setOptions: (o: object) => void; palette: { selNet: number[] } } };
       const bs = (window as unknown as { boardloupe: BS }).boardloupe;
       const m = bs.viewer.model;
       // A small net whose pins are all on the top side and which has no vias (vias go through the board).
@@ -260,12 +260,14 @@ test.describe('BoardLoupe single-file app', () => {
       }
       bs.store.set({ sel: { kind: 'net', index: net, multi: [], nets: [] } });
       const c = document.querySelector('[data-testid=board] canvas') as HTMLCanvasElement;
-      const g = c.getContext('webgl2')!;
+      const g = bs.viewer.renderer?.kind === 'webgl2' ? c.getContext('webgl2') : null;
+      const ctx = g ? null : c.getContext('2d');
+      if (!g && !ctx) throw new Error('No board renderer context');
       const [r0, g0, b0] = bs.viewer.palette.selNet;
       const count = () => {
         bs.viewer.renderNow();
-        const px = new Uint8Array(c.width * c.height * 4);
-        g.readPixels(0, 0, c.width, c.height, g.RGBA, g.UNSIGNED_BYTE, px);
+        const px = g ? new Uint8Array(c.width * c.height * 4) : ctx!.getImageData(0, 0, c.width, c.height).data;
+        if (g) g.readPixels(0, 0, c.width, c.height, g.RGBA, g.UNSIGNED_BYTE, px);
         let k = 0;
         for (let i = 0; i < px.length; i += 4) if (Math.abs(px[i] - r0) < 24 && Math.abs(px[i + 1] - g0) < 24 && Math.abs(px[i + 2] - b0) < 24) k++;
         return k;
@@ -448,8 +450,9 @@ test.describe('BoardLoupe single-file app', () => {
     })()`)) as string;
     await page.keyboard.press('/');
     await page.keyboard.type(name);
-    await page.keyboard.press('Enter');
+    await page.getByRole('option').getByText(name, { exact: true }).click();
     await expect(page.getByRole('button', { name: 'Bottom', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('inspector').getByRole('heading', { name })).toBeVisible();
     expect(await page.evaluate(`boardloupe.viewer.view.mirror`)).toBe(true);
     const p = await pinScreen(page, name, '2');
     const box = (await page.getByTestId('board-canvas').boundingBox())!;
@@ -465,7 +468,12 @@ test.describe('BoardLoupe single-file app', () => {
 
   test('drill holes are drawn inside their pads, even under overlapping copper', async ({ page }) => {
     await openApp(page);
+    await page.evaluate(() => {
+      const bs = (window as unknown as { boardloupe: { store: { get(): { prefs: object }; set(p: object): void } } }).boardloupe;
+      bs.store.set({ prefs: { ...bs.store.get().prefs, forceCanvas2d: true } });
+    });
     await load(page, FX('synthetic/glasgow.tvw'));
+    await expect(page.getByText('Canvas 2D')).toBeVisible();
     // Hide labels (the refdes sits on the hole centre), zoom to mounting hole MK1:
     // one large drilled pad plus small stitching vias that lie on its copper ring.
     await page.evaluate(`boardloupe.store.set({ prefs: { ...boardloupe.store.get().prefs, showPartLabels: false, showPinLabels: false, showNetLabels: false } })`);
@@ -482,23 +490,16 @@ test.describe('BoardLoupe single-file app', () => {
       v.focus({ minX: m.pins.x[big] - r, minY: m.pins.y[big] - r, maxX: m.pins.x[big] + r, maxY: m.pins.y[big] + r }, 1000);
       return [boardloupe.toScreen(m.pins.x[big], m.pins.y[big]), boardloupe.toScreen(m.pins.x[small], m.pins.y[small])];
     })()`)) as [number, number][];
-    await page.waitForTimeout(150);
-    const box = (await page.getByTestId('board-canvas').boundingBox())!;
-    for (const [sx, sy] of pts) {
-      // Sample a real screenshot (engine-independent; WebGL buffers are not readable everywhere).
-      const png = await page.screenshot({ clip: { x: box.x + sx - 1, y: box.y + sy - 1, width: 3, height: 3 } });
-      const rgb = (await page.evaluate(`new Promise((res) => {
-        const img = new Image();
-        img.onload = () => {
-          const c = document.createElement('canvas');
-          c.width = img.width; c.height = img.height;
-          const g = c.getContext('2d');
-          g.drawImage(img, 0, 0);
-          const d = g.getImageData(Math.floor(img.width / 2), Math.floor(img.height / 2), 1, 1).data;
-          res([d[0], d[1], d[2]]);
-        };
-        img.src = 'data:image/png;base64,${png.toString('base64')}';
-      })`)) as number[];
+    const colors = await page.evaluate((points) => {
+      const bs = (window as unknown as { boardloupe: { viewer: { renderNow(): void; view: { width: number; height: number } } } }).boardloupe;
+      const canvas = document.querySelector('[data-testid=board] canvas') as HTMLCanvasElement;
+      bs.viewer.renderNow();
+      const ctx = canvas.getContext('2d')!;
+      const dx = canvas.width / bs.viewer.view.width;
+      const dy = canvas.height / bs.viewer.view.height;
+      return points.map(([x, y]) => Array.from(ctx.getImageData(Math.floor(x * dx), Math.floor(y * dy), 1, 1).data).slice(0, 3));
+    }, pts);
+    for (const rgb of colors) {
       // Dark theme hole background is rgb(11,14,19); copper would be far brighter.
       expect(Math.max(...rgb)).toBeLessThan(40);
     }

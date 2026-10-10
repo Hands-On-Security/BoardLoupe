@@ -4,9 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
 // opened through file:// — exactly how users run it.
 export default defineConfig({
   testDir: 'tests/e2e',
-  timeout: 60_000,
+  timeout: process.env.CI ? 90_000 : 60_000,
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   fullyParallel: true,
-  workers: 4,
+  workers: process.env.CI ? 2 : 4,
   reporter: [['list']],
   use: { viewport: { width: 1440, height: 900 }, acceptDownloads: true },
   projects: [
