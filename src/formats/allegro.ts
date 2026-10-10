@@ -9,7 +9,8 @@
  * refer to each other by key; strings by id. Record sizes depend on the
  * release; variable-length records carry their own counts.
  *
- * What is read (16.x layout; offsets in bytes from the record start):
+ * What is read (16.x layout shown; 17.x moves most fields by 4–8 bytes, see
+ * the Fields tables; offsets in bytes from the record start):
  *   0x2d placed footprint  +12 → 0x07 refdes (+20 string), +24 rotation (m°),
  *                          +28/+32 origin, +40 → first pad, class byte bit 0 = bottom
  *   0x32 placed pad        +12 → 0x04 net assignment (+12 → 0x1b net, +12 name),
@@ -22,12 +23,14 @@
  *                          +48 → first segment (0x15/0x16/0x17 lines, 0x01 arcs; +8 next,
  *                          +20 width, +24..+36 endpoints; arcs add centre and radius as
  *                          doubles at +40/+48/+56, subclass bit 0x40 = clockwise)
- *   0x28 shape             class 1 / subclass 0xFD = board outline; +32 → first segment
+ *   0x28 shape             class 1 (board geometry); +32 → first segment. The outline is
+ *                          subclass OUTLINE (0xFD), else DESIGN_OUTLINE (0xEA), else a user
+ *                          subclass named like an outline (names in the 0x2a lists)
  *
  * Coordinates are 1/100 mil, Y up. Pins are placed from the pad definition:
  * negate local X on the bottom side, rotate counter-clockwise, translate —
- * on a real Allegro 16.6 board this reproduces every pin of KiCad's own
- * import exactly. Copper zones, text and silkscreen are not read.
+ * on real Allegro 16.6 and 17.2 boards this reproduces every pin of KiCad's
+ * own import exactly. Copper zones, text and silkscreen are not read.
  */
 import { ParseError } from '../io/bytes';
 import { BoardBuilder } from '../model/builder';
@@ -55,12 +58,64 @@ export const ALLEGRO_RELEASES: Record<number, string> = {
 /** Fixed record sizes of the 16.x layout. */
 const SIZE16: Record<number, number> = {
   0x01: 80, 0x02: 36, 0x04: 20, 0x05: 60, 0x06: 36, 0x07: 40, 0x08: 24, 0x09: 44, 0x0a: 68, 0x0c: 56, 0x0d: 40, 0x0e: 60, 0x0f: 56,
-  0x10: 32, 0x11: 24, 0x12: 28, 0x14: 32, 0x15: 40, 0x16: 40, 0x17: 40, 0x1b: 56, 0x1e: 24, 0x1f: 2832, 0x20: 40, 0x22: 40, 0x23: 84,
-  0x24: 52, 0x26: 20, 0x28: 68, 0x2b: 72, 0x2c: 36, 0x2d: 64, 0x2e: 36, 0x2f: 32, 0x30: 44, 0x32: 76, 0x33: 72, 0x34: 32, 0x37: 428,
-  0x35: 124, 0x38: 52, 0x39: 60, 0x3a: 16,
+  0x10: 32, 0x11: 24, 0x12: 28, 0x14: 32, 0x15: 40, 0x16: 40, 0x17: 40, 0x1b: 56, 0x1e: 24, 0x20: 40, 0x22: 40, 0x23: 84,
+  0x24: 52, 0x26: 20, 0x28: 68, 0x2b: 72, 0x2c: 36, 0x2d: 64, 0x2e: 36, 0x2f: 32, 0x30: 44, 0x32: 76, 0x33: 72, 0x34: 32, 0x35: 124, 0x37: 428,
+  0x38: 52, 0x39: 60, 0x3a: 16,
 };
-/** Entry size of 0x36 tables by subtype (16.x). */
-const TABLE36: Record<number, number> = { 0x02: 100, 0x03: 32, 0x06: 208, 0x08: 32, 0x0b: 1016, 0x0f: 20 };
+/** Fixed record sizes of the 17.x layout (measured on a real 17.2 board). */
+const SIZE17: Record<number, number> = {
+  0x01: 84, 0x02: 72, 0x04: 20, 0x05: 68, 0x06: 40, 0x07: 48, 0x08: 32, 0x09: 48, 0x0a: 72, 0x0b: 72, 0x0c: 64, 0x0d: 44, 0x0e: 68, 0x0f: 60,
+  0x10: 36, 0x11: 24, 0x12: 28, 0x14: 36, 0x15: 44, 0x16: 44, 0x17: 44, 0x1b: 60, 0x1e: 28, 0x20: 40, 0x22: 44, 0x23: 84,
+  0x24: 56, 0x26: 24, 0x28: 76, 0x2b: 76, 0x2c: 44, 0x2d: 72, 0x2e: 40, 0x2f: 32, 0x30: 56, 0x32: 84, 0x33: 80, 0x34: 36, 0x35: 124, 0x37: 428,
+  0x38: 52, 0x39: 60, 0x3a: 16,
+};
+/** Entry size of 0x36 tables by subtype. */
+const TABLE36_16: Record<number, number> = { 0x02: 100, 0x03: 32, 0x06: 208, 0x08: 32, 0x0b: 1016, 0x0f: 20 };
+const TABLE36_17: Record<number, number> = { 0x02: 108, 0x06: 8, 0x08: 64, 0x0b: 1016, 0x0c: 232, 0x0d: 200, 0x0f: 20, 0x10: 108 };
+
+/** Field offsets of the records that are read. */
+interface Fields {
+  /** 0x2d placed footprint: rotation, origin x/y, → 0x07, → first pad. */
+  fpRot: number;
+  fpX: number;
+  fpY: number;
+  fpRef: number;
+  fpPad: number;
+  /** 0x07: refdes string. */
+  refStr: number;
+  /** 0x32 placed pad: → net assignment, → next pad, → pad definition, copper box. */
+  padNet: number;
+  padNext: number;
+  padDef: number;
+  padBox: number;
+  /** 0x33 via: → net assignment, x/y, box. */
+  viaNet: number;
+  viaX: number;
+  viaBox: number;
+  /** 0x05 track: → net assignment, → first segment. */
+  trkNet: number;
+  trkSeg: number;
+  /** 0x28 shape: → first segment, bounding box. */
+  shpSeg: number;
+  shpBox: number;
+  /** Segments: width, then x1 y1 x2 y2; arcs: centre/radius doubles after the endpoints. */
+  segW: number;
+  arcD: number;
+  /** 0x1c padstack: drill, first-layer pad type (0 = unknown). */
+  psDrill: number;
+  psType: number;
+}
+const F16: Fields = { fpRot: 24, fpX: 28, fpY: 32, fpRef: 12, fpPad: 40, refStr: 20, padNet: 12, padNext: 20, padDef: 32, padBox: 60, viaNet: 12, viaX: 24, viaBox: 56, trkNet: 12, trkSeg: 48, shpSeg: 32, shpBox: 52, segW: 20, arcD: 40, psDrill: 16, psType: 88 };
+const F17: Fields = { fpRot: 28, fpX: 32, fpY: 36, fpRef: 40, fpPad: 48, refStr: 28, padNet: 12, padNext: 24, padDef: 36, padBox: 68, viaNet: 12, viaX: 32, viaBox: 64, trkNet: 12, trkSeg: 56, shpSeg: 40, shpBox: 60, segW: 24, arcD: 44, psDrill: 64, psType: 0 };
+
+export interface Layout {
+  v17: boolean;
+  sizes: Record<number, number>;
+  table36: Record<number, number>;
+  f: Fields;
+}
+const LAYOUT16: Layout = { v17: false, sizes: SIZE16, table36: TABLE36_16, f: F16 };
+const LAYOUT17: Layout = { v17: true, sizes: SIZE17, table36: TABLE36_17, f: F17 };
 
 interface Walk {
   /** Parallel arrays: tag and offset of every record, in file order. */
@@ -76,9 +131,11 @@ class AllegroFile {
   readonly b: Uint8Array;
   readonly v: DataView;
   readonly strings = new Map<number, string>();
+  readonly L: Layout;
   constructor(bytes: Uint8Array) {
     this.b = bytes;
     this.v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    this.L = bytes.length >= 4 && bytes[2] >= 0x14 ? LAYOUT17 : LAYOUT16;
   }
   u8 = (o: number) => this.b[o];
   u16 = (o: number) => this.v.getUint16(o, true);
@@ -112,15 +169,19 @@ class AllegroFile {
   /** Size of the record at p, or 0 when it cannot be determined. */
   size(p: number): number {
     const tag = this.b[p];
-    const fixed = SIZE16[tag];
+    const v17 = this.L.v17;
+    const fixed = this.L.sizes[tag];
     if (fixed) return fixed;
     switch (tag) {
       case 0x1c:
-        return 392 + 84 * this.u16(p + 50);
+        return v17 ? 948 + 144 * this.u16(p + 44) : 392 + 84 * this.u16(p + 50);
       case 0x21:
         return this.u32(p + 4);
       case 0x1d:
-        return 584 + 256 * this.u16(p + 20);
+        // header, 56 bytes per layer, 256 bytes per entry
+        return (v17 ? 28 : 24) + 56 * this.u16(p + 22) + 256 * this.u16(p + 20);
+      case 0x1f:
+        return (52 + 278 * this.u16(p + 26) + 3) & ~3;
       case 0x31:
         return 24 + ((this.u16(p + 22) + 3) & ~3);
       case 0x3c:
@@ -129,18 +190,22 @@ class AllegroFile {
         // u16 count, count × (string, flags, 0), key
         return 8 + 12 * this.u16(p + 2);
       case 0x36: {
-        const e = TABLE36[this.u16(p + 2)];
-        return e ? 28 + this.u32(p + 12) * e : 0;
+        const e = this.L.table36[this.u16(p + 2)];
+        return e ? (v17 ? 32 + this.u32(p + 16) * e : 28 + this.u32(p + 12) * e) : 0;
       }
       case 0x03: {
-        const t = this.b[p + 12];
-        if (t === 0x68) return 16 + ((this.u16(p + 14) + 3) & ~3);
-        if (t === 0x65) return 16;
-        if (t === 0x64 || t === 0x66 || t === 0x67 || t === 0x6a) return 20;
-        if (t === 0x69) return 24;
-        if (t === 0x6b) return 16 + ((this.u16(p + 14) + 3) & ~3);
-        if (t === 0x6e) return 20 + ((this.u32(p + 16) + 3) & ~3);
-        if (t === 0x6f) return 20 + 4 * this.u32(p + 16);
+        // 17.x has two more header words: type at +16, length at +18, count at +24.
+        const h = v17 ? 8 : 0;
+        const t = this.b[p + 12 + (v17 ? 4 : 0)];
+        const len = this.u16(p + 14 + (v17 ? 4 : 0));
+        const n = this.u32(p + 16 + h);
+        if (t === 0x68 || t === 0x6b || t === 0x73) return 16 + h + ((len + 3) & ~3);
+        if (t === 0x6c) return 20 + h + 4 * n;
+        if (t === 0x65) return 16 + h;
+        if (t === 0x64 || t === 0x66 || t === 0x67 || t === 0x6a) return 20 + h;
+        if (t === 0x69) return 24 + h;
+        if (t === 0x6e) return 20 + h + ((n + 3) & ~3);
+        if (t === 0x6f) return 20 + h + 4 * n;
         return 0;
       }
       default:
@@ -157,10 +222,15 @@ class AllegroFile {
     let count = 0,
       resyncs = 0;
     const byKey = new Map<number, number>();
-    const keyLike = (v: number) => v >= 0x01000000 && v < 0x80000000;
+    const keyLike = this.L.v17 ? (v: number) => v > 0 && v < 0x01000000 : (v: number) => v >= 0x01000000 && v < 0x80000000;
     let p = start;
     let nextTick = 0;
     while (p + 12 <= b.length) {
+      // Zero padding between record groups.
+      if (this.u32(p) === 0) {
+        p += 4;
+        continue;
+      }
       const sz = this.size(p);
       if (sz < 8 || p + sz > b.length) {
         // Resynchronise: the next aligned position that looks like a record header.
@@ -200,7 +270,7 @@ export const allegroFormat: FormatModule = {
   name: 'Cadence Allegro board',
   extensions: ['brd'],
   status: 'partial',
-  summary: 'Native Allegro .brd database (16.x): parts, pins, nets, vias, traces and outline — no Allegro or KiCad needed',
+  summary: 'Native Allegro .brd database (16.x, 17.x): parts, pins, nets, vias, traces and outline — no Allegro or KiCad needed',
   detect(_s, f) {
     const b = f.bytes;
     if (b.length >= 0x200) {
@@ -216,10 +286,12 @@ export const allegroFormat: FormatModule = {
     const release = ALLEGRO_RELEASES[(magic & 0xffffff00) >>> 0] ?? null;
     const verText = String.fromCharCode(...b.subarray(0xf8, 0xf8 + 32)).replace(/[^\x20-\x7e].*$/s, '').replace(/[./]+$/, '');
     const major = (magic >>> 16) & 0xff;
-    if (major !== 0x13) {
+    if (major !== 0x13 && major !== 0x14) {
       throw new ParseError(
         'unsupported.allegro',
-        `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. BoardScope reads Allegro 16.x databases natively; this release's record layout is not supported yet.`,
+        major < 0x13
+          ? `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. BoardScope reads Allegro 16.x and 17.x databases natively; releases before 16 use an older record layout that is not supported yet (other free tools do not read it either). If Allegro 16 or later is available, opening and saving the board there makes it readable.`
+          : `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. BoardScope reads Allegro 16.x and 17.x databases natively; this newer release's record layout is not supported yet.`,
       );
     }
     const what = `Cadence Allegro ${release ?? ''} board${verText ? ` ("${verText}")` : ''}`.replace('  ', ' ');
@@ -233,6 +305,7 @@ export const allegroFormat: FormatModule = {
       return i !== undefined && w.tags[i] === tag ? w.offs[i] : -1;
     };
     const str = (id: number) => a.strings.get(id) ?? '';
+    const F = a.L.f;
 
     const bb = new BoardBuilder();
     bb.units = { unit: 'mil', toMm: 0.0254, assumed: false };
@@ -278,58 +351,60 @@ export const allegroFormat: FormatModule = {
 
     // Footprints and pins.
     ctx.progress('Building board');
+    const partOrigins: [number, number][] = [];
     let brokenChains = 0,
       anonymous = 0;
     for (let i = 0; i < w.count; i++) {
       if (w.tags[i] !== 0x2d) continue;
       const fp = w.offs[i];
-      const o7 = at(a.u32(fp + 12), 0x07);
-      const ref = o7 >= 0 ? str(a.u32(o7 + 20)) : '';
+      const o7 = at(a.u32(fp + F.fpRef), 0x07);
+      const ref = o7 >= 0 ? str(a.u32(o7 + F.refStr)) : '';
       const bottom = (b[fp + 2] & 1) === 1;
-      const rot = a.i32(fp + 24) / 1000;
-      const ox = a.i32(fp + 28),
-        oy = a.i32(fp + 32);
+      const rot = a.i32(fp + F.fpRot) / 1000;
+      const ox = a.i32(fp + F.fpX),
+        oy = a.i32(fp + F.fpY);
       const c = Math.cos((rot * Math.PI) / 180),
         s = Math.sin((rot * Math.PI) / 180);
       // Symbols without a reference designator and without pads (logos, mechanical drawings) are left out.
-      if (!ref && at(a.u32(fp + 40), 0x32) < 0) {
+      if (!ref && at(a.u32(fp + F.fpPad), 0x32) < 0) {
         anonymous++;
         continue;
       }
+      partOrigins.push([ox, oy]);
       const pi = bb.addPart({ name: ref || `?${i}`, side: bottom ? SIDE_BOTTOM : SIDE_TOP, mount: MOUNT_SMD, x: ox * k, y: oy * k, rot: ((rot % 360) + 360) % 360 });
       const self = a.u32(fp + 4);
       let th = false;
-      for (let key = a.u32(fp + 40), guard = 0; key && key !== self && guard < 20000; guard++) {
+      for (let key = a.u32(fp + F.fpPad), guard = 0; key && key !== self && guard < 20000; guard++) {
         const o = at(key, 0x32);
         if (o < 0) {
           brokenChains++;
           break;
         }
-        const od = at(a.u32(o + 32), 0x0d);
+        const od = at(a.u32(o + F.padDef), 0x0d);
         let lx = od >= 0 ? a.i32(od + 16) : 0;
         const ly = od >= 0 ? a.i32(od + 20) : 0;
         if (bottom) lx = -lx;
         const x = ox + lx * c - ly * s,
           y = oy + lx * s + ly * c;
         const ps = od >= 0 ? at(a.u32(od + 24), 0x1c) : -1;
-        const drill = ps >= 0 ? a.i32(ps + 16) : 0;
-        const type = ps >= 0 ? a.u32(ps + 88) : 0;
+        const drill = ps >= 0 ? a.i32(ps + F.psDrill) : 0;
+        const type = ps >= 0 && F.psType ? a.u32(ps + F.psType) : 0;
         if (drill > 0) th = true;
-        const w0 = a.i32(o + 68) - a.i32(o + 60),
-          h0 = a.i32(o + 72) - a.i32(o + 64);
+        const w0 = a.i32(o + F.padBox + 8) - a.i32(o + F.padBox),
+          h0 = a.i32(o + F.padBox + 12) - a.i32(o + F.padBox + 4);
         bb.addPin({
           part: pi,
           x: x * k,
           y: y * k,
           number: od >= 0 ? str(a.u32(od + 8)) : '',
-          net: netOfAssign(a.u32(o + 12)),
+          net: netOfAssign(a.u32(o + F.padNet)),
           side: drill > 0 ? SIDE_BOTH : undefined,
           shape: type === 2 ? SHAPE_CIRCLE : type === 6 ? SHAPE_OBLONG : SHAPE_RECT,
           w: Math.max(0, w0) * k,
           h: Math.max(0, h0) * k,
           hole: drill > 0 ? drill * k : undefined,
         });
-        key = a.u32(o + 20);
+        key = a.u32(o + F.padNext);
       }
       if (th) bb.partInput(pi).mount = MOUNT_TH;
     }
@@ -337,16 +412,16 @@ export const allegroFormat: FormatModule = {
     // Vias, tracks and the board outline.
     const seg = (o: number, layer: number, net: string | null) => {
       const t = b[o];
-      const width = a.i32(o + 20) * k;
-      const x1 = a.i32(o + 24),
-        y1 = a.i32(o + 28),
-        x2 = a.i32(o + 32),
-        y2 = a.i32(o + 36);
+      const width = a.i32(o + F.segW) * k;
+      const x1 = a.i32(o + F.segW + 4),
+        y1 = a.i32(o + F.segW + 8),
+        x2 = a.i32(o + F.segW + 12),
+        y2 = a.i32(o + F.segW + 16);
       const out: number[] = [];
       if (t === 0x01) {
-        const cx = a.f64(o + 40),
-          cy = a.f64(o + 48),
-          r = a.f64(o + 56);
+        const cx = a.f64(o + F.arcD),
+          cy = a.f64(o + F.arcD + 8),
+          r = a.f64(o + F.arcD + 16);
         if (!(r > 0 && Number.isFinite(cx) && Number.isFinite(cy))) out.push(x1, y1, x2, y2);
         else {
           const cw = (b[o + 3] & 0x40) !== 0;
@@ -386,20 +461,57 @@ export const allegroFormat: FormatModule = {
       }
     };
     let outline = 0;
+    const geometry = new Map<number, number[]>();
     for (let i = 0; i < w.count; i++) {
       const t = w.tags[i],
         o = w.offs[i];
       if (t === 0x33) {
-        const box = a.i32(o + 64) - a.i32(o + 56);
-        bb.addVia(a.i32(o + 24) * k, a.i32(o + 28) * k, Math.max(0, box) * k, netOfAssign(a.u32(o + 12)));
+        const box = a.i32(o + F.viaBox + 8) - a.i32(o + F.viaBox);
+        bb.addVia(a.i32(o + F.viaX) * k, a.i32(o + F.viaX + 4) * k, Math.max(0, box) * k, netOfAssign(a.u32(o + F.viaNet)));
       } else if (t === 0x05 && b[o + 2] === 6) {
-        walkSegments(o, a.u32(o + 48), b[o + 3], netOfAssign(a.u32(o + 12)));
-      } else if (t === 0x28 && b[o + 2] === 1 && b[o + 3] === 0xfd) {
-        walkSegments(o, a.u32(o + 32), -1, null);
-        outline++;
+        walkSegments(o, a.u32(o + F.trkSeg), b[o + 3], netOfAssign(a.u32(o + F.trkNet)));
+      } else if (t === 0x28 && b[o + 2] === 1) {
+        // Board geometry shapes, grouped by subclass; the outline is chosen below.
+        const sub = b[o + 3];
+        (geometry.get(sub) ?? geometry.set(sub, []).get(sub)!).push(o);
       }
     }
-    if (!bb.partCount) throw new ParseError('allegro.empty', `This ${what} contains no placed components; the file may be truncated or damaged.`);
+    // Outline: the predefined OUTLINE (0xFD) / DESIGN_OUTLINE (0xEA) subclass, else a user subclass
+    // named like an outline (17.x designs often use one); the smallest that holds the parts wins.
+    const subs = new Set([0xfd, 0xea].filter((x) => geometry.has(x)));
+    for (let i = 0; i < w.count; i++) {
+      if (w.tags[i] !== 0x2a) continue;
+      const o = w.offs[i];
+      const n = a.u16(o + 2);
+      for (let j = 0; j < n && j < 0xf0; j++) {
+        const name = str(a.u32(o + 4 + 12 * j));
+        if (/OUTLINE/i.test(name) && !/PANEL|OLD|TEST|PKG|PLACE|ROUTE|DIM|KEEP|SILK|ASSEM/i.test(name) && geometry.has(j)) subs.add(j);
+      }
+    }
+    const boxOf = (list: number[]) => {
+      let x0 = Infinity,
+        y0 = Infinity,
+        x1 = -Infinity,
+        y1 = -Infinity;
+      for (const o of list) {
+        x0 = Math.min(x0, a.i32(o + F.shpBox));
+        y0 = Math.min(y0, a.i32(o + F.shpBox + 4));
+        x1 = Math.max(x1, a.i32(o + F.shpBox + 8));
+        y1 = Math.max(y1, a.i32(o + F.shpBox + 12));
+      }
+      return [x0, y0, x1, y1];
+    };
+    const inside = (bx: number[]) => partOrigins.filter(([x, y]) => x >= bx[0] && x <= bx[2] && y >= bx[1] && y <= bx[3]).length;
+    const area = (bx: number[]) => (bx[2] - bx[0]) * (bx[3] - bx[1]);
+    const fits = [...subs].map((x) => ({ x, box: boxOf(geometry.get(x)!) })).filter((c) => inside(c.box) >= partOrigins.length * 0.9);
+    // OUTLINE first, then DESIGN_OUTLINE, then the smallest user outline.
+    const rank = (x: number) => (x === 0xfd ? 0 : x === 0xea ? 1 : 2);
+    fits.sort((p, q) => rank(p.x) - rank(q.x) || area(p.box) - area(q.box));
+    if (fits.length)
+      for (const o of geometry.get(fits[0].x)!) {
+        walkSegments(o, a.u32(o + F.shpSeg), -1, null);
+        outline++;
+      }
     if (brokenChains) bb.warn('allegro.chain', `${brokenChains} footprint pad list(s) could not be followed completely`);
     if (anonymous) bb.info('allegro.symbols', `${anonymous} symbol(s) without reference designator or pads (drawings, logos) are not shown`);
     if (w.resyncs) bb.info('allegro.resync', `${w.resyncs} record(s) of unknown layout were skipped`);
