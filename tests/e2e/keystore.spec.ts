@@ -2,7 +2,7 @@
  * Keystore end-to-end on the built file over file://: import a keyfile of
  * DISPOSABLE test keys, open encrypted fixtures with them, save them encrypted
  * with a passphrase, reload, unlock (wrong then right passphrase), open again,
- * and remove. No vendor keys are involved.
+ * and remove. An opt-in test also uses a local private keyfile with real files.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
@@ -130,4 +130,30 @@ test('local encrypted research files open after keyfile import', async ({ page }
     await expect(page.getByText(/\d[\d,]* parts · [\d,]+ pins/)).toBeVisible();
     await expect(page.getByTestId('error-message')).toHaveCount(0);
   }
+});
+
+test('saved local keyfile unlocks and opens a real encrypted board', async ({ page }) => {
+  test.skip(!RESEARCH || !RESEARCH_KEYFILE || !existsSync(RESEARCH_KEYFILE), 'requires a local corpus and private keyfile');
+  test.setTimeout(120_000);
+  await openApp(page);
+  test.skip(!(await page.evaluate(() => !!globalThis.crypto?.subtle)), 'no Web Crypto over file://');
+  const row = readFileSync(join(RESEARCH!, 'fixtures/manifest.jsonl'), 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { format: string; file: string })
+    .find((item) => item.format === 'fz' && !basename(item.file).startsWith('._'))!;
+  await openSettings(page);
+  await page.getByTestId('ks-import-input').setInputFiles(RESEARCH_KEYFILE!);
+  await expect(page.getByTestId('ks-manage').getByText('key loaded')).toHaveCount(3);
+  await page.getByTestId('ks-save-passphrase').fill('local corpus check');
+  await page.getByTestId('ks-save').click();
+  await expect(page.getByTestId('ks-remove')).toBeVisible();
+  await page.reload();
+  await load(page, join(RESEARCH!, row.file));
+  await expect(page.getByRole('button', { name: 'Enter key' })).toBeVisible();
+  await page.getByRole('button', { name: 'Enter key' }).click();
+  await page.getByTestId('ks-passphrase').fill('local corpus check');
+  await page.getByTestId('ks-unlock').click();
+  await expect(page.getByTestId('file-name')).toContainText(basename(row.file));
+  await expect(page.getByTestId('error-message')).toHaveCount(0);
 });

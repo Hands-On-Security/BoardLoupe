@@ -151,6 +151,30 @@ function parseFzContainer(o: FzOpts, ctx: ParseContext) {
   return { content, descr, variant };
 }
 
+function graphicSegments(type: string, f: string[], offset: number): number[] {
+  const x1 = Number(f[offset]), y1 = Number(f[offset + 1]), x2 = Number(f[offset + 2]), y2 = Number(f[offset + 3]);
+  if (![x1, y1, x2, y2].every(Number.isFinite)) return [];
+  if (type === 'LINE') return [x1, y1, x2, y2];
+  if (type === 'RECTANGLE') return [x1, y1, x2, y1, x2, y1, x2, y2, x2, y2, x1, y2, x1, y2, x1, y1];
+  if (type !== 'ARC') return [];
+  const cx = Number(f[offset + 4]), cy = Number(f[offset + 5]), r = Number(f[offset + 6]);
+  if (![cx, cy, r].every(Number.isFinite) || r <= 0) return [];
+  const clockwise = /CLOCKWISE/i.test(f[offset + 8] ?? '') && !/COUNTER/i.test(f[offset + 8] ?? '');
+  const a0 = Math.atan2(y1 - cy, x1 - cx);
+  let sweep = Math.atan2(y2 - cy, x2 - cx) - a0;
+  if (clockwise) { if (sweep >= 0) sweep -= 2 * Math.PI; }
+  else if (sweep <= 0) sweep += 2 * Math.PI;
+  const steps = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 18)));
+  const out: number[] = [];
+  let px = x1, py = y1;
+  for (let i = 1; i <= steps; i++) {
+    const a = a0 + sweep * i / steps;
+    const x = i === steps ? x2 : cx + r * Math.cos(a), y = i === steps ? y2 : cy + r * Math.sin(a);
+    out.push(px, py, x, y); px = x; py = y;
+  }
+  return out;
+}
+
 export function parseFzText(contentBytes: Uint8Array, descrBytes: Uint8Array | null, b: BoardBuilder) {
   // Some boards use ',' as the decimal separator (the reference replaces all commas).
   const text = decodeText(contentBytes).text.replace(/,/g, '.');
@@ -158,11 +182,12 @@ export function parseFzText(contentBytes: Uint8Array, descrBytes: Uint8Array | n
   let unitMm = false;
   let block = 0;
   const partIdx = new Map<string, number>();
+  const bodies = new Map<number, Map<string, number[]>>();
   let unknownPart = 0;
   for (let li = 0; li < lines.length; li++) {
     const line = lines[li].trim();
     if (!line) continue;
-    if (line === 'UNIT:millimeters') unitMm = true;
+    if (line === 'UNIT:millimeters' || /^A!UNIT!millimeters!?$/i.test(line)) unitMm = true;
     if (line[0] === 'A') {
       const h = line.slice(2);
       block = h.startsWith('REFDES')
@@ -231,7 +256,27 @@ export function parseFzText(contentBytes: Uint8Array, descrBytes: Uint8Array | n
         continue;
       }
       b.addPin({ part: -1, x, y, net, side: loc === 'T' ? SIDE_TOP : SIDE_BOTTOM, kind: PINKIND_TESTPOINT, number: ref ? `${ref}${pnum ? '.' + pnum : ''}` : '' });
+    } else if (block === 4) {
+      const layer = f[12]?.trim().toUpperCase() ?? '';
+      const p = partIdx.get(f[14]?.trim() ?? '');
+      if (p === undefined || !/^(?:SILKSCREEN|ASSEMBLY|PLACE_BOUND)_(?:TOP|BOTTOM)$/.test(layer)) continue;
+      const segments = graphicSegments(f[0]?.trim().toUpperCase(), f, 3);
+      if (!segments.length) continue;
+      let byLayer = bodies.get(p);
+      if (!byLayer) bodies.set(p, (byLayer = new Map()));
+      const body = byLayer.get(layer) ?? [];
+      body.push(...segments);
+      byLayer.set(layer, body);
+    } else if (block === 5) {
+      if (f[0]?.trim().toUpperCase() !== 'BOARD GEOMETRY' || f[1]?.trim().toUpperCase() !== 'OUTLINE') continue;
+      const segments = graphicSegments(f[2]?.trim().toUpperCase(), f, 5);
+      for (let i = 0; i + 3 < segments.length; i += 4) b.addOutlineSeg(segments[i], segments[i + 1], segments[i + 2], segments[i + 3]);
     }
+  }
+  for (const [p, byLayer] of bodies) {
+    const side = b.partInput(p).side === SIDE_BOTTOM ? 'BOTTOM' : 'TOP';
+    const body = byLayer.get(`SILKSCREEN_${side}`) ?? byLayer.get(`ASSEMBLY_${side}`) ?? byLayer.get(`PLACE_BOUND_${side}`);
+    if (body?.length) b.partInput(p).body = body;
   }
   if (unknownPart) b.warn('fz.unknownpart', `${unknownPart} pin row(s) reference a REFDES that is not defined; shown as unowned`);
 

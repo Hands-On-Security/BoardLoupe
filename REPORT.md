@@ -38,16 +38,23 @@ built for the hardware-security classroom.
 
 ## New formats from the research corpus (2026-10-10)
 
-Every format reader below is original code written from the corpus's format notes and checked on
-its real samples (which cannot be redistributed); CI uses synthetic fixtures of the real Glasgow
-board in each format (geometry within 0.75 mil of the source, fuzzing, browser tests).
+The format readers below use the corpus's notes and local real samples where available. CI uses
+synthetic fixtures of the Glasgow board for many formats (geometry within 0.75 mil of the source,
+fuzzing, browser tests). The experimental paths without real samples are listed below.
 
-- **Cadence Allegro `.brd`, natively (16.x and 17.x).** No Allegro, KiCad or conversion step: the
+- **Cadence Allegro `.brd`, natively (15.x through 17.x).** No Allegro, KiCad or conversion step: the
   record stream is walked directly (string table, keyed records, version-specific layouts). On three
   real boards it matches KiCad 10's own import exactly — X270 (16.6): 2,166 parts, 7,874 pins at
   identical positions, every net and drill, 5,850 vias, 45,602 trace segments; a 17.2 board: 8,437
   pins, every net and drill. Outline (OUTLINE / DESIGN_OUTLINE / user outline subclass) and copper
-  layer names are read. Releases before 16 are recognised and explained.
+  layer names are read. The 15.5 board opens with 1,945 parts, 8,468 pads, every numbered pad net
+  equal to its matching GenCAD export, 6,700 vias, 22,738 trace segments and a detailed file outline.
+  8,394 pad centres match the export within 0.05 mil; 74 elongated or asymmetric pads use the
+  copper-box centre and differ from the exported pin anchor. Releases before 15 remain unsupported.
+- **CAE graphic rows.** Both real X399 boards contain BOARD GEOMETRY outlines and more than 40,000
+  component body segments each; these now render from the file. Their graphic tables contain assembly,
+  place-bound and silkscreen artwork but no net-associated copper routes, so they are not exposed as
+  electrical traces.
 - **Fabmaster FATF and FARC (`.faz`).** Placement (negate Y on the bottom, rotate clockwise) puts
   every one of 6,701 pins of a real FARC job on the job's own absolute positions; the FATF and FARC
   of the same Gigabyte board agree on all 12,226 pins, nets and pad extents. Copper, vias and test
@@ -58,8 +65,8 @@ board in each format (geometry within 0.75 mil of the source, fuzzing, browser t
   settings block), plus documented-layout readers for **TopTest numbered-section BRD**, **Allegro
   Extracta** text and **NBV**.
 - Corpus run (`BS_RESEARCH`): with a separately supplied private keyfile, both FZ, both CAE and both
-  XZZ samples open and pass model integrity checks. Allegro 15.5 and one source-truncated GenCAD
-  file remain explained failures.
+  XZZ samples open and pass model integrity checks. Allegro 15.5 also opens and is compared pin by
+  pin with the matching GenCAD export. One source-truncated GenCAD file remains an explained failure.
 
 ## RAR and 7z archives (2026-10-10)
 
@@ -71,8 +78,9 @@ cannot load the ESM glue); members then flow through the normal ZIP/parse path, 
 decompression-bomb limit, junk-metadata filtering and in-archive folder layout as ZIP. Password-
 protected archives report that a password is required (not prompted). Verified end-to-end in
 Chromium, Firefox and WebKit: a committed 7z of the Glasgow GenCAD export (CI) and real VinaFix RAR4
-archives (local, `BS_RESEARCH`-gated, not committed — their RAR4 content extracts and parses to BRD2
-and GenCAD boards of thousands of parts). Supported variants and licences: `src/vendor/libarchive/LICENSES.md`.
+  archives (local, `BS_RESEARCH`-gated, not committed — their RAR4 content extracts and parses to BRD2
+  and GenCAD boards of thousands of parts). A compressed RAR5 sample from libarchive's test suite
+  also extracts in the committed unit suite. Supported variants and licences: `src/vendor/libarchive/LICENSES.md`.
 
 ## Decryption keys: bring-your-own keystore (2026-10-10)
 
@@ -84,8 +92,8 @@ the passphrase is never stored, and you re-enter it to unlock on a later visit, 
 the saved keys. Plaintext key material never reaches `localStorage`, logs, reports, screenshots,
 exports or error messages. Import, reload, unlock (wrong then right passphrase), successful open,
 wrong key, missing key and removal are covered by unit tests and a three-browser e2e test, using
-**disposable generated test keys** on the synthetic FZ/CAE/XZZ fixtures — no real or vendor key is in
-any committed test. (`src/app/keystore.ts`, `src/app/keystore-actions.ts`.)
+**disposable generated test keys** on the synthetic FZ/CAE/XZZ fixtures. No private key is in any
+committed test. (`src/app/keystore.ts`, `src/app/keystore-actions.ts`.)
 
 `tools/merge-research-keys.py` combines the private format notes into one ignored local keyfile,
 including note metadata. `BS_RESEARCH_KEYFILE` opts the corpus and browser tests into importing that
@@ -144,17 +152,17 @@ integrity, fuzz and browser tests. See FORMAT_MATRIX.md for details.
 | GenCAM `.a3p` | verified | synthetic; checked locally on a real board |
 | Unisoft F2B | verified | synthetic; checked locally on two real boards |
 | BV database (Access / Jet) | verified | synthetic Jet 4 database; checked locally on real boards |
-| Cadence Allegro `.brd` 16.x / 17.x | partial | synthetic 16.6 and 17.2; checked locally on three real boards against KiCad 10 |
+| Cadence Allegro `.brd` 15.x–17.x | partial | synthetic 16.6/17.2; real 15.5 compared pin by pin against matching GenCAD; three real 16/17 boards checked against KiCad 10 |
 | ASC multi-file set | partial | synthetic, reference-validated |
 | CAE (needs key) | partial | synthetic (test key) |
 | CST | experimental | synthetic, reference-validated |
-| XZZ (components need DES key) | experimental | synthetic (test key) |
+| XZZ (components need DES key) | partial | synthetic test key; two real files opened locally, one with 16-layer routing |
 | TopTest numbered-section BRD, Allegro Extracta, NBV | experimental | written from the documented layouts; no real files (sought, none found — see above) |
-| ZIP, RAR, 7z containers | supported | ZIP (pure JS); RAR4/RAR5 + 7z via bundled libarchive WASM — real 7z (CI), real RAR4 (local) |
-| Allegro before 16, PDF/OLE, firmware images | recognised with an explanation, not parsed | unit tests |
+| ZIP, RAR, 7z containers | supported | ZIP (pure JS); RAR4/RAR5 + 7z via bundled libarchive WASM — real 7z and compressed RAR5 (CI), real RAR4 (local) |
+| Allegro before 15, PDF/OLE, firmware images | recognised with an explanation, not parsed | unit tests |
 
 Not supported: Altium ASCII, IPC-D-356 (fixture present), `.bvr2`, TVW files without the
-standard header, Allegro before 16, FlexBV-only formats. No vendor decryption keys are included.
+standard header, Allegro before 15, FlexBV-only formats. No vendor decryption keys are included.
 
 ## Tests (all passing)
 
@@ -198,11 +206,14 @@ standard header, Allegro before 16, FlexBV-only formats. No vendor decryption ke
   F2B or BV files. These formats are tested in CI against synthetic files built from a real board; the
   real samples were checked locally.
 - Encrypted FZ, CAE and XZZ need user keys (bring-your-own; none bundled). All six local real samples
-  open when the private keyfile is supplied. XZZ part sides are not decoded (same as upstream).
-- Allegro: releases before 16 are not read; 17.x pad shapes are drawn as their copper box; copper zones
-  and silkscreen are not read. TopTest numbered-section BRD, Extracta, NBV and multi-board GenCAM have
+  open when the private keyfile is supplied. XZZ's RedmiBook layer file yields 37,948 net-associated
+  copper lines on 16 layers and 4,342 vias; outline and silkscreen lines stay separate. XZZ part sides
+  are not decoded.
+- Allegro: releases before 15 are not read; 15.5 uses pad copper-box centres, which differ from 74
+  exported pin anchors; 17.x pad shapes are drawn as their copper box. Copper zones and silkscreen
+  are not read. TopTest numbered-section BRD, Extracta, NBV and multi-board GenCAM have
   no authentic sample (sought in corpus + web, 2026-10; see above) and stay experimental/synthetic-only.
-- Archives: RAR5 is supported by the bundled library but has no local test sample (RAR4 and 7z are
-  verified on real/committed files); password-protected archives are not opened in-app.
+- Archives: compressed RAR5 extraction is checked against an upstream test archive; RAR4 and 7z
+  are verified on boardview archives. Password-protected archives are not opened in-app.
 - Not drawn: TVW copper pours, BVR3 relative outlines, GenCAD artwork.
 - No side-by-side comparison mode. Recent files are kept per session only.

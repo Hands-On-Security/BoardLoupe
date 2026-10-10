@@ -42,7 +42,6 @@ const OPENS: Record<string, string[]> = {
   'allegro-brd': ['allegro'],
 };
 /** Samples that are expected not to open (with an explanation). */
-const EXPLAINED = [/LA-7201PR10-0221\.brd-156_final\.brd$/]; // Allegro 15.5: pre-16 record layout
 const SETS = new Set(['asc-split', 'con-companion', 'cst-companion', 'cst', 'f2b']);
 
 interface Row {
@@ -77,7 +76,7 @@ describe.skipIf(!rows.length)('research corpus (BS_RESEARCH)', () => {
         : [p];
       const out = parseFiles(paths.map((x) => ({ name: basename(x), bytes: new Uint8Array(readFileSync(x)) })), realOptions);
       const encrypted = r.format === 'fz' || r.format === 'cae' || r.format === 'xzz-pcb';
-      const want = EXPLAINED.some((re) => re.test(r.file)) ? undefined : encrypted && KEYFILE ? [r.format === 'xzz-pcb' ? 'xzz' : r.format] : OPENS[r.format];
+      const want = encrypted && KEYFILE ? [r.format === 'xzz-pcb' ? 'xzz' : r.format] : OPENS[r.format];
       if (!want) {
         if (out.ok) return; // a format that started opening: add it to OPENS
         expect(out.diagnostics[0]?.message.length ?? 0).toBeGreaterThan(20);
@@ -113,5 +112,70 @@ describe.skipIf(!faz)('Fabmaster FARC placement against FABXYDATA (BS_RESEARCH)'
     }
     expect(total).toBeGreaterThan(6000);
     expect(ok).toBe(total);
+  });
+});
+
+const allegro15 = rows.find((r) => r.format === 'allegro-brd' && /LA-7201PR10-0221/.test(r.file));
+const allegro15Cad = rows.find((r) => r.format === 'gencad' && /LA-7201PR10-0221/.test(r.file));
+describe.skipIf(!allegro15 || !allegro15Cad)('Allegro 15.5 against the matching GenCAD export (BS_RESEARCH)', () => {
+  test('parts, numbered pads and nets match; copper and outline are present', () => {
+    const read = (r: Row) => parseFiles([{ name: basename(r.file), bytes: new Uint8Array(readFileSync(join(ROOT!, r.file))) }], DEFAULT_OPTIONS);
+    const native = read(allegro15!).model!;
+    const cad = read(allegro15Cad!).model!;
+    expect(native.source.variant).toBe('Allegro 15.5');
+    expect(validateModel(native)).toEqual([]);
+    expect(native.parts.count).toBe(cad.parts.count);
+    expect(native.pins.count).toBe(cad.pins.count);
+    expect(new Set(native.parts.name)).toEqual(new Set(cad.parts.name));
+    const pins = new Map(native.pins.number.map((number, i) => [`${native.parts.name[native.pins.part[i]]}\0${number}`, i]));
+    let exactPosition = 0;
+    for (let i = 0; i < cad.pins.count; i++) {
+      const key = `${cad.parts.name[cad.pins.part[i]]}\0${cad.pins.number[i]}`;
+      const j = pins.get(key);
+      expect(j, key).toBeDefined();
+      const net = (m: typeof native, p: number) => m.pins.net[p] < 0 ? null : m.nets.name[m.pins.net[p]];
+      expect(net(native, j!), key).toBe(net(cad, i));
+      if (Math.hypot(native.pins.x[j!] - cad.pins.x[i], native.pins.y[j!] - cad.pins.y[i]) < 0.05) exactPosition++;
+    }
+    // 74 exported pin anchors are offset from the native pad bounding-box centre.
+    expect(exactPosition).toBeGreaterThanOrEqual(8394);
+    expect(native.layers.map((l) => l.name)).toEqual(['TOP', 'VCC', 'IN1', 'IN2', 'GND', 'BOTTOM']);
+    expect(native.vias.count).toBeGreaterThan(6400);
+    expect(native.traces.count).toBeGreaterThan(20000);
+    expect(native.outline.source).toBe('file');
+  });
+});
+
+const xzzCopper = rows.find((r) => r.format === 'xzz-pcb' && /RedmiBook 14/.test(r.file));
+describe.skipIf(!xzzCopper || !KEYFILE)('XZZ copper layers (BS_RESEARCH_KEYFILE)', () => {
+  test('preserves net-associated tracks and vias on their physical layers', () => {
+    const out = parseFiles([{ name: basename(xzzCopper!.file), bytes: new Uint8Array(readFileSync(join(ROOT!, xzzCopper!.file))) }], realOptions);
+    expect(out.ok, out.diagnostics.map((d) => d.message).join('; ')).toBe(true);
+    const m = out.model!;
+    expect(validateModel(m)).toEqual([]);
+    expect(m.traces.count).toBe(37948); // 38,146 lines minus 176 outline and 22 silkscreen lines
+    expect(m.vias.count).toBe(4342);
+    expect(m.layers).toHaveLength(16);
+    expect(new Set(m.traces.layer)).toContain(0);
+    expect(new Set(m.traces.layer)).toContain(15);
+    expect(m.traces.net.filter((n) => n >= 0).length).toBeGreaterThan(35000);
+  });
+});
+
+const caeGraphics = rows.filter((r) => r.format === 'cae' && !basename(r.file).startsWith('._'));
+describe.skipIf(!KEYFILE || caeGraphics.length < 2)('CAE graphic geometry (BS_RESEARCH_KEYFILE)', () => {
+  test('both real boards supply outlines and component bodies', () => {
+    for (const row of caeGraphics) {
+      const out = parseFiles([{ name: basename(row.file), bytes: new Uint8Array(readFileSync(join(ROOT!, row.file))) }], realOptions);
+      expect(out.ok).toBe(true);
+      const m = out.model!;
+      expect(validateModel(m)).toEqual([]);
+      expect(m.outline.source).toBe('file');
+      expect(m.outline.segs.length / 4).toBeGreaterThanOrEqual(40);
+      let bodies = 0;
+      for (let i = 0; i < m.parts.count; i++) if (m.parts.bodyStart[i + 1] > m.parts.bodyStart[i]) bodies++;
+      expect(bodies).toBeGreaterThan(m.parts.count * 0.99);
+      expect(m.traces.count).toBe(0); // these files contain artwork, not net-associated routes
+    }
   });
 });

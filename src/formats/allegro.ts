@@ -9,7 +9,8 @@
  * refer to each other by key; strings by id. Record sizes depend on the
  * release; variable-length records carry their own counts.
  *
- * What is read (16.x layout shown; 17.x moves most fields by 4–8 bytes, see
+ * The 15.x record family is handled separately in allegro15.ts. What is read
+ * below (16.x layout shown; 17.x moves most fields by 4–8 bytes, see
  * the Fields tables; offsets in bytes from the record start):
  *   0x2d placed footprint  +12 → 0x07 refdes (+20 string), +24 rotation (m°),
  *                          +28/+32 origin, +40 → first pad, class byte bit 0 = bottom
@@ -36,6 +37,7 @@ import { ParseError } from '../io/bytes';
 import { BoardBuilder } from '../model/builder';
 import { type LayerInfo, MOUNT_SMD, MOUNT_TH, type PadShape, SHAPE_CIRCLE, SHAPE_OBLONG, SHAPE_RECT, SIDE_BOTH, SIDE_BOTTOM, SIDE_TOP } from '../model/types';
 import type { FormatModule } from './types';
+import { parseAllegro15 } from './allegro15';
 
 /** Header magic (low byte masked) → release. */
 export const ALLEGRO_RELEASES: Record<number, string> = {
@@ -286,7 +288,7 @@ export const allegroFormat: FormatModule = {
   name: 'Cadence Allegro board',
   extensions: ['brd'],
   status: 'partial',
-  summary: 'Native Allegro .brd database (16.x, 17.x): parts, pins, nets, vias, traces and outline — no Allegro or KiCad needed',
+  summary: 'Native Allegro .brd database (15.x–17.x): parts, pins, nets, vias, traces and outline — no Allegro or KiCad needed',
   detect(_s, f) {
     const b = f.bytes;
     if (b.length >= 0x200) {
@@ -302,12 +304,13 @@ export const allegroFormat: FormatModule = {
     const release = ALLEGRO_RELEASES[(magic & 0xffffff00) >>> 0] ?? null;
     const verText = String.fromCharCode(...b.subarray(0xf8, 0xf8 + 32)).replace(/[^\x20-\x7e].*$/s, '').replace(/[./]+$/, '');
     const major = (magic >>> 16) & 0xff;
+    if (major === 0x12) return parseAllegro15(ctx, release);
     if (major !== 0x13 && major !== 0x14) {
       throw new ParseError(
         'unsupported.allegro',
         major < 0x13
-          ? `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. BoardScope reads Allegro 16.x and 17.x databases natively; releases before 16 use an older record layout that is not supported yet (other free tools do not read it either). If Allegro 16 or later is available, opening and saving the board there makes it readable.`
-          : `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. BoardScope reads Allegro 16.x and 17.x databases natively; this newer release's record layout is not supported yet.`,
+          ? `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. Releases before 15 use an older record layout that is not supported yet. If Allegro 15 or later is available, opening and saving the board there makes it readable.`
+          : `This is a Cadence Allegro board${release ? ` from Allegro ${release}` : ''}${verText ? ` ("${verText}")` : ''}. This newer release's record layout is not supported yet.`,
       );
     }
     const what = `Cadence Allegro ${release ?? ''} board${verText ? ` ("${verText}")` : ''}`.replace('  ', ' ');

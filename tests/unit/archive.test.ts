@@ -11,12 +11,14 @@ import { MAX_INPUT_BYTES } from '../../src/formats/limits';
 
 const SEVENZIP = resolve(import.meta.dirname, '../../fixtures/real/archives/glasgow.7z');
 const bytes = new Uint8Array(readFileSync(SEVENZIP));
+const rar5 = new Uint8Array(readFileSync(resolve(import.meta.dirname, '../../fixtures/real/archives/rar5-compressed.rar')));
 const MB = 1024 * 1024;
 
 describe('archiveKind', () => {
   test('detects 7z, rar, and rejects others', () => {
     expect(archiveKind(bytes)).toBe('7z');
     expect(archiveKind(new Uint8Array([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00]))).toBe('rar');
+    expect(archiveKind(rar5)).toBe('rar');
     expect(archiveKind(new Uint8Array([0x50, 0x4b, 0x03, 0x04]))).toBeNull(); // ZIP
     expect(archiveKind(new Uint8Array([0x00, 0x01]))).toBeNull();
   });
@@ -29,6 +31,13 @@ describe('extractArchive', () => {
     expect(files[0].name).toBe('glasgow-kicad10.cad');
     expect(files[0].bytes.length).toBe(933244);
     expect(new TextDecoder().decode(files[0].bytes.subarray(0, 7))).toBe('$HEADER');
+  });
+
+  test('extracts a compressed RAR5 member', async () => {
+    const files = await extractArchive(rar5, MB);
+    expect(files).toHaveLength(1);
+    expect(files[0].name).toBe('test.bin');
+    expect(files[0].bytes.length).toBe(1200);
   });
 
   test('rejects a non-archive', async () => {

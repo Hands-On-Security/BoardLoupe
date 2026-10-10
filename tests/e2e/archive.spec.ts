@@ -14,6 +14,7 @@ import { type Page, expect, test } from '@playwright/test';
 const ROOT = resolve(import.meta.dirname, '../..');
 const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
 const SEVENZIP = resolve(ROOT, 'fixtures/real/archives/glasgow.7z');
+const RAR5 = resolve(ROOT, 'fixtures/real/archives/rar5-compressed.rar');
 
 // A real VinaFix RAR4 archive, used only when the research corpus is present
 // (BS_RESEARCH). It is never committed; CI skips this case.
@@ -63,4 +64,13 @@ test('open a boardview from inside a real RAR4 archive, offline', async ({ page 
 
   expect(net).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test('compressed RAR5 is extracted before format detection', async ({ page }) => {
+  const net = trackNetwork(page);
+  await page.goto(APP);
+  await expect(page.getByTestId('dropzone')).toBeVisible();
+  await page.setInputFiles('#bs-file-input', RAR5);
+  await expect(page.getByTestId('error-message')).toContainText('(.bin, 1,200 bytes)');
+  expect(net).toEqual([]);
 });

@@ -4,8 +4,8 @@
  * Reference: OpenBoardView XZZPCBFile.cpp (MIT). The file is XOR-masked with
  * the byte at 0x10 up to the "v6v6555v6v6" marker; component records are
  * additionally DES-encrypted with a key that is not distributed with this
- * viewer (users may enter one under Settings). Outline lines/arcs on layer 28,
- * test pads and the net table are readable without the key.
+ * viewer (users may enter one under Settings). Copper lines/arcs, vias,
+ * outline geometry, test pads and the net table are readable without the key.
  */
 import { ByteReader, ParseError, indexOfAscii, latin1 } from '../io/bytes';
 import { desEcb } from '../io/des';
@@ -46,11 +46,10 @@ function isXzz(b: Uint8Array): boolean {
   return false;
 }
 
-/** Approximates an arc with 9 segments (reference: xzz_arc_to_segments). */
+/** Flatten a counter-clockwise arc without changing a wraparound sweep. */
 function arcSegments(out: number[], cx: number, cy: number, r: number, a0: number, a1: number) {
-  if (a0 > a1) [a0, a1] = [a1, a0];
-  if (a1 - a0 > 180) a0 += 360;
-  const n = 10;
+  while (a1 <= a0) a1 += 360;
+  const n = Math.max(2, Math.min(360, Math.ceil((a1 - a0) / 10)));
   const d2r = Math.PI / 180;
   const s0 = a0 * d2r,
     step = ((a1 - a0) * d2r) / (n - 1);
@@ -70,8 +69,8 @@ export const xzzFormat: FormatModule = {
   id: 'xzz',
   name: 'XZZ PCB',
   extensions: ['pcb'],
-  status: 'experimental',
-  summary: 'XZZ binary (XOR + DES); components need a user-supplied key',
+  status: 'partial',
+  summary: 'XZZ binary (XOR + DES): components, copper layers, vias and outline; components need a user-supplied key',
   detect(_s, f) {
     if (isXzz(f.bytes)) return { confidence: 0.95, reason: '"XZZPCB" signature (possibly XOR-masked)' };
     return null;
@@ -114,6 +113,7 @@ export const xzzFormat: FormatModule = {
     const pins: { part: number; x: number; y: number; net: string; number: string; kind?: 0 | 1 }[] = [];
     const segs: number[] = [];
     let encryptedParts = 0;
+    b.layers = Array.from({ length: 16 }, (_, id) => ({ id, name: id === 0 ? 'Top' : id === 15 ? 'Bottom' : `Inner ${id}`, kind: (id === 0 ? 'top' : id === 15 ? 'bottom' : 'inner') as 'top' | 'bottom' | 'inner' }));
 
     const br = new ByteReader(buf, mainStart + 4, Math.min(buf.length, mainStart + 4 + mainSize));
     if (mainStart + 4 + mainSize > buf.length) b.warn('xzz.mainsize', 'Main data block extends beyond end of file; truncated');
@@ -126,21 +126,37 @@ export const xzzFormat: FormatModule = {
       const size = br.u32('block size');
       const blk = br.bytesN(size, 'block');
       const d = new ByteReader(blk);
-      if (type === 0x01 && size >= 28) {
+      if (type === 0x01 && size >= 24) {
         const layer = d.u32(),
           x = d.s32(),
           y = d.s32(),
           rad = d.s32(),
           a0 = d.s32(),
           a1 = d.s32();
-        if (layer === 28) arcSegments(segs, x / SCALE, y / SCALE, rad / SCALE, a0 / SCALE, a1 / SCALE);
-      } else if (type === 0x05 && size >= 24) {
+        const width = size >= 28 ? d.u32() / SCALE : 0;
+        const net = size >= 32 ? netName(d.u32()) : '';
+        if (layer === 28 || (layer >= 1 && layer <= 16)) {
+          const arc: number[] = [];
+          arcSegments(arc, x / SCALE, y / SCALE, rad / SCALE, a0 / SCALE, a1 / SCALE);
+          if (layer === 28) segs.push(...arc);
+          else for (let j = 0; j < arc.length; j += 4) b.addTrace(arc[j], arc[j + 1], arc[j + 2], arc[j + 3], width, layer - 1, net);
+        }
+      } else if (type === 0x02 && size >= 28) {
+        const x = d.s32() / SCALE, y = d.s32() / SCALE;
+        const diameter = d.u32() / SCALE;
+        d.skip(4, 'drill diameter');
+        const layerFrom = d.u32(), layerTo = d.u32(), net = netName(d.u32());
+        if (layerFrom >= 1 && layerFrom <= 16 && layerTo >= layerFrom && layerTo <= 16) b.addVia(x, y, diameter, net);
+      } else if (type === 0x05 && size >= 28) {
         const layer = d.u32(),
           x1 = d.s32(),
           y1 = d.s32(),
           x2 = d.s32(),
-          y2 = d.s32();
+          y2 = d.s32(),
+          width = d.u32() / SCALE,
+          net = netName(d.u32());
         if (layer === 28) segs.push(x1 / SCALE, y1 / SCALE, x2 / SCALE, y2 / SCALE);
+        else if (layer >= 1 && layer <= 16) b.addTrace(x1 / SCALE, y1 / SCALE, x2 / SCALE, y2 / SCALE, width, layer - 1, net);
       } else if (type === 0x07) {
         if (!key) {
           encryptedParts++;

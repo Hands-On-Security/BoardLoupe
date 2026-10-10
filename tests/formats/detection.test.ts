@@ -75,14 +75,14 @@ describe('diagnostics for unsupported or broken input', () => {
     expect(msg(r)).not.toMatch(/kicad/i);
   });
 
-  test('an Allegro release whose layout is not supported says so without a conversion detour', () => {
+  test('an Allegro release before 15 explains that its layout is unsupported', () => {
     const b = new Uint8Array(0x2000);
-    b.set([0x0a, 0x01, 0x12, 0x00]); // 0x0012010a -> Allegro 15.5
-    b.set(new TextEncoder().encode('allv15-511/15'), 0xf8);
+    b.set([0x0a, 0x01, 0x11, 0x00]);
+    b.set(new TextEncoder().encode('allv14'), 0xf8);
     const r = parseBytes('old.brd', b);
     expect(r.ok).toBe(false);
     expect(r.diagnostics[0].code).toBe('unsupported.allegro');
-    expect(msg(r)).toMatch(/Allegro 15\.5/);
+    expect(msg(r)).toMatch(/before 15/);
   });
 
   test('a KiCad board without footprints opens (with a warning) instead of being rejected', () => {

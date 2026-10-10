@@ -57,15 +57,15 @@ Formats are recognised **by content**, not by file extension. The full details
 | GenCAM (IPC-2511) `.a3p` | verified | synthetic; checked locally on a real Compal board |
 | Unisoft F2B `.f2b` | verified | synthetic; checked locally on two real boards |
 | BV database (Microsoft Access / Jet) `.bv` | verified | synthetic Jet 4 database; checked locally on real Apple boards |
-| **Cadence Allegro `.brd` (16.x, 17.x), read natively** | partial | synthetic 16.6 and 17.2 databases; checked locally on three real boards against KiCad 10's own import (identical pins, nets and drills) |
+| **Cadence Allegro `.brd` (15.x–17.x), read natively** | partial | synthetic 16.6/17.2; real 15.5 matched against its GenCAD export (1,945 parts, all 8,468 pin nets; 99.1% pad centres within 0.05 mil); three real 16/17 boards checked against KiCad 10 |
 | ASC multi-file set `.asc` (incl. VayoPro-Test Expert / TSICT exports) | partial | reference-validated synthetic; checked locally on a real set |
-| CAE (FZ container, needs key) `.cae` | partial | synthetic test key; two real encrypted boards opened locally with a private keyfile |
+| CAE (FZ container, needs key) `.cae` | partial | synthetic test key; two real encrypted boards opened locally with file outlines and component bodies |
 | TopTest numbered-section BRD (+ `.con`) | experimental | documented layout; no authentic file found (corpus + web, 2026-10) |
 | Allegro Extracta text (`A!`/`S!` rows) | experimental | documented layout; no authentic export found (generated on demand, none published) |
 | NBV (NexusBV export) `.nbv` | experimental | documented wire order; no `.nbv` sample found (corpus + public code search) |
 | CST `.cst` | experimental | reference-validated synthetic |
-| XZZ PCB `.pcb` (needs key for components) | experimental | synthetic test key; two real encrypted boards opened locally with a private keyfile |
-| ZIP, RAR and 7z containers | supported | ZIP (pure JS); RAR4/RAR5 and 7z via a bundled libarchive WebAssembly — real board in a 7z (CI) and real RAR4 archives (local) |
+| XZZ PCB `.pcb` (needs key for components) | partial | synthetic test key; two real encrypted boards opened locally; 16-layer routing checked on the RedmiBook sample |
+| ZIP, RAR and 7z containers | supported | ZIP (pure JS); RAR4/RAR5 and 7z via bundled libarchive WebAssembly — real board in a 7z, upstream compressed RAR5 fixture (CI), real RAR4 archives (local) |
 
 "Verified" means the parser's output equals the output of the original
 open-source reference implementation (OpenBoardView / eagleview, compiled from
@@ -95,11 +95,11 @@ without them; to open such a file you supply the key yourself under **Settings �
 
 ### Allegro boards, natively
 
-Cadence Allegro `.brd` databases (releases 16.x and 17.x) open directly: no Allegro, no KiCad, no
+Cadence Allegro `.brd` databases (releases 15.5, 16.x and 17.x) open directly: no Allegro, no KiCad, no
 conversion. BoardScope walks Allegro's record stream itself and builds parts, pins, nets, drills,
 vias, copper traces, the board outline and the copper layer names. On real boards this matches
-KiCad 10's own Allegro import pin for pin (see FORMAT_MATRIX.md). Boards saved by Allegro releases
-before 16 use an older record layout; they are recognised and explained but not read yet. Altium,
+KiCad 10's own Allegro import pin for pin for 16.x/17.x; a matching GenCAD export validates 15.5
+pins and nets (see FORMAT_MATRIX.md). Other 15.x variants have not been tested. Altium,
 PADS and Eagle designs can still be opened through a KiCad import (KiCad PCB is supported).
 
 ## Using the viewer
@@ -263,8 +263,8 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 - Encrypted FZ, CAE and XZZ need user-supplied keys.
 - Part body outlines are drawn when the file provides them (TVW decals, GenCAD shapes); otherwise
   boxes around the pins are shown. BVR3 relative outlines are not drawn.
-- Copper pours (TVW surfaces) and GenCAD artwork are not drawn. Traces are shown only for formats
-  that store them (TVW, GenCAD routes).
+- Copper pours (TVW surfaces) and GenCAD artwork are not drawn. Net-associated traces are shown for
+  formats that store them, including TVW, GenCAD, Allegro, Fabmaster and XZZ PCB.
 - Comparison mode (two boards side by side) is not implemented. Recent files are kept per session only.
 - Altium ASCII, IPC-D-356, `.bvr2` and FlexBV-specific formats are not supported (see FORMAT_MATRIX.md).
 
