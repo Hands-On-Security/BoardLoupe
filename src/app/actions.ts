@@ -1,6 +1,7 @@
 import { parseKey44 } from '../formats/fz';
 import { DEFAULT_OPTIONS } from '../formats/registry';
 import type { ParseOptions } from '../formats/types';
+import { traceSeries } from '../model/trace';
 import type { BoardModel } from '../model/types';
 import type { Highlight } from '../render/style';
 import { SearchIndex } from '../search/search';
@@ -313,6 +314,30 @@ export function selectNet(n: number, focus = true, additive = false) {
 
 export function selectVia(i: number) {
   select({ kind: 'via', index: i, multi: [], nets: [] });
+}
+
+/** Trace a signal through series parts from net `n` and highlight the whole path. */
+export function traceSeriesSelect(n: number) {
+  const b = store.get().board;
+  if (!b) return;
+  const r = traceSeries(b.model, n);
+  const others = r.nets.filter((x) => x !== n);
+  select({ kind: 'net', index: n, multi: [], nets: others });
+  // Fit the view to every net in the path.
+  let x0 = Infinity,
+    y0 = Infinity,
+    x1 = -Infinity,
+    y1 = -Infinity;
+  for (const net of r.nets) {
+    const nb = netBounds(net);
+    if (!nb) continue;
+    x0 = Math.min(x0, nb.minX);
+    y0 = Math.min(y0, nb.minY);
+    x1 = Math.max(x1, nb.maxX);
+    y1 = Math.max(y1, nb.maxY);
+  }
+  if (Number.isFinite(x0)) viewer.focus({ minX: x0, minY: y0, maxX: x1, maxY: y1 }, 30);
+  toast(`Series trace: ${r.nets.length} net${r.nets.length > 1 ? 's' : ''}, ${r.parts.length} series part${r.parts.length === 1 ? '' : 's'}${r.branched ? ' · branches' : ''}${r.truncated ? ' · truncated' : ''}`);
 }
 
 export function clearSelection() {

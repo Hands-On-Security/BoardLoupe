@@ -1,10 +1,11 @@
-import { BookmarkPlus, Copy, Crosshair, Eye, EyeOff, Focus, Layers, Wrench } from 'lucide-preact';
+import { BookmarkPlus, Copy, Crosshair, Eye, EyeOff, Focus, Layers, Route, Wrench } from 'lucide-preact';
 import { useMemo } from 'preact/hooks';
 import { type SolderPoint, solderPoints } from '../../model/solder';
+import { traceSeries } from '../../model/trace';
 import { type BoardModel, MOUNT_UNKNOWN, NETFLAG_GROUND, NETFLAG_NOCONNECT, NETFLAG_POWER, NO_PROBE, PINKIND_TESTPOINT, mountLabel, sideLabel } from '../../model/types';
 import { RATSNEST_MAX_PINS } from '../../scene/ratsnest';
 import { collator } from '../../search/search';
-import { addSelectionToGroup, copyText, focusSelection, selectNet, selectPart, selectPin, selectVia } from '../actions';
+import { addSelectionToGroup, copyText, focusSelection, selectNet, selectPart, selectPin, selectVia, traceSeriesSelect } from '../actions';
 import { formatCoord, formatLength, plural } from '../format';
 import { type LoadedBoard, store, useStore } from '../store';
 import { Badge, Field, IconButton, SectionTitle, Unavailable, cx } from './ui';
@@ -337,6 +338,50 @@ function SolderPoints({ b, n, exclude = -1, max = 14 }: { b: LoadedBoard; n: num
   );
 }
 
+/**
+ * Trace the signal through series parts (series R/L/FB, 0-ohm links) to the
+ * nets on their far side, so you can follow a line from an IC out to a
+ * connector or test point. Branches, cycles and power-rail stubs are handled.
+ */
+function TraceSeries({ m, n }: { m: BoardModel; n: number }) {
+  const r = useMemo(() => traceSeries(m, n), [m, n]);
+  if (!r.edges.length) return null;
+  const steps = r.parts.length;
+  const reached = r.nets.filter((x) => x !== n);
+  return (
+    <>
+      <SectionTitle right={<span class="text-[10px] text-faint normal-case tracking-normal font-normal">{r.branched ? 'branches' : 'chain'}</span>}>
+        <span class="inline-flex items-center gap-1.5">
+          <Route size={12} /> Trace through series parts
+        </span>
+      </SectionTitle>
+      <div class="px-3 pb-2" data-testid="trace-series">
+        <p class="text-[12px] text-muted mb-1.5">
+          Crosses {plural(steps, 'series part')} to {plural(reached.length, 'other net')}
+          {r.truncated ? ' (truncated)' : ''}.
+        </p>
+        <div class="flex flex-wrap gap-1 mb-2 max-h-28 overflow-auto scroll-thin">
+          {r.parts.slice(0, 60).map((k) => (
+            <button key={'tp' + k} class="h-6 px-2 rounded border border-line2 font-mono text-[11px] text-part hover:bg-raised" onClick={() => selectPart(k)} title="Series part in the path">
+              {m.parts.name[k]}
+            </button>
+          ))}
+        </div>
+        <div class="flex flex-wrap gap-1 mb-2 max-h-28 overflow-auto scroll-thin">
+          {reached.slice(0, 60).map((net) => (
+            <button key={'tn' + net} class="h-6 px-2 rounded border border-line2 font-mono text-[11px] text-net hover:bg-raised" onClick={() => selectNet(net)} title="Net reached through series parts">
+              {m.nets.name[net] || '(unnamed)'}
+            </button>
+          ))}
+        </div>
+        <IconButton label="Highlight the whole series path" onClick={() => traceSeriesSelect(n)} variant="outline" class="w-full justify-center h-7">
+          <Route size={13} /> Highlight path
+        </IconButton>
+      </div>
+    </>
+  );
+}
+
 function NetMembers({ m, n, current = -1 }: { m: BoardModel; n: number; current?: number }) {
   const idx = useMemo(() => {
     const a = Array.from(m.nets.pinIndex.subarray(m.nets.pinStart[n], m.nets.pinStart[n + 1]));
@@ -404,6 +449,7 @@ function NetDetails({ b, n }: { b: LoadedBoard; n: number }) {
       ) : null}
       {ratsOn && count > RATSNEST_MAX_PINS && <p class="px-3 pt-2 text-[12px] text-faint">Air wires are not drawn for nets with more than {RATSNEST_MAX_PINS} pins.</p>}
       {!(f & NETFLAG_NOCONNECT) && <SolderPoints b={b} n={n} />}
+      {!(f & NETFLAG_NOCONNECT) && <TraceSeries m={m} n={n} />}
       <SectionTitle>Parts on this net</SectionTitle>
       <div class="px-3 pb-2 flex flex-wrap gap-1 max-h-40 overflow-auto scroll-thin">
         {parts.slice(0, 400).map((k) => (
