@@ -204,6 +204,17 @@
     "license": "0BSD"
   },
   {
+    "id": "syn-gencam",
+    "files": [
+      "fixtures/synthetic/glasgow.a3p"
+    ],
+    "format": "gencam",
+    "obv": null,
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following IPC-2511 GenCAM 1.5 as written by real test-engineering exports.",
+    "license": "0BSD"
+  },
+  {
     "id": "syn-tvw",
     "files": [
       "fixtures/synthetic/glasgow.tvw"

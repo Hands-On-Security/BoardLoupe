@@ -825,3 +825,111 @@ export function writeFarc(b: SrcBoard): Uint8Array {
   L.push(')', ':EOSECTION', '', ':SECTION EOARCHIVE 1', ':EOSECTION', '');
   return enc.encode(L.join(CRLF));
 }
+
+// ------------------------------------------------------------------ GenCAM (IPC-2511)
+
+/** GenCAM 1.5 text: one pattern per component in its local frame; bottom components MIRROR. */
+export function writeGencam(b: SrcBoard): Uint8Array {
+  const G = (kind: string) => `"(${kind}).GLASGOW"`;
+  const ref = (kind: string, name: string) => `${G(kind)}.${gq(name)}`;
+  const L: string[] = ['$HEADER', '  GENCAM: "1.5";', '  GENERATEDBY: "BoardScope fixture writer","1";', '  UNITS: THOU;', '  ANGLEUNITS: DEGREES;', '  ATTRIBUTE: "/GRA3/","PROJECT_NAME","Glasgow ""revC"" (0BSD)",;', '  BOARD: "GLASGOW","GLASGOW","GLASGOW","1";', '$ENDHEADER', ''];
+  const prim: string[] = [];
+  const shapeIds = new Map<string, string>();
+  const shape = (round: boolean, w: number, h: number) => {
+    const k = round ? `C${w}` : `R${w}x${h}`;
+    if (!shapeIds.has(k)) {
+      const id = `PAD${shapeIds.size + 1}`;
+      shapeIds.set(k, id);
+      prim.push(round ? `    CIRCLEDEF: "${id}",${w};` : `    RECTCORNERDEF: "${id}",(${-w / 2},${-h / 2}),(${w / 2},${h / 2});`);
+    }
+    return shapeIds.get(k)!;
+  };
+  const stacks: string[] = [];
+  const stackIds = new Map<string, string>();
+  const holes = new Set<number>();
+  const stack = (round: boolean, w: number, h: number, hole: number) => {
+    const k = `${round}:${w}:${h}:${hole}`;
+    if (!stackIds.has(k)) {
+      const id = `S${stackIds.size + 1}`;
+      stackIds.set(k, id);
+      const p = shape(round, w, h);
+      stacks.push(`    PADSTACK: "${id}";`, `      PAD: ${ref('layers', 'TOP')},${ref('primitives', p)},,,,,(0,0),0;`, `      PAD: ${ref('layers', 'BOTTOM')},${ref('primitives', p)},,,,,(0,0),0;`);
+      if (hole) {
+        holes.add(hole);
+        stacks.push(`      HOLEREF: ${ref('padstacks', `HOLE_${hole}`)},(0,0),0;`);
+      }
+    }
+    return stackIds.get(k)!;
+  };
+  const widths = new Set(b.traces.map((t) => t.w));
+  const pats: string[] = [];
+  const comps: string[] = [];
+  const pinName = new Map<string, string>();
+  b.parts.forEach((p) => {
+    const mirror = p.side === 'B';
+    const a = (-p.rot * Math.PI) / 180;
+    const quarter = Math.abs(Math.round(p.rot / 90)) % 2 === 1;
+    pats.push(`    PATTERNDEF: ${gq('PAT_' + p.name)},;`);
+    const used = new Set<string>();
+    p.pins.forEach((pin, j) => {
+      // local = M · R(−θ) · (pin − origin)
+      const dx = pin.x - p.x,
+        dy = pin.y - p.y;
+      let lx = dx * Math.cos(a) - dy * Math.sin(a);
+      const ly = dx * Math.sin(a) + dy * Math.cos(a);
+      if (mirror) lx = -lx;
+      let name = pin.number || String(j + 1);
+      while (used.has(name)) name += "'";
+      used.add(name);
+      pinName.set(`${p.name}\u0000${j}`, name);
+      const [w, h] = quarter ? [pin.h, pin.w] : [pin.w, pin.h];
+      pats.push(`      PADSTACKREF: ${ref('padstacks', stack(pin.shape === 'round', w, h, pin.hole))},${gq(name)},(${+lx.toFixed(4)},${+ly.toFixed(4)}),0;`);
+    });
+    comps.push(
+      `    COMPONENT: ${gq(p.name)},${ref('layers', mirror ? 'COMPONENT BOTTOM' : 'COMPONENT TOP')},(${p.x},${p.y}),${p.rot}${mirror ? ',MIRROR' : ''};`,
+      `      ATTRIBUTE: "/GRA3/","BOM_Description",${gq(p.value)},;`,
+      `      DEVICEREF: ${ref('devices', 'DEV_' + p.name)},ASSEMBLED,;`,
+      `      PATTERNREF: ${ref('patterns', 'PAT_' + p.name)},;`,
+    );
+  });
+  const viaStack = new Map<number, string>();
+  for (const v of b.vias) if (!viaStack.has(v.d)) viaStack.set(v.d, stack(true, v.d, v.d, Math.max(1, Math.round(v.d / 2))));
+  for (const h of holes) prim.push(`    CIRCLEDEF: "H${h}",${h};`);
+  for (const w of widths) prim.push(`    LINEDESC: "LD_${w}",${w},ROUND,,SOLID,,,NONE,BOTH,,,;`);
+  L.push('$PRIMITIVES', `  GROUP: ${G('primitives')};`, ...prim, '$ENDPRIMITIVES', '');
+  L.push('$LAYERS', `  GROUP: ${G('layers')};`);
+  for (const [n, side, kind] of [
+    ['TOP', 'TOP', 'CONDUCTOR'],
+    ['BOTTOM', 'BOTTOM', 'CONDUCTOR'],
+    ['INNER', 'INTERNAL', 'CONDUCTOR'],
+    ['COMPONENT TOP', 'TOP', 'COMPONENT'],
+    ['COMPONENT BOTTOM', 'BOTTOM', 'COMPONENT'],
+    ['PROBE TOP', 'TOP', 'PROBE'],
+    ['PROBE BOTTOM', 'BOTTOM', 'PROBE'],
+    ['BOARD OUTLINE', 'ALL', 'BOARDOUTLINE'],
+  ])
+    L.push(`    LAYERSINGLE: "${n}",${side},${kind},,,,,;`);
+  L.push('$ENDLAYERS', '', '$PADSTACKS', `  GROUP: ${G('padstacks')};`);
+  for (const h of holes) L.push(`    HOLEDEF: "HOLE_${h}",ELECTRICAL,${ref('primitives', 'H' + h)},,,,;`);
+  L.push(...stacks, '$ENDPADSTACKS', '', '$PATTERNS', `  GROUP: ${G('patterns')};`, ...pats, '$ENDPATTERNS', '', '$DEVICES', `  GROUP: ${G('devices')};`);
+  for (const p of b.parts) L.push(`    DEVICE: ${gq('DEV_' + p.name)},OTHER,,;`, `      PART: "glasgow",${gq(p.footprint || p.value || 'PART')},;`);
+  L.push('$ENDDEVICES', '', '$COMPONENTS', `  GROUP: ${G('components')};`, ...comps, '$ENDCOMPONENTS', '', '$ROUTES', `  GROUP: ${G('routes')};`);
+  const members = new Map<string, string[]>();
+  b.parts.forEach((p) => p.pins.forEach((pin, j) => pin.net && (members.get(pin.net) ?? members.set(pin.net, []).get(pin.net)!).push(`      COMPPIN: ${ref('components', p.name)},${gq(pinName.get(`${p.name}\u0000${j}`)!)},,;`)));
+  let vi = 0;
+  for (const net of b.nets) {
+    L.push(`    ROUTE: ${gq(net)},SIGNAL;`, ...(members.get(net) ?? []));
+    for (const v of b.vias) if (v.net === net) L.push(`      VIA: "VIA${++vi}",${ref('padstacks', viaStack.get(v.d)!)},,,(${v.x},${v.y}),0;`);
+    for (const t of b.traces)
+      if (t.net === net)
+        L.push(`      PATH: ${ref('layers', t.layer === 'T' ? 'TOP' : t.layer === 'B' ? 'BOTTOM' : 'INNER')},${ref('primitives', 'LD_' + t.w)},;`, `        POLYLINE: ${ref('primitives', 'LD_' + t.w)};`, `          STARTAT: (${t.x1},${t.y1});`, `          LINETO: (${t.x2},${t.y2});`);
+  }
+  L.push('$ENDROUTES', '', '$TESTCONNECTS', `  GROUP: ${G('testconnects')};`);
+  b.nails.forEach((n, i) => L.push(`    TESTPROBE: "F${i + 1}",ICT,90,0,0,${ref('layers', n.side === 'B' ? 'PROBE BOTTOM' : 'PROBE TOP')},CROWN,MATING,(${n.x},${n.y});`, `      COMPPINREF: ${ref('components', `TP${n.probe}`)},${gq(pinName.get(`TP${n.probe}\u00000`) ?? '1')};`));
+  L.push('$ENDTESTCONNECTS', '', '$BOARDS', '  BOARD: "GLASGOW";', '    THICKNESS: 62,@NULL@;', `    OUTLINE: "GLASGOW",${ref('layers', 'BOARD OUTLINE')},;`, '      POLYLINE: ;');
+  const ring = [...b.outline, b.outline[0]];
+  ring.forEach(([x, y], i) => L.push(`        ${i ? 'LINETO' : 'STARTAT'}: (${x},${y});`));
+  L.push('$ENDBOARDS', '');
+  return enc.encode(L.join(CRLF));
+}
+const gq = (s: string) => `"${s.replace(/"/g, '""')}"`;

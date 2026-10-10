@@ -33,6 +33,7 @@ const OPENS: Record<string, string[]> = {
   'mentor-neutral': ['cad-panel'],
   'fabmaster-fatf': ['fabmaster'],
   faz: ['fabmaster'],
+  'gencam-a3p': ['gencam'],
 };
 const SETS = new Set(['asc-split', 'con-companion', 'cst-companion', 'cst', 'f2b']);
 

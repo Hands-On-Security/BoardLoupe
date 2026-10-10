@@ -11,6 +11,7 @@ import { cstFormat } from './cst';
 import { fabmasterFormat } from './fabmaster';
 import { caeFormat, fzFormat } from './fz';
 import { gencadFormat } from './gencad';
+import { gencamFormat } from './gencam';
 import { kicadFormat } from './kicad';
 import { tvwFormat } from './tvw';
 import type { Detection, FormatModule, InputFile, ParseContext, ParseOptions, ParseOutcome, Sniff } from './types';
@@ -58,6 +59,7 @@ export const FORMATS: FormatModule[] = [
   fzFormat,
   caeFormat,
   gencadFormat,
+  gencamFormat,
   cadPanelFormat,
   fabmasterFormat,
   cstFormat,

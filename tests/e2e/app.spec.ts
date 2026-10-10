@@ -352,6 +352,7 @@ test.describe('BoardScope single-file app', () => {
       'synthetic/glasgow-panel.cad',
       'synthetic/glasgow.fatf',
       'synthetic/glasgow.far',
+      'synthetic/glasgow.a3p',
       'real/glasgow/glasgow.kicad_pcb',
     ];
     for (const f of files) {
