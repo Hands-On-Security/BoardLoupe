@@ -49,7 +49,7 @@ Formats are recognised **by content**, not by file extension. The full details
 | BDV `.bdv` | verified | reference-validated synthetic |
 | BVR `BVRAW_FORMAT_1` `.bvr` | verified | reference-validated synthetic |
 | BVR3 `BVRAW_FORMAT_3` `.bvr` | verified | **real** file |
-| FZ (zlib; RC6-encrypted with **your** key) `.fz` | verified | reference-validated synthetic (test key) |
+| FZ (zlib; RC6-encrypted with **your** key) `.fz` | verified | synthetic test key; two real encrypted boards opened locally with a private keyfile |
 | GenCAD 1.4 `.cad` `.gcd` | verified | **real** KiCad 10 exports; checked locally on real CAMCAD exports |
 | KiCad PCB `.kicad_pcb` (KiCad 5–10) | verified | **real** KiCad board, checked pin by pin against KiCad's own export |
 | Mentor Graphics neutral file `.neu`, CAD "###Panel Added" `.cad` | verified | reference-validated synthetic; checked locally on real neutral files |
@@ -59,12 +59,12 @@ Formats are recognised **by content**, not by file extension. The full details
 | BV database (Microsoft Access / Jet) `.bv` | verified | synthetic Jet 4 database; checked locally on real Apple boards |
 | **Cadence Allegro `.brd` (16.x, 17.x), read natively** | partial | synthetic 16.6 and 17.2 databases; checked locally on three real boards against KiCad 10's own import (identical pins, nets and drills) |
 | ASC multi-file set `.asc` (incl. VayoPro-Test Expert / TSICT exports) | partial | reference-validated synthetic; checked locally on a real set |
-| CAE (FZ container, needs key) `.cae` | partial | synthetic (test key) |
+| CAE (FZ container, needs key) `.cae` | partial | synthetic test key; two real encrypted boards opened locally with a private keyfile |
 | TopTest numbered-section BRD (+ `.con`) | experimental | documented layout; no authentic file found (corpus + web, 2026-10) |
 | Allegro Extracta text (`A!`/`S!` rows) | experimental | documented layout; no authentic export found (generated on demand, none published) |
 | NBV (NexusBV export) `.nbv` | experimental | documented wire order; no `.nbv` sample found (corpus + public code search) |
 | CST `.cst` | experimental | reference-validated synthetic |
-| XZZ PCB `.pcb` (needs key for components) | experimental | synthetic (test DES key) |
+| XZZ PCB `.pcb` (needs key for components) | experimental | synthetic test key; two real encrypted boards opened locally with a private keyfile |
 | ZIP, RAR and 7z containers | supported | ZIP (pure JS); RAR4/RAR5 and 7z via a bundled libarchive WebAssembly — real board in a 7z (CI) and real RAR4 archives (local) |
 
 "Verified" means the parser's output equals the output of the original
@@ -82,6 +82,10 @@ without them; to open such a file you supply the key yourself under **Settings �
 - **Per format.** A key can be set for FZ, CAE and XZZ independently. The panel shows which
   formats currently have a key — never the key material itself.
 - **Import a keyfile.** Paste a key, or import a keyfile you created that holds several keys at once.
+  For local research notes in `*.key.md`, `python3 tools/merge-research-keys.py /path/to/docs/formats private-keys/boardscope.keys.json`
+  creates an ignored keyfile with FZ, CAE and XZZ keys and the accompanying note metadata. Import it
+  under Settings. For repeatable local checks, set `BS_RESEARCH` to the corpus directory and
+  `BS_RESEARCH_KEYFILE` to that ignored keyfile, then run `npm test` or `npm run test:e2e`.
 - **Remember, encrypted.** Optionally save your keys in this browser, encrypted at rest with a
   passphrase (AES-GCM-256 via PBKDF2-SHA-256, 310 000 iterations). The passphrase is never stored;
   you re-enter it to **unlock** on a later visit. You can **replace** or **remove** the saved keys
@@ -254,10 +258,8 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 
 ## Limitations
 
-- No redistributable real-world TVW, FZ, BDV, ASC, Test_Link, CAD, CST or XZZ files exist in the test
-  corpus, because vendor boardviews are proprietary. Those formats are verified with synthetic files
-  built from a real board and validated by the original open-source parsers. Real-world variants
-  the reference does not handle are not handled here either; they produce a precise error.
+- Vendor boardviews are not committed. Synthetic fixtures run in CI; the optional local corpus
+  exercises real files, including encrypted FZ, CAE and XZZ when a separate keyfile is supplied.
 - Encrypted FZ, CAE and XZZ need user-supplied keys.
 - Part body outlines are drawn when the file provides them (TVW decals, GenCAD shapes); otherwise
   boxes around the pins are shown. BVR3 relative outlines are not drawn.

@@ -57,8 +57,9 @@ board in each format (geometry within 0.75 mil of the source, fuzzing, browser t
   files** (outline, bodies, pad shapes, vias, test access), **Gigabyte TVW** (password and shorter
   settings block), plus documented-layout readers for **TopTest numbered-section BRD**, **Allegro
   Extracta** text and **NBV**.
-- Corpus run (`BS_RESEARCH`): every sample opens except encrypted FZ/CAE/XZZ files (need your key),
-  an Allegro 15.5 board (pre-16 layout) and a GenCAD file that is truncated (now reported as such).
+- Corpus run (`BS_RESEARCH`): with a separately supplied private keyfile, both FZ, both CAE and both
+  XZZ samples open and pass model integrity checks. Allegro 15.5 and one source-truncated GenCAD
+  file remain explained failures.
 
 ## RAR and 7z archives (2026-10-10)
 
@@ -85,6 +86,12 @@ exports or error messages. Import, reload, unlock (wrong then right passphrase),
 wrong key, missing key and removal are covered by unit tests and a three-browser e2e test, using
 **disposable generated test keys** on the synthetic FZ/CAE/XZZ fixtures — no real or vendor key is in
 any committed test. (`src/app/keystore.ts`, `src/app/keystore-actions.ts`.)
+
+`tools/merge-research-keys.py` combines the private format notes into one ignored local keyfile,
+including note metadata. `BS_RESEARCH_KEYFILE` opts the corpus and browser tests into importing that
+file; six real encrypted boards open with pins and parts in Chromium, Firefox and WebKit. Neither the
+file nor its values are committed or printed by the tests. RAR/7z containers are checked against the
+400 MB input bound before their full contents are read.
 
 ## Seeking authentic fixtures for the experimental paths (2026-10)
 
@@ -190,8 +197,8 @@ standard header, Allegro before 16, FlexBV-only formats. No vendor decryption ke
 - No redistributable real-world TVW, FZ, BDV, ASC, Test_Link, CAD, CST, XZZ, Allegro, Fabmaster, GenCAM,
   F2B or BV files. These formats are tested in CI against synthetic files built from a real board; the
   real samples were checked locally.
-- Encrypted FZ, CAE and XZZ need user keys (bring-your-own; none bundled). XZZ part sides are not
-  decoded (same as upstream).
+- Encrypted FZ, CAE and XZZ need user keys (bring-your-own; none bundled). All six local real samples
+  open when the private keyfile is supplied. XZZ part sides are not decoded (same as upstream).
 - Allegro: releases before 16 are not read; 17.x pad shapes are drawn as their copper box; copper zones
   and silkscreen are not read. TopTest numbered-section BRD, Extracta, NBV and multi-board GenCAM have
   no authentic sample (sought in corpus + web, 2026-10; see above) and stay experimental/synthetic-only.

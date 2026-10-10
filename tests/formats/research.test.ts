@@ -14,6 +14,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { _fab, placePoint } from '../../src/formats/fabmaster';
+import { parseKeyfile } from '../../src/app/keystore';
+import { parseKey44 } from '../../src/formats/fz';
 import { DEFAULT_OPTIONS, parseFiles } from '../../src/formats/registry';
 import { validateModel } from '../../src/model/validate';
 
@@ -48,11 +50,22 @@ interface Row {
   file: string;
 }
 const rows: Row[] = ROOT && existsSync(MANIFEST) ? readFileSync(MANIFEST, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Row) : [];
+const KEYFILE = process.env.BS_RESEARCH_KEYFILE;
+
+const realKeys = KEYFILE && existsSync(KEYFILE) ? parseKeyfile(readFileSync(KEYFILE, 'utf8')).entries : [];
+const realKey = (format: string) => realKeys.find((e) => e.format === format)?.key;
+const realOptions = {
+  ...DEFAULT_OPTIONS,
+  fzKey: realKey('fz') ? parseKey44(realKey('fz')!) : undefined,
+  caeKey: realKey('cae') ? parseKey44(realKey('cae')!) : undefined,
+  xzzKey: realKey('xzz'),
+};
 
 describe.skipIf(!rows.length)('research corpus (BS_RESEARCH)', () => {
   const seen = new Set<string>();
   for (const r of rows) {
     const p = join(ROOT!, r.file);
+    if (basename(p).startsWith('._')) continue;
     const key = SETS.has(r.format) ? dirname(p) : p;
     if (seen.has(key) || !existsSync(p)) continue;
     seen.add(key);
@@ -62,8 +75,9 @@ describe.skipIf(!rows.length)('research corpus (BS_RESEARCH)', () => {
             .filter((f) => !f.startsWith('.') && statSync(join(dirname(p), f)).isFile())
             .map((f) => join(dirname(p), f))
         : [p];
-      const out = parseFiles(paths.map((x) => ({ name: basename(x), bytes: new Uint8Array(readFileSync(x)) })), DEFAULT_OPTIONS);
-      const want = EXPLAINED.some((re) => re.test(r.file)) ? undefined : OPENS[r.format];
+      const out = parseFiles(paths.map((x) => ({ name: basename(x), bytes: new Uint8Array(readFileSync(x)) })), realOptions);
+      const encrypted = r.format === 'fz' || r.format === 'cae' || r.format === 'xzz-pcb';
+      const want = EXPLAINED.some((re) => re.test(r.file)) ? undefined : encrypted && KEYFILE ? [r.format === 'xzz-pcb' ? 'xzz' : r.format] : OPENS[r.format];
       if (!want) {
         if (out.ok) return; // a format that started opening: add it to OPENS
         expect(out.diagnostics[0]?.message.length ?? 0).toBeGreaterThan(20);

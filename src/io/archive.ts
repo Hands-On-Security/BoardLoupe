@@ -6,6 +6,7 @@
  * request. ZIP stays on the small pure-JS path (fflate).
  */
 import { ParseError } from './bytes';
+import { MAX_INPUT_BYTES } from '../formats/limits';
 
 export type ArchiveKind = 'rar' | '7z';
 
@@ -56,6 +57,7 @@ export interface ExtractedFile {
 export async function extractArchive(bytes: Uint8Array, maxTotal: number): Promise<ExtractedFile[]> {
   const kind = archiveKind(bytes);
   if (!kind) throw new ParseError('archive', 'Not a RAR or 7z archive');
+  if (bytes.length > MAX_INPUT_BYTES) throw new ParseError('too-large', `Archive is above the ${MAX_INPUT_BYTES / 1048576} MB input limit.`);
   const M = await loadModule();
   const open = M.cwrap('archive_open', 'number', ['number', 'number', 'string', 'string']) as (p: number, n: number, pass: string, loc: string) => number;
   const nextEntry = M.cwrap('get_next_entry', 'number', ['number']) as (a: number) => number;
@@ -74,9 +76,10 @@ export async function extractArchive(bytes: Uint8Array, maxTotal: number): Promi
   let total = 0;
   try {
     if (!archive) throw new ParseError('archive', `The ${kind.toUpperCase()} archive could not be opened (damaged or an unsupported variant).`);
-    for (let guard = 0; guard < 100_000; guard++) {
+    for (let guard = 0; guard <= 100_000; guard++) {
       const entry = nextEntry(archive);
       if (!entry) break;
+      if (guard === 100_000) throw new ParseError('archive-bomb', 'The archive contains more than 100,000 entries.');
       const isFile = (entryType(entry) & 0o170000) === AE_IFREG;
       const size = entrySize(entry);
       const name = entryName(entry) || `entry${out.length}`;
@@ -129,6 +132,7 @@ export async function expandOuterArchives(files: File[], maxTotal: number): Prom
       out.push(f);
       continue;
     }
+    if (f.size > MAX_INPUT_BYTES) throw new ParseError('too-large', `${f.name} is above the ${MAX_INPUT_BYTES / 1048576} MB archive input limit.`);
     const bytes = new Uint8Array(await f.arrayBuffer());
     const members = (await extractArchive(bytes, maxTotal)).filter((m) => !isJunkMember(m.name));
     if (!members.length) throw new ParseError('archive-empty', `The ${kind.toUpperCase()} archive ${f.name} contains no files (apart from metadata).`);

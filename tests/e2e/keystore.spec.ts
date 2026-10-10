@@ -4,7 +4,8 @@
  * with a passphrase, reload, unlock (wrong then right passphrase), open again,
  * and remove. No vendor keys are involved.
  */
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -14,6 +15,8 @@ const KEYFILE = FX('synthetic/test-keys.json');
 const FZ = FX('synthetic/glasgow-rc6-testkey.fz');
 const CAE = FX('synthetic/glasgow-rc6-testkey.cae');
 const XZZ = FX('synthetic/glasgow-testkey.pcb');
+const RESEARCH = process.env.BS_RESEARCH;
+const RESEARCH_KEYFILE = process.env.BS_RESEARCH_KEYFILE;
 
 async function openApp(page: Page) {
   await page.goto(APP);
@@ -105,4 +108,26 @@ test('save with a passphrase, reload, unlock (wrong then right), open, remove', 
   await openSettings(page);
   await expect(page.getByTestId('ks-manage')).toBeVisible();
   await expect(page.getByTestId('ks-manage').getByText('key loaded')).toHaveCount(0);
+});
+
+test('local encrypted research files open after keyfile import', async ({ page }) => {
+  test.skip(!RESEARCH || !RESEARCH_KEYFILE || !existsSync(RESEARCH_KEYFILE), 'requires a local corpus and private keyfile');
+  test.setTimeout(180_000);
+  const rows = readFileSync(join(RESEARCH!, 'fixtures/manifest.jsonl'), 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { format: string; file: string })
+    .filter((row) => ['fz', 'cae', 'xzz-pcb'].includes(row.format) && !basename(row.file).startsWith('._'));
+  expect(rows.length).toBeGreaterThanOrEqual(5);
+  await openApp(page);
+  await openSettings(page);
+  await page.getByTestId('ks-import-input').setInputFiles(RESEARCH_KEYFILE!);
+  await expect(page.getByTestId('ks-manage').getByText('key loaded')).toHaveCount(3);
+  await page.keyboard.press('Escape');
+  for (const row of rows) {
+    await load(page, join(RESEARCH!, row.file));
+    await expect(page.getByTestId('file-name')).toContainText(basename(row.file), { timeout: 30_000 });
+    await expect(page.getByText(/\d[\d,]* parts · [\d,]+ pins/)).toBeVisible();
+    await expect(page.getByTestId('error-message')).toHaveCount(0);
+  }
 });

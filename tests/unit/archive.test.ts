@@ -6,7 +6,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { archiveKind, extractArchive } from '../../src/io/archive';
+import { archiveKind, expandOuterArchives, extractArchive } from '../../src/io/archive';
+import { MAX_INPUT_BYTES } from '../../src/formats/limits';
 
 const SEVENZIP = resolve(import.meta.dirname, '../../fixtures/real/archives/glasgow.7z');
 const bytes = new Uint8Array(readFileSync(SEVENZIP));
@@ -36,5 +37,15 @@ describe('extractArchive', () => {
 
   test('enforces the decompression-bomb limit', async () => {
     await expect(extractArchive(bytes, 1024)).rejects.toMatchObject({ code: 'archive-bomb' });
+  });
+
+  test('rejects an oversized container before reading it into memory', async () => {
+    const archive = {
+      name: 'huge.7z',
+      size: MAX_INPUT_BYTES + 1,
+      slice: () => new Blob([bytes.subarray(0, 8)]),
+      arrayBuffer: () => { throw new Error('container was read'); },
+    } as unknown as File;
+    await expect(expandOuterArchives([archive], 512 * MB)).rejects.toMatchObject({ code: 'too-large' });
   });
 });
