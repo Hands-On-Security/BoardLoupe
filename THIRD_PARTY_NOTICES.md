@@ -2,7 +2,7 @@
 
 BoardScope is MIT-licensed (see `LICENSE`). The distributable `dist/boardview.html`
 bundles the components below; their full licence texts are in `LICENSES/` and are
-also embedded as a comment at the top of the built HTML file.
+also embedded verbatim in a non-executable text block at the top of the built HTML file.
 
 ## Bundled into `dist/boardview.html`
 
@@ -12,7 +12,8 @@ also embedded as a comment at the top of the built HTML file.
 | [lucide-preact](https://github.com/lucide-icons/lucide) | 1.53.0 | ISC | Inline SVG icons (only the icons used are bundled) |
 | [fflate](https://github.com/101arrowz/fflate) | 0.8.3 | MIT | zlib/ZIP decompression (FZ/CAE containers, ZIP archives) |
 | [libarchive.js](https://github.com/nika-begiashvili/libarchivejs) glue (`src/vendor/libarchive/`) | 2.0.2 | MIT | Emscripten wrapper that instantiates the libarchive WebAssembly |
-| [libarchive](https://github.com/libarchive/libarchive) (compiled to WebAssembly) | 3.7.2 | BSD-2-Clause | RAR (`.rar`, clean-room RAR4/RAR5 readers, not UnRAR) and 7-Zip (`.7z`) extraction. Statically links zlib (zlib), bzip2 (BSD), liblzma/xz (0BSD), zstd (BSD), lz4 (BSD). See `src/vendor/libarchive/LICENSES.md`. |
+| [libarchive](https://github.com/libarchive/libarchive) (compiled to WebAssembly) | 3.7.2 | BSD-style, including UC Regents code | RAR (`.rar`, libarchive's RAR4/RAR5 readers) and 7-Zip (`.7z`) extraction. See `src/vendor/libarchive/LICENSES.md`. |
+| Archive decoder dependencies linked into the WebAssembly | OpenSSL 1.0.2s; liblzma from XZ Utils 5.2.11; zlib and bzip2 | OpenSSL/SSLeay; public domain; zlib; bzip2 | The [upstream build recipe](https://github.com/nika-begiashvili/libarchivejs/blob/v2.0.2/lib/tools/docker/Dockerfile) sources zlib 1.3 and bzip2 1.0.8, while the [link command](https://github.com/nika-begiashvili/libarchivejs/blob/v2.0.2/lib/tools/build.sh) also enables Emscripten's zlib and bzip2 ports. Their notices are in `LICENSES/` and embedded in the distributable. |
 | [libarchive RAR5 test archive](https://github.com/libarchive/libarchive/blob/master/libarchive/test/test_read_format_rar5_compressed.rar.uu) | — | BSD-2-Clause | `fixtures/real/archives/rar5-compressed.rar`, decoded from the upstream uuencoded test fixture. |
 | [flatbush](https://github.com/mourner/flatbush) | 4.6.2 | ISC | Static R-tree for hit testing and viewport culling |
 | [flatqueue](https://github.com/mourner/flatqueue) | 3.1.0 | ISC | flatbush dependency |
@@ -32,6 +33,12 @@ The distributable contains no proprietary viewer binaries or vendor decryption k
 Format behavior was also studied using locally analyzed reference software; that software
 is not distributed with BoardScope. Test keys in `fixtures/manifest.json` are randomly
 generated, parity-valid keys that only decrypt the synthetic test fixtures.
+
+Archive decoder acknowledgments required by the OpenSSL 1.0.2s and original SSLeay licences:
+
+> This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/).
+
+> This product includes cryptographic software written by Eric Young (eay@cryptsoft.com).
 
 ## Test-only material (not bundled)
 

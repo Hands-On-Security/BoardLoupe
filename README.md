@@ -19,7 +19,7 @@ bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch b
 
 ## Quick start
 
-1. Get `dist/boardview.html` (≈2.0 MB, ≈834 KB gzipped). It is the only file you need.
+1. Get `dist/boardview.html` (≈2.0 MB, ≈839 KB gzipped). It is the only file you need.
    Most of the size is the RAR/7z decoder, which is decoded and run only the first
    time you open a RAR or 7z — nothing is fetched, ever.
 2. Double-click it, or drag it into a browser window.
@@ -289,6 +289,9 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 ## Credits and licences
 
 BoardScope is published by [Hands-On Security](https://hos.direct/boardscope) and is MIT-licensed.
+The bundled archive decoder retains its own third-party licences, including OpenSSL 1.0.2s.
+This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/).
+This product includes cryptographic software written by Eric Young (eay@cryptsoft.com).
 The KiCad reader follows KiCad's public file-format documentation. The parsers are re-implementations informed by
 [OpenBoardView](https://github.com/OpenBoardView/OpenBoardView) (MIT) and
 [eagleview](https://github.com/nitrocaster/eagleview) by Pavel Kovalenko (MIT, TVW). Real fixtures

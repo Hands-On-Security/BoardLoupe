@@ -1,6 +1,6 @@
 # BoardScope — release report (2026-10-10)
 
-**Deliverable:** `dist/boardview.html`: one self-contained file, ~2.0 MB (~834 KB gzip),
+**Deliverable:** `dist/boardview.html`: one self-contained file, ~2.0 MB (~839 KB gzip),
 zero external references. Most of the size is the RAR/7z decoder (libarchive compiled to
 WebAssembly, inlined as base64); it is decoded and instantiated only the first time a RAR or
 7z is opened, and never fetched. The build verifies the single-file, no-network guarantee and
@@ -71,7 +71,8 @@ fuzzing, browser tests). The experimental paths without real samples are listed 
 ## RAR and 7z archives (2026-10-10)
 
 Boardviews shipped inside `.rar` or `.7z` now open directly in the browser. libarchive 3.7.2 is
-compiled to WebAssembly (libarchive.js — MIT glue, BSD-2 library; its RAR readers are libarchive's
+compiled to WebAssembly (libarchive.js — MIT glue, BSD-style library with separately licensed
+OpenSSL, zlib, bzip2, and liblzma components; its RAR readers are libarchive's
 own clean-room code, not UnRAR) and inlined as base64, so there is no network request and nothing is
 decoded until the first RAR/7z. RAR and 7z are expanded on the main thread (the inlined IIFE worker
 cannot load the ESM glue); members then flow through the normal ZIP/parse path, with the same

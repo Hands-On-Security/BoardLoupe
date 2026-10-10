@@ -36,14 +36,24 @@ if (m) {
 // Embed third-party licence notices (MIT/ISC require them to accompany copies).
 {
   const licDir = resolve(root, 'LICENSES');
-  const parts = readdirSync(licDir)
+  const licenceFiles = readdirSync(licDir);
+  const required = [
+    'bzip2-1.0.8.txt', 'libarchive-3.7.2.txt', 'libarchive-js-2.0.2.txt',
+    'libarchive-uc-regents.txt', 'openssl-1.0.2s.txt', 'xz-liblzma-5.2.11.txt',
+    'zlib-1.3.txt',
+  ];
+  const missing = required.filter((f) => !licenceFiles.includes(f));
+  if (missing.length) throw new Error(`Missing bundled archive licences: ${missing.join(', ')}`);
+  const parts = licenceFiles
     .filter((f) => f.endsWith('.txt') && !f.startsWith('kicad-boardview'))
     .sort()
-    .map((f) => `===== ${f.replace(/\.txt$/, '')} =====\n${readFileSync(resolve(licDir, f), 'utf8').trim()}`);
-  const own = readFileSync(resolve(root, 'LICENSE'), 'utf8').trim();
+    .map((f) => `===== ${f.replace(/\.txt$/, '')} =====\n${readFileSync(resolve(licDir, f), 'utf8')}`);
+  const own = readFileSync(resolve(root, 'LICENSE'), 'utf8');
   const text = `BoardScope — offline boardview viewer.\n${own}\n\nThird-party components bundled in this file and parser sources:\n\n${parts.join('\n\n')}`;
-  // "--" is not allowed inside HTML comments.
-  html = html.replace('<head>', () => `<head>\n<!--\n${text.replace(/--/g, '- -')}\n-->`);
+  // A non-executable script preserves licence text verbatim. HTML comments
+  // cannot contain "--", which occurs in some upstream notices.
+  if (/<\/script/i.test(text)) throw new Error('A licence notice contains a closing script tag');
+  html = html.replace('<head>', () => `<head>\n<script type="text/plain" id="third-party-licences">\n${text}\n</script>`);
 }
 
 // ---- Verification ---------------------------------------------------------
@@ -71,7 +81,7 @@ for (const [re, what] of checks) {
   if (hit) problems.push(`${what}: …${html.slice(Math.max(0, hit.index - 60), hit.index + 80).replace(/\s+/g, ' ')}…`);
 }
 // Every absolute http(s) URL must be in the allow-list of inert strings (XML namespaces, licence/docs links in comments/strings).
-const allowed = [/^http:\/\/www\.w3\.org\//, /^https?:\/\/(?:github\.com|openboardview\.org|www\.w3\.org|kicad\.org|react\.dev|preactjs\.com|lucide\.dev|tailwindcss\.com|developer\.mozilla\.org|hands-on-security\.com|hos\.direct)\b/];
+const allowed = [/^http:\/\/www\.w3\.org\//, /^https?:\/\/(?:github\.com|openboardview\.org|www\.w3\.org|www\.openssl\.org|tukaani\.org|kicad\.org|react\.dev|preactjs\.com|lucide\.dev|tailwindcss\.com|developer\.mozilla\.org|hands-on-security\.com|hos\.direct)\b/];
 const urls = [...new Set(html.match(/https?:\/\/[^\s"'`)<>]+/g) ?? [])];
 const unknownUrls = urls.filter((u) => !allowed.some((a) => a.test(u)));
 if (unknownUrls.length) problems.push(`Unexpected absolute URLs in output (review): ${unknownUrls.slice(0, 10).join(' ')}`);

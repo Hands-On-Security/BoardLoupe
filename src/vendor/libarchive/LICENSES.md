@@ -7,13 +7,17 @@ glue (`libarchive-glue.mjs`) come from that project; the WebAssembly is
 
 - **libarchive.js** (Emscripten glue, this wrapper) — MIT. See
   `LICENSE-libarchive.js.txt`.
-- **libarchive** (the C library) — BSD 2-Clause.
-  <https://github.com/libarchive/libarchive/blob/master/COPYING>
-  Its RAR (RAR 1–4) and RAR5 readers are libarchive's own clean-room
-  implementations (not derived from UnRAR), so they are redistributable.
-- Compression libraries statically linked into the WebAssembly, each under its
-  own permissive licence: **zlib** (zlib), **bzip2** (BSD-like), **liblzma/xz**
-  (public domain / 0BSD), **zstd** (BSD/GPL dual → BSD), **lz4** (BSD).
+- **libarchive** (the C library) — BSD-style, including UC Regents code. See
+  `LICENSES/libarchive-3.7.2.txt` and `LICENSES/libarchive-uc-regents.txt`.
+  Its RAR readers are libarchive implementations, not UnRAR code.
+- The [upstream build recipe](https://github.com/nika-begiashvili/libarchivejs/blob/v2.0.2/lib/tools/docker/Dockerfile)
+  and [link command](https://github.com/nika-begiashvili/libarchivejs/blob/v2.0.2/lib/tools/build.sh)
+  include **OpenSSL 1.0.2s** (OpenSSL/SSLeay), **liblzma from XZ Utils 5.2.11**
+  (public domain), and **zlib** and **bzip2** (the recipe sources 1.3 and 1.0.8;
+  Emscripten's ports are also enabled by the link command).
+  The vendored WebAssembly matches the upstream v2.0.2 binary by SHA-256
+  (`8a66066ed3ea1e6db0469ec752d8fca888a6bf737c6cff21fdbcb62241a72424`).
+  The corresponding texts in `LICENSES/` are embedded in `dist/boardview.html`.
 
 ## Supported archive variants
 
