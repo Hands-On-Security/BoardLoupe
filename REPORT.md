@@ -1,8 +1,10 @@
 # BoardScope — release report (2026-10-10)
 
-**Deliverable:** `dist/boardview.html`: one self-contained file, ~620 KB (~216 KB gzip),
-zero external references. The build verifies this and fails otherwise. Build it with
-`npm ci && npm run build`.
+**Deliverable:** `dist/boardview.html`: one self-contained file, ~1.9 MB (~810 KB gzip),
+zero external references. Most of the size is the RAR/7z decoder (libarchive compiled to
+WebAssembly, inlined as base64); it is decoded and instantiated only the first time a RAR or
+7z is opened, and never fetched. The build verifies the single-file, no-network guarantee and
+fails otherwise. Build it with `npm ci && npm run build`.
 
 BoardScope is published as a **Hands-On Security** tool (back-link `hos.direct/boardscope`),
 built for the hardware-security classroom.
@@ -15,6 +17,11 @@ built for the hardware-security classroom.
   replaces the earlier thin-blue highlight that disappeared when zoomed out.
 - **Multi-net bus colouring.** Selecting several nets (Shift-click) gives each a distinct
   high-contrast colour, so an SPI / LPC / eSPI bus can be followed across the board.
+- **Trace through series parts.** From the net inspector, follow a signal across two-terminal
+  series parts (series R/L/FB, 0-ohm links) to the nets on their far side. Branches are followed
+  and flagged, cycles terminate (each net expanded once), decoupling stubs into power/ground rails
+  are not followed, and the walk is size- and fan-out-capped; "Highlight path" lights and fits the
+  whole chain. (`src/model/trace.ts`.)
 - **Solder / probe point finder.** The net and pin inspectors rank every point on a net by how
   practical it is to tap a wire onto — test points first, then through-holes, connectors and large
   pads, with fine-pitch IC pads last — each with its side, click-to-jump. (`src/model/solder.ts`.)
@@ -52,6 +59,47 @@ board in each format (geometry within 0.75 mil of the source, fuzzing, browser t
   Extracta** text and **NBV**.
 - Corpus run (`BS_RESEARCH`): every sample opens except encrypted FZ/CAE/XZZ files (need your key),
   an Allegro 15.5 board (pre-16 layout) and a GenCAD file that is truncated (now reported as such).
+
+## RAR and 7z archives (2026-10-10)
+
+Boardviews shipped inside `.rar` or `.7z` now open directly in the browser. libarchive 3.7.2 is
+compiled to WebAssembly (libarchive.js — MIT glue, BSD-2 library; its RAR readers are libarchive's
+own clean-room code, not UnRAR) and inlined as base64, so there is no network request and nothing is
+decoded until the first RAR/7z. RAR and 7z are expanded on the main thread (the inlined IIFE worker
+cannot load the ESM glue); members then flow through the normal ZIP/parse path, with the same
+decompression-bomb limit, junk-metadata filtering and in-archive folder layout as ZIP. Password-
+protected archives report that a password is required (not prompted). Verified end-to-end in
+Chromium, Firefox and WebKit: a committed 7z of the Glasgow GenCAD export (CI) and real VinaFix RAR4
+archives (local, `BS_RESEARCH`-gated, not committed — their RAR4 content extracts and parses to BRD2
+and GenCAD boards of thousands of parts). Supported variants and licences: `src/vendor/libarchive/LICENSES.md`.
+
+## Decryption keys: bring-your-own keystore (2026-10-10)
+
+BoardScope ships **no** decryption keys and is fully functional without them. For FZ, CAE and XZZ
+files you are entitled to decrypt, you supply the key yourself (Settings → Decryption keys): set a
+key per format, or import a keyfile holding several. Keys can optionally be saved in this browser,
+encrypted at rest with a passphrase (WebCrypto AES-GCM-256 via PBKDF2-SHA-256, 310 000 iterations);
+the passphrase is never stored, and you re-enter it to unlock on a later visit, then replace or remove
+the saved keys. Plaintext key material never reaches `localStorage`, logs, reports, screenshots,
+exports or error messages. Import, reload, unlock (wrong then right passphrase), successful open,
+wrong key, missing key and removal are covered by unit tests and a three-browser e2e test, using
+**disposable generated test keys** on the synthetic FZ/CAE/XZZ fixtures — no real or vendor key is in
+any committed test. (`src/app/keystore.ts`, `src/app/keystore-actions.ts`.)
+
+## Seeking authentic fixtures for the experimental paths (2026-10)
+
+The four still-experimental paths were searched for real samples in the research corpus and publicly
+(no Windows VM used). None was obtainable, so each stays explicitly experimental:
+
+- **NBV (NexusBV):** no `.nbv` sample in the corpus or in a public GitHub code search; `.nbv` is not
+  even in NexusBV's documented input-format list. Wire layout and units unverified against a real file.
+- **Numbered-section TopTest BRD + `.con`:** the corpus's TopTest/`.con` files are all BRDOUT (a
+  different, verified dialect); no authentic file of the numbered-section dialect was found. Its box-
+  corner handling, `.con` merge and all-on-top assumption are unverified against real data.
+- **Allegro Extracta `A!/J!/S!`:** produced on demand from a user-written command file, so no fixed
+  sample is published; none found in corpus or web. Column mapping and placement unverified.
+- **Multi-board GenCAM:** single-board placement is verified on a real Compal `.a3p`; no authentic
+  multi-board (panel) export was found, so that path is covered only by a synthetic two-board fixture.
 
 ## Real-corpus validation (2026-10)
 
@@ -94,25 +142,30 @@ integrity, fuzz and browser tests. See FORMAT_MATRIX.md for details.
 | CAE (needs key) | partial | synthetic (test key) |
 | CST | experimental | synthetic, reference-validated |
 | XZZ (components need DES key) | experimental | synthetic (test key) |
-| TopTest numbered-section BRD, Allegro Extracta, NBV | experimental | written from the documented layouts; no real files |
-| Allegro before 16, PDF/RAR/7z/OLE, firmware images | recognised with an explanation, not parsed | unit tests |
+| TopTest numbered-section BRD, Allegro Extracta, NBV | experimental | written from the documented layouts; no real files (sought, none found — see above) |
+| ZIP, RAR, 7z containers | supported | ZIP (pure JS); RAR4/RAR5 + 7z via bundled libarchive WASM — real 7z (CI), real RAR4 (local) |
+| Allegro before 16, PDF/OLE, firmware images | recognised with an explanation, not parsed | unit tests |
 
 Not supported: Altium ASCII, IPC-D-356 (fixture present), `.bvr2`, TVW files without the
 standard header, Allegro before 16, FlexBV-only formats. No vendor decryption keys are included.
 
 ## Tests (all passing)
 
-- Vitest: **240 tests** (plus opt-in checks on private boards via `BS_PRIVATE_FIXTURES` and 72 corpus checks via `BS_RESEARCH`). Unit (camera transforms, I/O, ciphers incl. the DES FIPS vector, builder,
-  search, export), 17 differential golden tests against the reference parsers, a cross-exporter
-  geometry check (≤1.1 mil on 1,130+ pins, 0 net mismatches), 37 detection/diagnostic tests, and 18
+- Vitest: **262 tests** (plus opt-in checks on private boards via `BS_PRIVATE_FIXTURES` and 72 corpus
+  checks via `BS_RESEARCH`, for 334 in all). Unit (camera transforms, I/O, ciphers incl. the DES FIPS
+  vector, builder, search, export, the passphrase keystore, series-trace, RAR/7z extraction through the
+  real WebAssembly), 17 differential golden tests against the reference parsers, a cross-exporter
+  geometry check (≤1.1 mil on 1,130+ pins, 0 net mismatches), detection/diagnostic tests, and 18
   fuzz suites (truncation, flips, splices, extreme counts, random input) covering every fixture.
-- Playwright on the built file via `file://`: **76 tests** across Chromium 156, Firefox 157 and
-  WebKit 27.2. They cover the empty state, zero network requests (also with the browser set offline),
-  real-board load in the worker, search → inspector, pin picking (top and mirrored bottom), history,
-  sides/mirror/rotate/zoom/pan/fit, tables + CSV/JSON export, errors, the key-required message,
-  every verified format, the multi-file ASC set, drag-and-drop, the Canvas 2D fallback, theme
+- Playwright on the built file via `file://`: **91 tests** (94 with the research corpus) across
+  Chromium 156, Firefox 157 and WebKit 27.2. They cover the empty state, zero network requests (also
+  with the browser set offline), real-board load in the worker, search → inspector, pin picking (top
+  and mirrored bottom), history, sides/mirror/rotate/zoom/pan/fit, tables + CSV/JSON export, errors,
+  the key-required message, the bring-your-own-key keystore (import, save, reload, unlock, remove),
+  trace-through-series highlighting, opening a board inside a 7z (and a real RAR4 when the corpus is
+  present), every verified format, the multi-file ASC set, drag-and-drop, the Canvas 2D fallback, theme
   persistence (only `boardscope.prefs.v1` in localStorage), and laptop layout with no overflow.
-  The 15 app tests also pass in the installed **Google Chrome 154** stable.
+  The app tests also pass in the installed **Google Chrome 154** stable.
 - Typecheck (TypeScript 6.0 strict) and ESLint (no eval/Function/innerHTML): clean.
 
 ## Browser compatibility
@@ -137,8 +190,12 @@ standard header, Allegro before 16, FlexBV-only formats. No vendor decryption ke
 - No redistributable real-world TVW, FZ, BDV, ASC, Test_Link, CAD, CST, XZZ, Allegro, Fabmaster, GenCAM,
   F2B or BV files. These formats are tested in CI against synthetic files built from a real board; the
   real samples were checked locally.
-- Encrypted FZ, CAE and XZZ need user keys. XZZ part sides are not decoded (same as upstream).
+- Encrypted FZ, CAE and XZZ need user keys (bring-your-own; none bundled). XZZ part sides are not
+  decoded (same as upstream).
 - Allegro: releases before 16 are not read; 17.x pad shapes are drawn as their copper box; copper zones
-  and silkscreen are not read. TopTest numbered-section BRD, Extracta and NBV have no real sample.
+  and silkscreen are not read. TopTest numbered-section BRD, Extracta, NBV and multi-board GenCAM have
+  no authentic sample (sought in corpus + web, 2026-10; see above) and stay experimental/synthetic-only.
+- Archives: RAR5 is supported by the bundled library but has no local test sample (RAR4 and 7z are
+  verified on real/committed files); password-protected archives are not opened in-app.
 - Not drawn: TVW copper pours, BVR3 relative outlines, GenCAD artwork.
 - No side-by-side comparison mode. Recent files are kept per session only.

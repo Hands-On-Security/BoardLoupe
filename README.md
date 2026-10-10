@@ -19,10 +19,12 @@ bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch b
 
 ## Quick start
 
-1. Get `dist/boardview.html` (≈620 KB, ≈216 KB gzipped). It is the only file you need.
+1. Get `dist/boardview.html` (≈1.9 MB, ≈810 KB gzipped). It is the only file you need.
+   Most of the size is the RAR/7z decoder, which is decoded and run only the first
+   time you open a RAR or 7z — nothing is fetched, ever.
 2. Double-click it, or drag it into a browser window.
 3. Drop a boardview file onto the page, click **Browse files…**, or press <kbd>Ctrl/⌘</kbd>+<kbd>O</kbd>.
-   ZIP archives work too, as do multi-file ASC sets (select all files or drop the folder).
+   ZIP, RAR and 7z archives work too, as do multi-file ASC sets (select all files or drop the folder).
 
 Build it yourself:
 
@@ -58,19 +60,34 @@ Formats are recognised **by content**, not by file extension. The full details
 | **Cadence Allegro `.brd` (16.x, 17.x), read natively** | partial | synthetic 16.6 and 17.2 databases; checked locally on three real boards against KiCad 10's own import (identical pins, nets and drills) |
 | ASC multi-file set `.asc` (incl. VayoPro-Test Expert / TSICT exports) | partial | reference-validated synthetic; checked locally on a real set |
 | CAE (FZ container, needs key) `.cae` | partial | synthetic (test key) |
-| TopTest numbered-section BRD (+ `.con`) | experimental | documented layout (no real file known) |
-| Allegro Extracta text (`A!`/`S!` rows) | experimental | documented layout (no real file in the corpus) |
-| NBV (NexusBV export) `.nbv` | experimental | documented wire order (no real file available) |
+| TopTest numbered-section BRD (+ `.con`) | experimental | documented layout; no authentic file found (corpus + web, 2026-10) |
+| Allegro Extracta text (`A!`/`S!` rows) | experimental | documented layout; no authentic export found (generated on demand, none published) |
+| NBV (NexusBV export) `.nbv` | experimental | documented wire order; no `.nbv` sample found (corpus + public code search) |
 | CST `.cst` | experimental | reference-validated synthetic |
 | XZZ PCB `.pcb` (needs key for components) | experimental | synthetic (test DES key) |
-| ZIP containers | supported | — |
+| ZIP, RAR and 7z containers | supported | ZIP (pure JS); RAR4/RAR5 and 7z via a bundled libarchive WebAssembly — real board in a 7z (CI) and real RAR4 archives (local) |
 
 "Verified" means the parser's output equals the output of the original
 open-source reference implementation (OpenBoardView / eagleview, compiled from
 source) on the fixture, plus integrity, fuzz and browser tests.
 **No vendor decryption keys are included.** Encrypted FZ, CAE and XZZ files show a clear
-"key required" message. You can enter a key you are entitled to use under
-*Settings → Decryption keys*. Keys stay in memory unless you choose to remember them.
+"key required" message. BoardScope is a **bring-your-own-key** tool for keys you are
+entitled to use — see [Decryption keys](#decryption-keys-bring-your-own) below.
+
+### Decryption keys (bring your own)
+
+Some FZ, CAE and XZZ files are encrypted. BoardScope ships no keys and is fully functional
+without them; to open such a file you supply the key yourself under **Settings → Decryption keys**.
+
+- **Per format.** A key can be set for FZ, CAE and XZZ independently. The panel shows which
+  formats currently have a key — never the key material itself.
+- **Import a keyfile.** Paste a key, or import a keyfile you created that holds several keys at once.
+- **Remember, encrypted.** Optionally save your keys in this browser, encrypted at rest with a
+  passphrase (AES-GCM-256 via PBKDF2-SHA-256, 310 000 iterations). The passphrase is never stored;
+  you re-enter it to **unlock** on a later visit. You can **replace** or **remove** the saved keys
+  at any time. Without saving, keys live in memory only for the session.
+- **Never leaks.** Key material stays out of the saved file, logs, reports, screenshots, exports and
+  error messages. Entering or unlocking a key re-opens the file you were trying to view.
 
 ### Allegro boards, natively
 
@@ -144,7 +161,8 @@ Unavailable fields are labelled "not in file".
   The build fails if the HTML references any external resource, and the end-to-end tests assert that
   zero requests are made.
 - `localStorage` holds display preferences only (`boardscope.prefs.v1`). Decryption keys are stored
-  only if you tick *Remember keys*. Board contents are never stored.
+  only if you save them, and then only as a passphrase-encrypted blob (`boardscope.keystore.v1`,
+  AES-GCM/PBKDF2); the passphrase and the plaintext keys are never written. Board contents are never stored.
 
 ## Architecture
 
@@ -253,10 +271,13 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 - **"No supported boardview signature"**: the file is not one of the supported dialects. The message
   shows the first bytes and whether the content looks encrypted or compressed. Extensions such as
   `.brd` are shared by incompatible formats.
-- **Dropped a whole board folder**: BoardScope opens the boardview in it (also inside ZIPs, one level of
-  ZIP-in-ZIP, ignoring macOS metadata). If there is none, it lists what the files are — schematics, PDF
-  boardview drawings, BIOS/EC firmware dumps, programs — so you know what is missing.
-- **"Key required" / "parity check"**: the file is encrypted. Enter a valid key in Settings.
+- **Dropped a whole board folder**: BoardScope opens the boardview in it (also inside ZIP, RAR and 7z,
+  one level of ZIP-in-ZIP, ignoring macOS metadata). If there is none, it lists what the files are —
+  schematics, PDF boardview drawings, BIOS/EC firmware dumps, programs — so you know what is missing.
+- **Password-protected RAR/7z**: BoardScope does not prompt for archive passwords. Extract the archive
+  with its password first, then open the boardview inside.
+- **"Key required" / "parity check"**: the file is encrypted. Set a key you are entitled to use under
+  *Settings → Decryption keys* (see [Decryption keys](#decryption-keys-bring-your-own)).
 - **ASC needs all files**: select `format.asc`, `pins.asc` and `nails.asc` together, or drop the folder or a ZIP.
 - **Blank or slow canvas**: your browser may have WebGL2 disabled or software-only. Enable
   *Settings → Force Canvas 2D renderer*.

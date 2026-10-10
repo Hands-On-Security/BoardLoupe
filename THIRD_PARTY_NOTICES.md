@@ -11,6 +11,8 @@ also embedded as a comment at the top of the built HTML file.
 | [Preact](https://github.com/preactjs/preact) | 10.29.8 | MIT | UI rendering |
 | [lucide-preact](https://github.com/lucide-icons/lucide) | 1.53.0 | ISC | Inline SVG icons (only the icons used are bundled) |
 | [fflate](https://github.com/101arrowz/fflate) | 0.8.3 | MIT | zlib/ZIP decompression (FZ/CAE containers, ZIP archives) |
+| [libarchive.js](https://github.com/nika-begiashvili/libarchivejs) glue (`src/vendor/libarchive/`) | 2.0.2 | MIT | Emscripten wrapper that instantiates the libarchive WebAssembly |
+| [libarchive](https://github.com/libarchive/libarchive) (compiled to WebAssembly) | 3.7.2 | BSD-2-Clause | RAR (`.rar`, clean-room RAR4/RAR5 readers, not UnRAR) and 7-Zip (`.7z`) extraction. Statically links zlib (zlib), bzip2 (BSD), liblzma/xz (0BSD), zstd (BSD), lz4 (BSD). See `src/vendor/libarchive/LICENSES.md`. |
 | [flatbush](https://github.com/mourner/flatbush) | 4.6.2 | ISC | Static R-tree for hit testing and viewport culling |
 | [flatqueue](https://github.com/mourner/flatqueue) | 3.1.0 | ISC | flatbush dependency |
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) | 4.3.3 | MIT | Generated stylesheet (preflight + used utilities) |
