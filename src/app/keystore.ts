@@ -1,7 +1,7 @@
 /**
  * Bring-your-own-key keystore.
  *
- * BoardScope ships no keys. This module lets a user manage decryption keys
+ * BoardLoupe ships no keys. This module lets a user manage decryption keys
  * they are entitled to use: import a keyfile they created, see which formats
  * have a key (never the material), save it to this browser encrypted with a
  * passphrase, unlock it on a later visit, replace it, and remove it.
@@ -57,14 +57,14 @@ export function mapToEntries(map: KeyMap): KeyEntry[] {
 // ── Keyfile (plaintext JSON the user creates and owns) ──────────────────────
 
 interface Keyfile {
-  boardscope_keystore: 1;
+  boardloupe_keystore: 1;
   created: string;
   keys: KeyEntry[];
 }
 
 export function serializeKeyfile(entries: KeyEntry[]): string {
   const file: Keyfile = {
-    boardscope_keystore: 1,
+    boardloupe_keystore: 1,
     created: new Date().toISOString(),
     keys: entries.filter((e) => e.key).map((e) => ({ format: e.format, ...(e.label ? { label: e.label } : {}), key: e.key.trim() })),
   };
@@ -80,7 +80,7 @@ export function parseKeyfile(text: string): { entries: KeyEntry[]; warnings: str
     throw new Error('Not a keyfile: the file is not valid JSON.');
   }
   const o = doc as Partial<Keyfile>;
-  if (!o || o.boardscope_keystore !== 1 || !Array.isArray(o.keys)) throw new Error('Not a BoardScope keyfile (missing "boardscope_keystore": 1).');
+  if (!o || o.boardloupe_keystore !== 1 || !Array.isArray(o.keys)) throw new Error('Not a BoardLoupe keyfile (missing "boardloupe_keystore": 1).');
   const known = new Set(KEY_FORMATS.map((f) => f.id));
   const entries: KeyEntry[] = [];
   const warnings: string[] = [];
@@ -165,7 +165,7 @@ export async function decrypt(blob: EncBlob, passphrase: string): Promise<KeyEnt
 
 // ── Persistence (only the encrypted blob is ever stored) ────────────────────
 
-const STORAGE_KEY = 'boardscope.keystore.v1';
+const STORAGE_KEY = 'boardloupe.keystore.v1';
 
 export function hasStoredKeystore(): boolean {
   try {

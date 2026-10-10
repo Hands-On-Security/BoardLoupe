@@ -18,7 +18,7 @@ const files = ['synthetic-10k.brd', 'synthetic-50k.tvw', 'synthetic-100k.brd', '
 const bt = { chromium, firefox, webkit }[which];
 const browser = await bt.launch(which === 'chromium' && gpu ? { args: ['--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=metal', '--enable-unsafe-swiftshader=false'] } : {});
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-await page.goto('file://' + resolve(root, 'dist/boardview.html'));
+await page.goto('file://' + resolve(root, 'dist/boardloupe.html'));
 const renderer = (await page.evaluate(`(() => {
   const gl = document.createElement('canvas').getContext('webgl2');
   const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
@@ -32,7 +32,7 @@ for (const f of files) {
   const loadMs = Date.now() - t0;
   // Passed as a string: tsx would otherwise inject helpers that do not exist in the page.
   const r = (await page.evaluate(`(async () => {
-    const bs = window.boardscope;
+    const bs = window.boardloupe;
     const v = bs.viewer;
     v.fit();
     const frames = [];

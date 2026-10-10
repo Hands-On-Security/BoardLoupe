@@ -1,12 +1,12 @@
-# BoardScope — release report (2026-10-10)
+# BoardLoupe — release report (2026-10-10)
 
-**Deliverable:** `dist/boardview.html`: one self-contained file, ~2.0 MB (~839 KB gzip),
+**Deliverable:** `dist/boardloupe.html`: one self-contained file, ~2.0 MB (~839 KB gzip),
 zero external references. Most of the size is the RAR/7z decoder (libarchive compiled to
 WebAssembly, inlined as base64); it is decoded and instantiated only the first time a RAR or
 7z is opened, and never fetched. The build verifies the single-file, no-network guarantee and
 fails otherwise. Build it with `npm ci && npm run build`.
 
-BoardScope is published as a **Hands-On Security** tool (back-link `hos.direct/boardscope`),
+BoardLoupe is published as a **Hands-On Security** tool (back-link `hos.direct/boardloupe`),
 built for the hardware-security classroom.
 
 ## Selection, bus tracing and solder points
@@ -85,7 +85,7 @@ Chromium, Firefox and WebKit: a committed 7z of the Glasgow GenCAD export (CI) a
 
 ## Decryption keys: bring-your-own keystore (2026-10-10)
 
-BoardScope ships **no** decryption keys and is fully functional without them. For FZ, CAE and XZZ
+BoardLoupe ships **no** decryption keys and is fully functional without them. For FZ, CAE and XZZ
 files you are entitled to decrypt, you supply the key yourself (Settings → Decryption keys): set a
 key per format, or import a keyfile holding several. Keys can optionally be saved in this browser,
 encrypted at rest with a passphrase (WebCrypto AES-GCM-256 via PBKDF2-SHA-256, 310 000 iterations);
@@ -133,7 +133,7 @@ real repair corpus".
 
 ## Formats: what is actually verified
 
-Verified = BoardScope output equals the compiled original reference parser
+Verified = BoardLoupe output equals the compiled original reference parser
 (OpenBoardView `cc76e69`, eagleview TVW reader from OBV PR #366) on the fixture, plus
 integrity, fuzz and browser tests. See FORMAT_MATRIX.md for details.
 
@@ -179,7 +179,7 @@ standard header, Allegro before 15, FlexBV-only formats. No vendor decryption ke
   the key-required message, the bring-your-own-key keystore (import, save, reload, unlock, remove),
   trace-through-series highlighting, opening a board inside a 7z (and a real RAR4 when the corpus is
   present), every verified format, the multi-file ASC set, drag-and-drop, the Canvas 2D fallback, theme
-  persistence (only `boardscope.prefs.v1` in localStorage), and laptop layout with no overflow.
+  persistence (only `boardloupe.prefs.v1` in localStorage), and laptop layout with no overflow.
   The app tests also pass in the installed **Google Chrome 154** stable.
 - Typecheck (TypeScript 6.0 strict) and ESLint (no eval/Function/innerHTML): clean.
 

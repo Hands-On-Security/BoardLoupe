@@ -9,7 +9,7 @@ import { basename, join, resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const APP = 'file://' + resolve(ROOT, 'dist/boardloupe.html');
 const FX = (p: string) => resolve(ROOT, 'fixtures', p);
 const KEYFILE = FX('synthetic/test-keys.json');
 const FZ = FX('synthetic/glasgow-rc6-testkey.fz');
@@ -70,7 +70,7 @@ test('save with a passphrase, reload, unlock (wrong then right), open, remove', 
   // Wait until the save actually persisted (the Remove affordance appears).
   await expect(page.getByTestId('ks-remove')).toBeVisible();
   await expect
-    .poll(() => page.evaluate(() => !!localStorage.getItem('boardscope.keystore.v1')))
+    .poll(() => page.evaluate(() => !!localStorage.getItem('boardloupe.keystore.v1')))
     .toBe(true);
 
   // Reload: keystore is present but locked. Opening an encrypted file asks for a key.
@@ -98,7 +98,7 @@ test('save with a passphrase, reload, unlock (wrong then right), open, remove', 
   await page.getByTestId('ks-remove').click();
   const stored = await page.evaluate(() => {
     try {
-      return localStorage.getItem('boardscope.keystore.v1');
+      return localStorage.getItem('boardloupe.keystore.v1');
     } catch {
       return null;
     }

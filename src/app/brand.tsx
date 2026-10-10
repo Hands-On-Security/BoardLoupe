@@ -1,5 +1,5 @@
 /**
- * Hands-On Security branding. BoardScope is published as a Hands-On Security
+ * Hands-On Security branding. BoardLoupe is published as a Hands-On Security
  * tool; the official logo is embedded as a data URI (see brand-logo.ts) so the
  * viewer stays a single offline file, and recoloured to white for the dark
  * theme via the .hos-logo CSS rule. The back-link points at a short URL they
@@ -10,7 +10,7 @@ import { cx } from './components/ui';
 import { HOS_LOGO } from './brand-logo';
 
 /** Short URL (managed by Hands-On Security) → redirects to the project portal. */
-export const HOS_URL = 'https://hos.direct/boardscope';
+export const HOS_URL = 'https://hos.direct/boardloupe';
 export const HOS_SITE = 'https://hands-on-security.com';
 export const HOS_NAME = 'Hands-On Security';
 
@@ -27,7 +27,7 @@ export function HosByline({ height = 15, class: cls, ...rest }: JSX.HTMLAttribut
       target="_blank"
       rel="noopener noreferrer external"
       class={cx('inline-flex items-center gap-1.5 text-muted hover:opacity-80 transition-opacity', cls as string)}
-      title="BoardScope is a Hands-On Security tool — open the project portal"
+      title="BoardLoupe is a Hands-On Security tool — open the project portal"
       {...rest}
     >
       <span class="text-[11.5px]">by</span>

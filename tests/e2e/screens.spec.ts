@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const APP = 'file://' + resolve(ROOT, 'dist/boardloupe.html');
 const FX = (p: string) => resolve(ROOT, 'fixtures', p);
 const SHOTS = resolve(ROOT, 'docs/screenshots');
 
@@ -44,7 +44,7 @@ test('dark: TVW board, part selected', async ({ page }) => {
 
 test('dark: net highlighted with air wires', async ({ page }) => {
   await open(page, 'real/glasgow/glasgow-kicad10.cad');
-  await bs(page, `boardscope.store.set({ prefs: { ...boardscope.store.get().prefs, showRatsnest: true } })`);
+  await bs(page, `boardloupe.store.set({ prefs: { ...boardloupe.store.get().prefs, showRatsnest: true } })`);
   await page.keyboard.press('/');
   await page.keyboard.type('SDA');
   await page.keyboard.press('Enter');
@@ -54,7 +54,7 @@ test('dark: net highlighted with air wires', async ({ page }) => {
 
 test('dark: bottom side with copper traces', async ({ page }) => {
   await open(page, 'synthetic/glasgow.tvw');
-  await bs(page, `boardscope.store.set({ prefs: { ...boardscope.store.get().prefs, showTraces: true } })`);
+  await bs(page, `boardloupe.store.set({ prefs: { ...boardloupe.store.get().prefs, showTraces: true } })`);
   await page.getByTestId('board-canvas').click({ position: { x: 4, y: 4 } });
   await page.keyboard.press('Space');
   await page.waitForTimeout(250);
@@ -105,7 +105,7 @@ test('dark: highlight group with legend', async ({ page }) => {
   await open(page, 'synthetic/glasgow.tvw');
   await bs(
     page,
-    `(() => { const b = window.boardscope, m = b.store.get().board.model;
+    `(() => { const b = window.boardloupe, m = b.store.get().board.model;
       const nets = []; for (let i = 0; i < m.nets.count && nets.length < 6; i++) if (/IO_Banks\\/DA\\d$/.test(m.nets.name[i])) nets.push(i);
       b.store.set({ group: { nets, parts: [] }, panel: 'groups' }); b.viewer.fit(); b.viewer.zoomBy(1.6); })()`,
   );
@@ -117,7 +117,7 @@ test('dark: report dialog', async ({ page }) => {
   await open(page, 'synthetic/glasgow.tvw');
   await bs(
     page,
-    `(() => { const b = window.boardscope, m = b.store.get().board.model;
+    `(() => { const b = window.boardloupe, m = b.store.get().board.model;
       const nets = []; for (let i = 0; i < m.nets.count && nets.length < 4; i++) if (/IO_Banks\\/DA\\d$/.test(m.nets.name[i])) nets.push(i);
       b.store.set({ group: { nets, parts: [] } }); b.viewer.fit(); b.store.set({ dialog: 'report' }); })()`,
   );

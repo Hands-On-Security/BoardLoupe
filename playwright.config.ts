@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// End-to-end tests run against the BUILT single file (dist/boardview.html)
+// End-to-end tests run against the BUILT single file (dist/boardloupe.html)
 // opened through file:// — exactly how users run it.
 export default defineConfig({
   testDir: 'tests/e2e',

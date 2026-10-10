@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a local BoardScope keyfile from private format notes.
+"""Build a local BoardLoupe keyfile from private format notes.
 
 The output must stay outside version control. No key material is printed.
 """
@@ -44,7 +44,7 @@ def main() -> None:
     if not xzz:
         raise ValueError("missing XZZ key_hex")
     output = {
-        "boardscope_keystore": 1,
+        "boardloupe_keystore": 1,
         "created": datetime.now(timezone.utc).isoformat(),
         "keys": [
             {"format": "fz", "key": schedule(docs["fz"])},

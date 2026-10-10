@@ -17,14 +17,14 @@ import { HOS_LOGO } from './brand-logo';
 import { formatBytes, formatLength } from './format';
 
 export const APP_VERSION: string = version;
-export const REPORT_URL = 'hos.direct/boardscope';
+export const REPORT_URL = 'hos.direct/boardloupe';
 /**
  * Shape of the board-view frame in the report: the A4 content width (210 mm
  * minus 2 × 13 mm margins) by 116 mm. The view is captured at exactly this
  * aspect so the frame is filled with board, not margins.
  */
 export const REPORT_IMAGE_ASPECT = 184 / 116;
-const REPORT_HREF = 'https://hos.direct/boardscope';
+const REPORT_HREF = 'https://hos.direct/boardloupe';
 
 export interface ReportOptions {
   title: string;
@@ -254,7 +254,7 @@ table.data tr { break-inside: avoid; page-break-inside: avoid; }
 export function renderReportHtml(d: ReportData): string {
   const meta = d.rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
   const generated = fmtDate(d.generated);
-  const footer = `<span>Generated with BoardScope ${esc(APP_VERSION)} · a Hands-On Security tool · <a href="${REPORT_HREF}">${REPORT_URL}</a></span><span>${esc(d.fileName)} · ${esc(generated)}</span>`;
+  const footer = `<span>Generated with BoardLoupe ${esc(APP_VERSION)} · a Hands-On Security tool · <a href="${REPORT_HREF}">${REPORT_URL}</a></span><span>${esc(d.fileName)} · ${esc(generated)}</span>`;
   const netRows = d.nets
     .map((n) => {
       const parts = n.parts.map(esc).join(', ') + (n.moreParts ? ` <span class="muted">+${n.moreParts} more</span>` : '');
@@ -278,11 +278,11 @@ export function renderReportHtml(d: ReportData): string {
     : '';
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="BoardScope ${esc(APP_VERSION)} — Hands-On Security">
-<title>${esc(d.title)} — BoardScope report</title>
+<meta name="generator" content="BoardLoupe ${esc(APP_VERSION)} — Hands-On Security">
+<title>${esc(d.title)} — BoardLoupe report</title>
 <style>${STYLE}</style></head>
 <body><div class="sheet"><div class="ftr fixed">${footer}</div><table class="page">
-<thead><tr><td><div class="hdr"><div class="brand">${BOARD_MARK}<div><b>BoardScope</b><span>Boardview analysis report</span></div></div><img class="hos" src="data:${dataImage(HOS_LOGO)}" alt="Hands-On Security"></div></td></tr></thead>
+<thead><tr><td><div class="hdr"><div class="brand">${BOARD_MARK}<div><b>BoardLoupe</b><span>Boardview analysis report</span></div></div><img class="hos" src="data:${dataImage(HOS_LOGO)}" alt="Hands-On Security"></div></td></tr></thead>
 <tfoot><tr><td><div class="ftr spacer">${footer}</div></td></tr></tfoot>
 <tbody><tr><td>
 <h1>${esc(d.title)}</h1>

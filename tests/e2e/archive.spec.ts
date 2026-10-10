@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const APP = 'file://' + resolve(ROOT, 'dist/boardloupe.html');
 const SEVENZIP = resolve(ROOT, 'fixtures/real/archives/glasgow.7z');
 const RAR5 = resolve(ROOT, 'fixtures/real/archives/rar5-compressed.rar');
 

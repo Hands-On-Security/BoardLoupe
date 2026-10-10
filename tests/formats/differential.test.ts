@@ -1,22 +1,22 @@
 /**
- * Differential tests: every manifest fixture is parsed by BoardScope and the
+ * Differential tests: every manifest fixture is parsed by BoardLoupe and the
  * result is compared with the output of the reference C++ parsers
  * (OpenBoardView + eagleview TVW reader) stored in fixtures/golden.
  *
  * Intentional, documented convention differences are normalised here:
- *  - The reference stores coordinates as integer mils; BoardScope keeps the
+ *  - The reference stores coordinates as integer mils; BoardLoupe keeps the
  *    file's native unit (inch for ASC/BDV/BVR1/CAD) and fractional values.
  *  - The reference models test points/vias as pins of dummy "..." parts;
- *    BoardScope keeps them as unowned test-point pins or vias.
+ *    BoardLoupe keeps them as unowned test-point pins or vias.
  *  - "UNCONNECTED", "NC@n" (GenCAD) and empty net names all mean "no net".
  *  - GenCAD: the reference rounds part placement and pin offsets to integer
- *    mils separately (up to ~2 mil drift); BoardScope keeps full precision,
+ *    mils separately (up to ~2 mil drift); BoardLoupe keeps full precision,
  *    which matches KiCad's own BRD export to <1 mil (see cross-format test).
- *  - TVW: the reference adapter ignores drill holes; BoardScope exposes them
+ *  - TVW: the reference adapter ignores drill holes; BoardLoupe exposes them
  *    as vias, so vias are excluded from the TVW test-point comparison.
  *  - TVW: the reference reads route-layer arc records (drill code 0x0B) as
  *    straight slots, producing stray lines (on a real Lenovo board: long
- *    diagonals to the origin). BoardScope decodes them as arcs, so only the
+ *    diagonals to the origin). BoardLoupe decodes them as arcs, so only the
  *    straight route edges are compared; closure is tested in tvw.test.ts.
  */
 import { readFileSync } from 'node:fs';
@@ -171,7 +171,7 @@ function compare(e: ManifestEntry, m: BoardModel, g: Golden): string[] {
   return errs;
 }
 
-describe('differential: BoardScope vs reference parsers', () => {
+describe('differential: BoardLoupe vs reference parsers', () => {
   for (const e of manifest) {
     test(`${e.id} (${e.format}, ${e.origin})`, () => {
       const out = parse(e.files, optionsFor(e));

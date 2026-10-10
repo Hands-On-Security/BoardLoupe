@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const APP = 'file://' + resolve(ROOT, 'dist/boardloupe.html');
 const FILE = process.env.BS_RESEARCH
   ? resolve(process.env.BS_RESEARCH, 'fixtures/vinafix/files/4cc7f8a85cf1c01f/LA-7201PR10-0221.brd-156_final.brd')
   : '';

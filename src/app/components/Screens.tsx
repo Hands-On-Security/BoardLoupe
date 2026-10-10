@@ -20,7 +20,7 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
               <CircuitBoard size={24} class="text-accent" />
             </div>
             <div>
-              <h1 class="text-[22px] font-semibold tracking-tight">BoardScope</h1>
+              <h1 class="text-[22px] font-semibold tracking-tight">BoardLoupe</h1>
               <p class="text-muted text-[13px]">Offline boardview viewer — identify components, trace nets, find solder points</p>
             </div>
           </div>
@@ -29,7 +29,7 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
             target="_blank"
             rel="noopener noreferrer external"
             class="flex flex-col items-start gap-1.5 rounded-xl border border-line2 px-3.5 py-2.5 hover:bg-raised transition-colors"
-            title="BoardScope is a Hands-On Security tool — open the project portal"
+            title="BoardLoupe is a Hands-On Security tool — open the project portal"
           >
             <HosLogo height={26} />
             <span class="text-[10.5px] text-faint">Practical hardware security training</span>

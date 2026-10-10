@@ -34,7 +34,7 @@ explanation (format guess, reason, byte offset or line).
 | **FZ**, unencrypted (ASRock style) | `.fz` | zlib header at offset 4 | **verified** | `glasgow-zlib.fz` (synthetic) | OBV `FZFile` | mil, or mm with `UNIT:millimeters` | `GRAPHIC_DATA_NAME` yields assembly/silkscreen part bodies where supplied; `CLASS` BOARD GEOMETRY OUTLINE yields the file outline. The synthetic fixture has neither, so its outline is derived. |
 | **FZ**, RC6-encrypted (ASUS style) | `.fz` | `.fz` + no zlib header (content encrypted) | **verified** with a user-supplied key | synthetic test key; two real encrypted boards opened locally with an ignored keyfile | OBV `FZFile` (RC6 CFB) | as above | **No vendor key is bundled.** Without a key: precise "key required" message. Wrong key: parity or "did not decrypt" message. |
 | **CAE** (FZ container) | `.cae` | `.cae` + container checks | partial | synthetic test key; two real encrypted X399 boards opened locally | OBV `CAEFile` and local corpus | mils declared | User key required. `CLASS` BOARD GEOMETRY rows yield file outline (40/63 segments); `GRAPHIC_DATA_NAME` yields bodies for >99% of parts. These real files contain assembly/place-bound/silkscreen graphics but no net-associated copper routes. |
-| **GenCAD 1.4** | `.cad`, `.gcd` | `$HEADER` + `GENCAD` | **verified** | `glasgow-kicad10.cad`, `glasgow-kicad10-flipped.cad` (**real**, KiCad 10) | OBV `GenCADFile` + spec; geometry cross-checked against kicad-boardview BRD2 (≤1 mil) | INCH/THOU/MM/MM100/USER* (declared) | Copper `$ROUTES` lines/vias shown; ARTWORK/MASK/TEXT ignored. Shape outlines are drawn as part bodies (may include silkscreen art). Reference rounding differs by ≤2.5 mil; BoardScope keeps full precision. |
+| **GenCAD 1.4** | `.cad`, `.gcd` | `$HEADER` + `GENCAD` | **verified** | `glasgow-kicad10.cad`, `glasgow-kicad10-flipped.cad` (**real**, KiCad 10) | OBV `GenCADFile` + spec; geometry cross-checked against kicad-boardview BRD2 (≤1 mil) | INCH/THOU/MM/MM100/USER* (declared) | Copper `$ROUTES` lines/vias shown; ARTWORK/MASK/TEXT ignored. Shape outlines are drawn as part bodies (may include silkscreen art). Reference rounding differs by ≤2.5 mil; BoardLoupe keeps full precision. |
 | **Mentor Graphics neutral file**; CAD "###Panel Added" export (COMP/C_PIN) | `.neu`, `.cad`, `.fil` | `B_UNITS` + `COMP`/`BOARD`, or `###Panel Added` + `C_PIN` | **verified** | `glasgow-panel.cad` (synthetic, reference-validated); Mentor grammar as inline test data; checked locally on a real Vinafix neutral file (1,954 parts, 6,533 pins) and a public sample | OBV `CADFile` for COMP/C_PIN/NET; beyond it: units, board outline (`B_ATTR`), `GEOM` bodies, `PAD`/`P_SHAPE` pads and drills, `N_VIA` vias, `N_TEST` test access, unplated holes | `B_UNITS` (inch/mil/mm) | Bodies are placed by rotating counter-clockwise, then mirroring X on the bottom; this maps every `G_PIN` onto its `C_PIN` in the real files. |
 | **GenCAM** (IPC-2511 1.x text) | `.a3p` | `$HEADER` + `GENCAM:` | **verified** | `glasgow.a3p` (synthetic: one pattern per component in its rotated/`MIRROR`ed frame, routes, vias, probes); grammar details as inline test data; checked locally on a real Compal LA-6841P `.a3p` (1,318 parts, 7,607 pins, 1,649 nets, 79k copper segments) | IPC-2511 statement grammar; placement checked against the file's own copper | `UNITS` (THOU, THOU10, INCH, MM, MM100, UM) | Placement: mirror X when `MIRROR`, rotate counter-clockwise, translate; on the real board this puts 70% of pins exactly on a route end or via of their own net (no other orientation comes close). Polygon pads are drawn as their bounding box. Multiple `BOARD`s in one file are shown together (each board's `OUTLINE` in shared absolute coordinates) — **this multi-board path is covered only by a synthetic two-board fixture**; no authentic multi-board GenCAM export was found in the corpus or publicly (2026-10), so single-board placement is real-verified but the panel case is not. |
 | **Unisoft F2B** (MFC CArchive) | `.f2b` | archive version 6/8 + `CTraceList` class name at offset 24 | **verified** | `glasgow.f2b` (synthetic); checked locally on two real files (an NVIDIA VGA card, 404 parts / 10 copper layers; a laptop mainboard, 1,366 parts / 15 layers) | Layout from real files: every pin, component and dictionary entry resolves, declared pin counts agree | f32 resolution (units per inch) | Pins reference their component through MFC object references; negative pin numbers are keys of BGA ball labels in the net dictionary (they form proper ball grids); net key 0xFFFF is unconnected; owner-less pins are vias. No outline and no pad sizes are stored (outline derived, typical pad size). Fixture tooling holes far outside the board are left out with a note. |
@@ -57,17 +57,17 @@ Found on a real Lenovo X1 Carbon Gen9 (NM-D341) board and verified on all of its
 1. **Route arc slots.** Drill records with code `0x0B` are arcs: centre, radius, then start and
    sweep angles as float32 degrees (negative = clockwise). The record has the same size as a straight
    `0x0A` slot. The reference reads them as lines, which draws stray diagonals across the board (to
-   the origin when the start angle is 0°). BoardScope decodes them as arcs; the route outline then
+   the origin when the start angle is 0°). BoardLoupe decodes them as arcs; the route outline then
    forms closed loops (419 segments, 0 open endpoints on that board).
 2. **Part bodies.** The part record's box includes the reference-designator text and sits offset
    from the component for rotated parts (only 4 of 183 top-side 270° parts contained their own pins).
-   BoardScope draws the decal outline instead, placed with the pad transform: rotate
+   BoardLoupe draws the decal outline instead, placed with the pad transform: rotate
    counter-clockwise by the part angle, then mirror X on the bottom side. This transform reproduces
    100% of the pads of all parts from their decals' local pads, and every pin then lies inside its
    part body.
 3. **Drills.** Tool sizes are 1/100 mil like all coordinates; on that board they match the hole size
    stored in each pad record exactly (e.g. a 3.3 mm drill in a 6.0 mm GND screw pad). The drill
-   table also repeats the hole of every through-hole pin (243 records there). BoardScope draws those
+   table also repeats the hole of every through-hole pin (243 records there). BoardLoupe draws those
    as holes cut into the pads instead of as separate vias. Decal outlines of mechanical parts (part
    type 21) and fiducials (type 29) are keep-out circles larger than the copper, so they are drawn
    dashed.
@@ -85,16 +85,16 @@ OpenBoardView, KiCad 10.0.1 and an independent CAMCAD conversion.
    2,257 nets (= `nets.asc`) and the closed outline are read. `parts.asc` supplies rotation and footprint.
 2. **GenCAD (CAMCAD, Lenovo X270).** Identical to OpenBoardView: 2,157 parts, 7,848 pins, no net
    differences. 29 BGA pins differ by 2.6 mil because the reference rounds placement and pad offsets to
-   whole mils separately; BoardScope equals the hand computation from the raw records. Two SMD connectors
-   with drilled pegs are marked "both sides" by the reference and kept on the bottom by BoardScope (the
+   whole mils separately; BoardLoupe equals the hand computation from the raw records. Two SMD connectors
+   with drilled pegs are marked "both sides" by the reference and kept on the bottom by BoardLoupe (the
    file's `TECHNOLOGY "SMD"`). `$BOARD` holds a drawing frame and hatching, not an outline, so the outline
    is derived (as in the reference).
-3. **Allegro 16.6 (same X270 board) via KiCad.** `kicad-cli pcb import` → BoardScope's KiCad reader matches
+3. **Allegro 16.6 (same X270 board) via KiCad.** `kicad-cli pcb import` → BoardLoupe's KiCad reader matches
    the independent CAMCAD GenCAD on all 7,848 pins (0.000 mil) and 1,566 nets, and adds the real board
    outline, part bodies, 45,602 copper segments and 525 pin-net assignments CAMCAD dropped.
    KiCad 10.0.1's own GenCAD and position-file exporters write `${REFERENCE}` instead of reference
    designators for such imports (KiCad gives each footprint a second, unresolved "Reference" property);
-   BoardScope reads the real one and warns when it meets such a GenCAD file.
+   BoardLoupe reads the real one and warns when it meets such a GenCAD file.
 
 ## Not supported (yet)
 
@@ -109,7 +109,7 @@ OpenBoardView, KiCad 10.0.1 and an independent CAMCAD conversion.
 
 ## Verification summary (automated)
 
-- `tests/formats/differential.test.ts`: 17 fixtures; BoardScope equals the compiled reference parser (parts, sides, pin positions ±1 unit, nets, pin numbers, test points, outline).
+- `tests/formats/differential.test.ts`: 17 fixtures; BoardLoupe equals the compiled reference parser (parts, sides, pin positions ±1 unit, nets, pin numbers, test points, outline).
 - `tests/formats/cross-format.test.ts`: the same real board via three exporters agrees to <1.1 mil on 1,130+ pins with zero net mismatches.
 - `tests/formats/fuzz.test.ts`: truncation, byte flips, splices and extreme counts/offsets for every fixture, plus random input. No crashes or hangs; every successful parse passes integrity validation.
 - `tests/formats/detection.test.ts`: detection by content (renamed extensions), key handling, multi-file ASC, ZIP, and diagnostics for unsupported inputs.

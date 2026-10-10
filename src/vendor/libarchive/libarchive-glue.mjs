@@ -16,7 +16,7 @@ var libarchive = (() => {
     };
     var ENVIRONMENT_IS_WEB = typeof window == "object";
     var ENVIRONMENT_IS_WORKER = typeof importScripts == "function";
-    // Patched for the browser bundle: BoardScope only runs this in the browser
+    // Patched for the browser bundle: BoardLoupe only runs this in the browser
     // with Module.wasmBinary provided, so the Node branch (require/fs/import
     // "module") is disabled and removed to keep the bundler from resolving it.
     const ENVIRONMENT_IS_NODE = false;
@@ -196,7 +196,7 @@ var libarchive = (() => {
         wasmBinaryFile = locateFile(wasmBinaryFile);
       }
     } else {
-      // BoardScope always supplies Module.wasmBinary + locateFile, so the wasm
+      // BoardLoupe always supplies Module.wasmBinary + locateFile, so the wasm
       // is never fetched by URL; keep a bare name (no import.meta.url asset
       // resolution) for the single-file browser bundle.
       wasmBinaryFile = "libarchive.wasm";

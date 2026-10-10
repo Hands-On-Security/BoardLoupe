@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const APP = 'file://' + resolve(ROOT, 'dist/boardloupe.html');
 const FX = (p: string) => resolve(ROOT, 'fixtures', p);
 const SHOTS = resolve(ROOT, 'test-results/screens');
 
@@ -37,7 +37,7 @@ async function load(page: Page, ...files: string[]) {
 async function pinScreen(page: Page, part: string, pin: string) {
   return page.evaluate(
     ([part, pin]) => {
-      const bs = (window as unknown as { boardscope: { viewer: { model: import('../../src/model/types').BoardModel }; toScreen: (x: number, y: number) => [number, number] } }).boardscope;
+      const bs = (window as unknown as { boardloupe: { viewer: { model: import('../../src/model/types').BoardModel }; toScreen: (x: number, y: number) => [number, number] } }).boardloupe;
       const m = bs.viewer.model;
       const k = m.parts.name.indexOf(part);
       for (let j = m.parts.pinStart[k]; j < m.parts.pinStart[k] + m.parts.pinCount[k]; j++) if (m.pins.number[j] === pin) return bs.toScreen(m.pins.x[j], m.pins.y[j]);
@@ -47,7 +47,7 @@ async function pinScreen(page: Page, part: string, pin: string) {
   );
 }
 
-test.describe('BoardScope single-file app', () => {
+test.describe('BoardLoupe single-file app', () => {
   test('empty state, offline guarantee and no console errors', async ({ page }, info) => {
     const net = trackNetwork(page);
     const errors = await openApp(page);
@@ -66,7 +66,7 @@ test.describe('BoardScope single-file app', () => {
     await expect(page.getByTestId('file-name')).toHaveText('glasgow-kicad10.cad');
     await expect(page.getByText(/272 parts · 1,149 pins · 251 nets/)).toBeVisible();
     // Parsing ran in the inlined Blob worker (not the main-thread fallback).
-    expect(await page.evaluate(() => (window as unknown as { boardscope: { store: { get(): { board: { timings: { mode: string } } } } } }).boardscope.store.get().board.timings.mode)).toBe('worker');
+    expect(await page.evaluate(() => (window as unknown as { boardloupe: { store: { get(): { board: { timings: { mode: string } } } } } }).boardloupe.store.get().board.timings.mode)).toBe('worker');
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${SHOTS}/${info.project.name}-gencad.png` });
     expect(net).toEqual([]);
@@ -74,7 +74,7 @@ test.describe('BoardScope single-file app', () => {
     // The canvas actually contains drawn pixels (not just the background).
     const varied = await page.evaluate(() => {
       // Render and read back in the same task (the WebGL buffer is not preserved).
-      (window as unknown as { boardscope: { viewer: { renderNow(): void } } }).boardscope.viewer.renderNow();
+      (window as unknown as { boardloupe: { viewer: { renderNow(): void } } }).boardloupe.viewer.renderNow();
       const c = document.querySelector('[data-testid="board"] canvas') as HTMLCanvasElement;
       const tmp = document.createElement('canvas');
       tmp.width = 200;
@@ -144,7 +144,7 @@ test.describe('BoardScope single-file app', () => {
   test('show only this side: hide / ghost the other side (toolbar and G)', async ({ page }) => {
     await openApp(page);
     await load(page, FX('synthetic/glasgow.tvw')); // has top and bottom parts
-    const other = () => page.evaluate(() => (window as unknown as { boardscope: { viewer: { opts: { otherSide: string } } } }).boardscope.viewer.opts.otherSide);
+    const other = () => page.evaluate(() => (window as unknown as { boardloupe: { viewer: { opts: { otherSide: string } } } }).boardloupe.viewer.opts.otherSide);
     await expect.poll(other).toBe('ghost');
     // Toolbar control: one click shows only the current side.
     await page.getByRole('button', { name: /only this side/i }).click();
@@ -166,7 +166,7 @@ test.describe('BoardScope single-file app', () => {
     await page.getByTestId('board-canvas').click({ position: { x: 5, y: 5 } });
     await page.keyboard.press('Space');
     await expect(bottom).toHaveAttribute('aria-pressed', 'true');
-    const mirrored = await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { mirror: boolean } } } }).boardscope.viewer.view.mirror);
+    const mirrored = await page.evaluate(() => (window as unknown as { boardloupe: { viewer: { view: { mirror: boolean } } } }).boardloupe.viewer.view.mirror);
     expect(mirrored).toBe(true);
     const zoomText = page.locator('footer').getByText(/^\d+%$/);
     await expect(zoomText).toHaveText('100%');
@@ -175,16 +175,16 @@ test.describe('BoardScope single-file app', () => {
     await page.mouse.wheel(0, -400);
     await expect(zoomText).not.toHaveText('100%');
     await page.keyboard.press('r');
-    expect(await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { rot: number } } } }).boardscope.viewer.view.rot)).toBe(90);
+    expect(await page.evaluate(() => (window as unknown as { boardloupe: { viewer: { view: { rot: number } } } }).boardloupe.viewer.view.rot)).toBe(90);
     await page.keyboard.press('f');
     await expect(zoomText).toHaveText('100%');
     // drag pans
-    const before = await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { cx: number } } } }).boardscope.viewer.view.cx);
+    const before = await page.evaluate(() => (window as unknown as { boardloupe: { viewer: { view: { cx: number } } } }).boardloupe.viewer.view.cx);
     await page.mouse.move(box.x + 300, box.y + 300);
     await page.mouse.down();
     await page.mouse.move(box.x + 420, box.y + 340, { steps: 6 });
     await page.mouse.up();
-    const after = await page.evaluate(() => (window as unknown as { boardscope: { viewer: { view: { cx: number; cy: number } } } }).boardscope.viewer.view);
+    const after = await page.evaluate(() => (window as unknown as { boardloupe: { viewer: { view: { cx: number; cy: number } } } }).boardloupe.viewer.view);
     expect(after.cx !== before).toBe(true);
   });
 
@@ -203,7 +203,7 @@ test.describe('BoardScope single-file app', () => {
     expect(csv).toContain('GND,');
     const [dj] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: /JSON/ }).click()]);
     const json = JSON.parse(readFileSync((await dj.path())!, 'utf8'));
-    expect(json.schema).toBe('boardscope/board@1');
+    expect(json.schema).toBe('boardloupe/board@1');
     expect(json.parts.length).toBe(272);
   });
 
@@ -213,7 +213,7 @@ test.describe('BoardScope single-file app', () => {
     // Count framebuffer pixels in the single-net highlight colour, rendered and read in one task.
     const counts = await page.evaluate(() => {
       type BS = { store: { set: (p: object) => void }; viewer: { model: import('../../src/model/types').BoardModel; renderNow: () => void; setOptions: (o: object) => void; palette: { selNet: number[] } } };
-      const bs = (window as unknown as { boardscope: BS }).boardscope;
+      const bs = (window as unknown as { boardloupe: BS }).boardloupe;
       const m = bs.viewer.model;
       // A small net whose pins are all on the top side and which has no vias (vias go through the board).
       let net = -1;
@@ -284,7 +284,7 @@ test.describe('BoardScope single-file app', () => {
     await panel.getByRole('list', { name: 'Saved groups' }).getByRole('button', { name: /I2C bus/ }).click();
     await expect(page.getByTestId('highlight-legend')).toContainText('/SCL');
     // Saved groups persist in this browser only.
-    const stored = await page.evaluate(() => localStorage.getItem('boardscope.groups.v1'));
+    const stored = await page.evaluate(() => localStorage.getItem('boardloupe.groups.v1'));
     expect(stored).toContain('I2C bus');
   });
 
@@ -298,7 +298,7 @@ test.describe('BoardScope single-file app', () => {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     type V = { cx: number; cy: number; scale: number; width: number; height: number };
     const viewNow = () => page.evaluate(() => {
-      const v = (window as unknown as { boardscope: { viewer: { view: V } } }).boardscope.viewer.view;
+      const v = (window as unknown as { boardloupe: { viewer: { view: V } } }).boardloupe.viewer.view;
       return [v.cx, v.cy, v.scale, v.width, v.height];
     });
     const before = await viewNow();
@@ -322,7 +322,7 @@ test.describe('BoardScope single-file app', () => {
     expect(html.startsWith('<!doctype html>')).toBe(true);
     expect(html).not.toMatch(/<script/i);
     expect(html).toContain('size: A4 portrait');
-    expect(html).toContain('hos.direct/boardscope');
+    expect(html).toContain('hos.direct/boardloupe');
     expect(html).toMatch(/<img src="data:image\/png;base64,/);
   });
 
@@ -370,7 +370,7 @@ test.describe('BoardScope single-file app', () => {
     await openApp(page);
     await load(page, FX('real/glasgow/glasgow.kicad_pcb'));
     const info = await page.evaluate(() => {
-      const m = (window as unknown as { boardscope: { viewer: { model: import('../../src/model/types').BoardModel } } }).boardscope.viewer.model;
+      const m = (window as unknown as { boardloupe: { viewer: { model: import('../../src/model/types').BoardModel } } }).boardloupe.viewer.model;
       let drilled = 0;
       for (let i = 0; i < m.pins.count; i++) if (m.pins.hole[i] > 0) drilled++;
       return { fmt: m.source.formatId, outline: m.outline.source, bodies: m.caps.partBodies, layers: m.layers.length, drilled, traces: m.traces.count };
@@ -400,7 +400,7 @@ test.describe('BoardScope single-file app', () => {
     await expect(page.getByTestId('dropzone')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(after);
     const keys = await page.evaluate(() => Object.keys(localStorage));
-    expect(keys).toEqual(['boardscope.prefs.v1']);
+    expect(keys).toEqual(['boardloupe.prefs.v1']);
   });
 
   test('picking on the mirrored bottom side and selection history', async ({ page }) => {
@@ -408,14 +408,14 @@ test.describe('BoardScope single-file app', () => {
     await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
     // Find a bottom-side part and show it via search (switches to the bottom view).
     const name = (await page.evaluate(`(() => {
-      const m = boardscope.viewer.model;
+      const m = boardloupe.viewer.model;
       for (let k = 0; k < m.parts.count; k++) if (m.parts.side[k] === 2 && m.parts.pinCount[k] === 2) return m.parts.name[k];
     })()`)) as string;
     await page.keyboard.press('/');
     await page.keyboard.type(name);
     await page.keyboard.press('Enter');
     await expect(page.getByRole('button', { name: 'Bottom', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    expect(await page.evaluate(`boardscope.viewer.view.mirror`)).toBe(true);
+    expect(await page.evaluate(`boardloupe.viewer.view.mirror`)).toBe(true);
     const p = await pinScreen(page, name, '2');
     const box = (await page.getByTestId('board-canvas').boundingBox())!;
     await page.mouse.click(box.x + p![0], box.y + p![1]);
@@ -433,9 +433,9 @@ test.describe('BoardScope single-file app', () => {
     await load(page, FX('synthetic/glasgow.tvw'));
     // Hide labels (the refdes sits on the hole centre), zoom to mounting hole MK1:
     // one large drilled pad plus small stitching vias that lie on its copper ring.
-    await page.evaluate(`boardscope.store.set({ prefs: { ...boardscope.store.get().prefs, showPartLabels: false, showPinLabels: false, showNetLabels: false } })`);
+    await page.evaluate(`boardloupe.store.set({ prefs: { ...boardloupe.store.get().prefs, showPartLabels: false, showPinLabels: false, showNetLabels: false } })`);
     const pts = (await page.evaluate(`(() => {
-      const v = boardscope.viewer, m = v.model;
+      const v = boardloupe.viewer, m = v.model;
       const k = m.parts.name.indexOf('MK1');
       const a = m.parts.pinStart[k], n = m.parts.pinCount[k];
       let big = a, small = a;
@@ -445,7 +445,7 @@ test.describe('BoardScope single-file app', () => {
       }
       const r = m.pins.w[big];
       v.focus({ minX: m.pins.x[big] - r, minY: m.pins.y[big] - r, maxX: m.pins.x[big] + r, maxY: m.pins.y[big] + r }, 1000);
-      return [boardscope.toScreen(m.pins.x[big], m.pins.y[big]), boardscope.toScreen(m.pins.x[small], m.pins.y[small])];
+      return [boardloupe.toScreen(m.pins.x[big], m.pins.y[big]), boardloupe.toScreen(m.pins.x[small], m.pins.y[small])];
     })()`)) as [number, number][];
     await page.waitForTimeout(150);
     const box = (await page.getByTestId('board-canvas').boundingBox())!;
@@ -486,11 +486,11 @@ test.describe('BoardScope single-file app', () => {
 
   test('Canvas 2D fallback renderer draws the board', async ({ page }) => {
     await openApp(page);
-    await page.evaluate(`boardscope.store.set({ prefs: { ...boardscope.store.get().prefs, forceCanvas2d: true } })`);
+    await page.evaluate(`boardloupe.store.set({ prefs: { ...boardloupe.store.get().prefs, forceCanvas2d: true } })`);
     await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
     await expect(page.locator('footer').getByText('Canvas 2D')).toBeVisible();
     const varied = await page.evaluate(`(() => {
-      boardscope.viewer.renderNow();
+      boardloupe.viewer.renderNow();
       const c = document.querySelector('[data-testid="board"] canvas');
       const g = c.getContext('2d');
       const d = g.getImageData(0, 0, c.width, c.height).data;

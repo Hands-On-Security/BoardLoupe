@@ -90,7 +90,7 @@ export function describeUnknown(file: InputFile, sniff: Sniff): string {
   if (startsWithBytes(b, [0x1f, 0x8b])) return 'This is a gzip-compressed file. Decompress it first.';
   if (startsWithBytes(b, [0x89, 0x50, 0x4e, 0x47]) || startsWithBytes(b, [0xff, 0xd8, 0xff])) return 'This is an image, not a boardview.';
   if (startsWithBytes(b, [0xd0, 0xcf, 0x11, 0xe0])) return 'This is an OLE compound document (e.g. Altium .PcbDoc, Excel/Word). Binary design databases are not boardviews and are not supported.';
-  if (sniff.headText.startsWith('PCBNEW-BOARD')) return 'This is a legacy KiCad board (KiCad 4 or older). Open it in a current KiCad and save it as .kicad_pcb, which BoardScope opens directly.';
+  if (sniff.headText.startsWith('PCBNEW-BOARD')) return 'This is a legacy KiCad board (KiCad 4 or older). Open it in a current KiCad and save it as .kicad_pcb, which BoardLoupe opens directly.';
   const fw = firmwareKind(b);
   if (fw) return `This is ${fw}, not a boardview. Boardviews are files such as .brd, .bdv, .tvw, .fz, .cad or an ASC set.`;
   const e = entropy(b);

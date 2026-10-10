@@ -1,11 +1,11 @@
-# BoardScope
+# BoardLoupe
 
 **An offline, private boardview viewer in a single HTML file.**
-Open `dist/boardview.html` by double-clicking it. It runs in Chrome, Edge,
+Open `dist/boardloupe.html` by double-clicking it. It runs in Chrome, Edge,
 Firefox and Safari with no installation, no server, no network access and no
 account. Boardview files are parsed in your browser and never leave your machine.
 
-A [**Hands-On Security**](https://hos.direct/boardscope) tool — built for the hardware
+A [**Hands-On Security**](https://hos.direct/boardloupe) tool — built for the hardware
 security classroom: identify components, trace a bus across the board, and find better,
 more accessible solder and probe points on the same net (for example reaching the SPI/LPC
 bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch ball).
@@ -19,7 +19,7 @@ bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch b
 
 ## Quick start
 
-1. Get `dist/boardview.html` (≈2.0 MB, ≈839 KB gzipped). It is the only file you need.
+1. Get `dist/boardloupe.html` (≈2.0 MB, ≈839 KB gzipped). It is the only file you need.
    Most of the size is the RAR/7z decoder, which is decoded and run only the first
    time you open a RAR or 7z — nothing is fetched, ever.
 2. Double-click it, or drag it into a browser window.
@@ -71,18 +71,18 @@ Formats are recognised **by content**, not by file extension. The full details
 open-source reference implementation (OpenBoardView / eagleview, compiled from
 source) on the fixture, plus integrity, fuzz and browser tests.
 **No vendor decryption keys are included.** Encrypted FZ, CAE and XZZ files show a clear
-"key required" message. BoardScope is a **bring-your-own-key** tool for keys you are
+"key required" message. BoardLoupe is a **bring-your-own-key** tool for keys you are
 entitled to use — see [Decryption keys](#decryption-keys-bring-your-own) below.
 
 ### Decryption keys (bring your own)
 
-Some FZ, CAE and XZZ files are encrypted. BoardScope ships no keys and is fully functional
+Some FZ, CAE and XZZ files are encrypted. BoardLoupe ships no keys and is fully functional
 without them; to open such a file you supply the key yourself under **Settings → Decryption keys**.
 
 - **Per format.** A key can be set for FZ, CAE and XZZ independently. The panel shows which
   formats currently have a key — never the key material itself.
 - **Import a keyfile.** Paste a key, or import a keyfile you created that holds several keys at once.
-  For local research notes in `*.key.md`, `python3 tools/merge-research-keys.py /path/to/docs/formats private-keys/boardscope.keys.json`
+  For local research notes in `*.key.md`, `python3 tools/merge-research-keys.py /path/to/docs/formats private-keys/boardloupe.keys.json`
   creates an ignored keyfile with FZ, CAE and XZZ keys and the accompanying note metadata. Import it
   under Settings. For repeatable local checks, set `BS_RESEARCH` to the corpus directory and
   `BS_RESEARCH_KEYFILE` to that ignored keyfile, then run `npm test` or `npm run test:e2e`.
@@ -96,7 +96,7 @@ without them; to open such a file you supply the key yourself under **Settings �
 ### Allegro boards, natively
 
 Cadence Allegro `.brd` databases (releases 15.5, 16.x and 17.x) open directly: no Allegro, no KiCad, no
-conversion. BoardScope walks Allegro's record stream itself and builds parts, pins, nets, drills,
+conversion. BoardLoupe walks Allegro's record stream itself and builds parts, pins, nets, drills,
 vias, copper traces, the board outline and the copper layer names. On real boards this matches
 KiCad 10's own Allegro import pin for pin for 16.x/17.x; a matching GenCAD export validates 15.5
 pins and nets (see FORMAT_MATRIX.md). Other 15.x variants have not been tested. Altium,
@@ -164,8 +164,8 @@ Unavailable fields are labelled "not in file".
 - The page makes **no network requests**: no CDN, fonts, analytics, telemetry or error reporting.
   The build fails if the HTML references any external resource, and the end-to-end tests assert that
   zero requests are made.
-- `localStorage` holds display preferences only (`boardscope.prefs.v1`). Decryption keys are stored
-  only if you save them, and then only as a passphrase-encrypted blob (`boardscope.keystore.v1`,
+- `localStorage` holds display preferences only (`boardloupe.prefs.v1`). Decryption keys are stored
+  only if you save them, and then only as a passphrase-encrypted blob (`boardloupe.keystore.v1`,
   AES-GCM/PBKDF2); the passphrase and the plaintext keys are never written. Board contents are never stored.
 
 ## Architecture
@@ -184,7 +184,7 @@ File(s) ─► worker (Blob URL)                              main thread
   precise diagnostics.
 - `src/io/`: bounds-checked `ByteReader`, text decoding (UTF-8 / Windows-1252 / UTF-16), line splitting
   that reproduces the reference, size-capped inflate (decompression-bomb protection), and DES.
-- `src/model/`: versioned struct-of-arrays model (`boardscope/board@1`) for parts, pins, nets, vias,
+- `src/model/`: versioned struct-of-arrays model (`boardloupe/board@1`) for parts, pins, nets, vias,
   traces, outline, units, capabilities and diagnostics. The builder groups pins by part, builds net
   membership, derives boxes and outlines (flagged as derived), and validates integrity.
 - `src/scene/`: render-ready derived data plus flatbush R-trees, built in the worker and transferred zero-copy.
@@ -203,7 +203,7 @@ decompression output is capped, and input size is capped at 400 MB.
 | Command | What it does |
 |---|---|
 | `npm run dev` | Vite dev server with hot reload |
-| `npm run build` | Builds `dist/boardview.html` and verifies it is self-contained |
+| `npm run build` | Builds `dist/boardloupe.html` and verifies it is self-contained |
 | `npm test` | All unit, format, differential and fuzz tests (Vitest) |
 | `npm run test:formats` | Format tests only |
 | `BS_PRIVATE_FIXTURES=/dir npm test` | Also runs integrity and geometry checks on your own (non-redistributable) boardviews in `/dir` |
@@ -273,10 +273,10 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 - **"No supported boardview signature"**: the file is not one of the supported dialects. The message
   shows the first bytes and whether the content looks encrypted or compressed. Extensions such as
   `.brd` are shared by incompatible formats.
-- **Dropped a whole board folder**: BoardScope opens the boardview in it (also inside ZIP, RAR and 7z,
+- **Dropped a whole board folder**: BoardLoupe opens the boardview in it (also inside ZIP, RAR and 7z,
   one level of ZIP-in-ZIP, ignoring macOS metadata). If there is none, it lists what the files are —
   schematics, PDF boardview drawings, BIOS/EC firmware dumps, programs — so you know what is missing.
-- **Password-protected RAR/7z**: BoardScope does not prompt for archive passwords. Extract the archive
+- **Password-protected RAR/7z**: BoardLoupe does not prompt for archive passwords. Extract the archive
   with its password first, then open the boardview inside.
 - **"Key required" / "parity check"**: the file is encrypted. Set a key you are entitled to use under
   *Settings → Decryption keys* (see [Decryption keys](#decryption-keys-bring-your-own)).
@@ -288,7 +288,7 @@ Software-only WebGL (e.g. headless SwiftShader) is far slower on 200k-pin boards
 
 ## Credits and licences
 
-BoardScope is published by [Hands-On Security](https://hos.direct/boardscope) and is MIT-licensed.
+BoardLoupe is published by [Hands-On Security](https://hos.direct/boardloupe) and is MIT-licensed.
 The bundled archive decoder retains its own third-party licences, including OpenSSL 1.0.2s.
 This product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit (http://www.openssl.org/).
 This product includes cryptographic software written by Eric Young (eay@cryptsoft.com).

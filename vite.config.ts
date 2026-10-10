@@ -3,7 +3,7 @@ import preact from '@preact/preset-vite';
 import tailwindcss from '@tailwindcss/vite';
 
 // The production build emits one JS chunk + one CSS file which
-// tools/postbuild.mjs inlines into dist/boardview.html.
+// tools/postbuild.mjs inlines into dist/boardloupe.html.
 export default defineConfig({
   base: './',
   plugins: [preact(), tailwindcss()],

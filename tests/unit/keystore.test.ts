@@ -32,7 +32,7 @@ describe('keystore: keyfile', () => {
       { format: 'fz', label: 'test board', key: FZ },
       { format: 'xzz', key: XZZ_TEST_KEY },
     ]);
-    expect(text).toContain('"boardscope_keystore": 1');
+    expect(text).toContain('"boardloupe_keystore": 1');
     const { entries, warnings } = parseKeyfile(text);
     expect(entries.map((e) => e.format)).toEqual(['fz', 'xzz']);
     expect(entriesToMap(entries)).toEqual({ fz: FZ, xzz: XZZ_TEST_KEY });
@@ -41,12 +41,12 @@ describe('keystore: keyfile', () => {
 
   test('rejects non-keyfiles and files with no usable keys', () => {
     expect(() => parseKeyfile('[]')).toThrow(/keyfile/i);
-    expect(() => parseKeyfile('{"boardscope_keystore":1,"keys":[]}')).toThrow(/no usable keys/i);
-    expect(() => parseKeyfile('{"boardscope_keystore":1,"keys":[{"format":"fz","key":"garbage"}]}')).toThrow(/no usable keys/i);
+    expect(() => parseKeyfile('{"boardloupe_keystore":1,"keys":[]}')).toThrow(/no usable keys/i);
+    expect(() => parseKeyfile('{"boardloupe_keystore":1,"keys":[{"format":"fz","key":"garbage"}]}')).toThrow(/no usable keys/i);
   });
 
   test('warns about unknown formats and duplicates but keeps valid keys', () => {
-    const doc = JSON.stringify({ boardscope_keystore: 1, keys: [{ format: 'fz', key: FZ }, { format: 'fz', key: FZ }, { format: 'wut', key: 'x' }] });
+    const doc = JSON.stringify({ boardloupe_keystore: 1, keys: [{ format: 'fz', key: FZ }, { format: 'fz', key: FZ }, { format: 'wut', key: 'x' }] });
     const { entries, warnings } = parseKeyfile(doc);
     expect(entries).toHaveLength(1);
     expect(warnings.some((w) => /duplicate/i.test(w))).toBe(true);

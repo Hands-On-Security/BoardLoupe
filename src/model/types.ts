@@ -9,7 +9,7 @@
  * World Y points up (CAD convention); parsers convert where needed.
  */
 
-export const MODEL_SCHEMA = 'boardscope/board@1' as const;
+export const MODEL_SCHEMA = 'boardloupe/board@1' as const;
 
 /** Board side. Values are bit flags: BOTH = TOP | BOTTOM. */
 export const SIDE_NONE = 0;

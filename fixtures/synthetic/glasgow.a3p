@@ -1,6 +1,6 @@
 $HEADER
   GENCAM: "1.5";
-  GENERATEDBY: "BoardScope fixture writer","1";
+  GENERATEDBY: "BoardLoupe fixture writer","1";
   UNITS: THOU;
   ANGLEUNITS: DEGREES;
   ATTRIBUTE: "/GRA3/","PROJECT_NAME","Glasgow ""revC"" (0BSD)",;

@@ -104,7 +104,7 @@ export function TablesDialog() {
     else selectPin(i);
   };
   const exportCsv = () => downloadText(`${baseName(m)}-${tab}.csv`, toCsv(cols.map((c) => c.label), rows.map((i) => cols.map((c) => c.get(i)))), 'text/csv;charset=utf-8');
-  const exportJson = () => downloadText(`${baseName(m)}.boardscope.json`, JSON.stringify(modelToJson(m), null, 1), 'application/json');
+  const exportJson = () => downloadText(`${baseName(m)}.boardloupe.json`, JSON.stringify(modelToJson(m), null, 1), 'application/json');
   const grid = cols.map((c) => c.w).join(' ') + ' 64px';
   return (
     <Dialog title="Tables & export" onClose={close} wide icon={<Table2 size={16} class="text-accent" />}>
@@ -281,7 +281,7 @@ function Keystore() {
         <KeyRound size={12} /> Decryption keys
       </h3>
       <p class="text-[12px] text-muted mb-2 leading-relaxed">
-        Some vendors encrypt their boardviews. BoardScope implements these ciphers but ships <strong>no keys</strong>. Use only keys you are entitled to use. Keys stay in this
+        Some vendors encrypt their boardviews. BoardLoupe implements these ciphers but ships <strong>no keys</strong>. Use only keys you are entitled to use. Keys stay in this
         browser; when saved they are encrypted with your passphrase, which is never stored.
       </p>
 
@@ -482,7 +482,7 @@ export function HelpDialog() {
               <HosLogo height={22} />
             </a>
             <p class="text-muted text-[11.5px]">
-              BoardScope is a <a href={HOS_URL} target="_blank" rel="noopener noreferrer external" class="text-brand hover:underline font-medium">Hands-On Security</a> tool — practical
+              BoardLoupe is a <a href={HOS_URL} target="_blank" rel="noopener noreferrer external" class="text-brand hover:underline font-medium">Hands-On Security</a> tool — practical
               hardware security training on real hardware. Used in class to find the TPM and better solder points where the same bus connects.
             </p>
             <HosByline class="text-[11px]" />

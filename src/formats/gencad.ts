@@ -513,7 +513,7 @@ export const gencadFormat: FormatModule = {
     if (textVars > 0)
       b.warn(
         'gencad.textvar',
-        `${textVars} component(s) are named with an unexpanded text variable such as "\${REFERENCE}" instead of a reference designator (a KiCad GenCAD-export issue for imported boards). Open the KiCad board (.kicad_pcb) in BoardScope instead to get the real names.`,
+        `${textVars} component(s) are named with an unexpanded text variable such as "\${REFERENCE}" instead of a reference designator (a KiCad GenCAD-export issue for imported boards). Open the KiCad board (.kicad_pcb) in BoardLoupe instead to get the real names.`,
       );
     return b.finish({ fileName: ctx.file.name, fileSize: ctx.file.bytes.length, formatId: this.id, formatName: this.name, variant: null, extraFiles: [] });
   },

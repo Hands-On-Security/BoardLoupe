@@ -1,7 +1,7 @@
 /**
  * Opt-in run over a research corpus that cannot be committed (vendor files):
  *
- *   BS_RESEARCH=/path/to/boardscope-research npm test
+ *   BS_RESEARCH=/path/to/research-corpus npm test
  *
  * The corpus has fixtures/manifest.jsonl with one {format, file} row per
  * sample. Rows of a format listed in OPENS must open with integrity; every
@@ -22,7 +22,7 @@ import { validateModel } from '../../src/model/validate';
 const ROOT = process.env.BS_RESEARCH;
 const MANIFEST = ROOT ? join(ROOT, 'fixtures/manifest.jsonl') : '';
 
-/** Research format id → BoardScope readers expected to open every sample of it. */
+/** Research format id → BoardLoupe readers expected to open every sample of it. */
 const OPENS: Record<string, string[]> = {
   brd2: ['brd2-brdout'],
   'landrex-brd': ['brd-testlink'],

@@ -2,7 +2,7 @@
  * Fixture writers. Each one produces a file exactly as the corresponding
  * reference parser (OpenBoardView / eagleview) reads it. Generated fixtures
  * are fed to BOTH the reference C++ parser (tools/obv-harness) and
- * BoardScope's parser; the test-suite requires both to agree.
+ * BoardLoupe's parser; the test-suite requires both to agree.
  */
 import { zlibSync } from 'fflate';
 import { encodeBdv } from '../../src/formats/asc';
@@ -168,7 +168,7 @@ export function writeBrd2(b: SrcBoard): Uint8Array {
 // ------------------------------------------------------------------ BDV / ASC
 
 const ASC_HEADER = (title: string, n: number) =>
-  Array.from({ length: n }, (_, i) => (i === 0 ? `${title} -- BoardScope synthetic fixture (Glasgow, 0BSD)` : i === 1 ? 'Units: inch' : `Header line ${i + 1}`));
+  Array.from({ length: n }, (_, i) => (i === 0 ? `${title} -- BoardLoupe synthetic fixture (Glasgow, 0BSD)` : i === 1 ? 'Units: inch' : `Header line ${i + 1}`));
 
 function ascFormat(b: SrcBoard): string[] {
   return b.outline.map(([x, y]) => `${inch(x)} ${inch(y)}`);
@@ -240,7 +240,7 @@ export function writeFz(b: SrcBoard, key?: number[]): Uint8Array {
   L.push('A!TESTVIA!NET_NAME!REFDES!PIN_NUMBER!PIN_NAME!VIA_X!VIA_Y!TEST_POINT!RADIUS!');
   for (const n of b.nails) L.push(`S!Y!${n.net}!TP${n.probe}!1!1!${n.x}!${n.y}!${n.side}!10!`);
   const content = enc.encode(L.join('\r\n') + '\r\n');
-  const D: string[] = ['Glasgow (BoardScope synthetic fixture)', 'PARTNUMBER\tDESCRIPTION\tQTY\tLOCATION\tPARTNUMBER2'];
+  const D: string[] = ['Glasgow (BoardLoupe synthetic fixture)', 'PARTNUMBER\tDESCRIPTION\tQTY\tLOCATION\tPARTNUMBER2'];
   const byValue = new Map<string, string[]>();
   for (const p of b.parts) if (p.value) byValue.set(p.value, [...(byValue.get(p.value) ?? []), p.name]);
   let n = 0;
@@ -283,7 +283,7 @@ export function testKey44(parity: number[], seed: number): number[] {
 // ------------------------------------------------------------------ CAD panel
 
 export function writeCadPanel(b: SrcBoard): Uint8Array {
-  const L = ['###Panel Added', '### BoardScope synthetic fixture (Glasgow, 0BSD)'];
+  const L = ['###Panel Added', '### BoardLoupe synthetic fixture (Glasgow, 0BSD)'];
   // The record keyword itself is the reference's "TYPE" field.
   b.parts.forEach((p, i) => L.push(`COMP ${tok(p.name)} ${i + 1} 0 0 ${inch(p.x)} ${inch(p.y)} ${p.side === 'B' ? 2 : 1} 0`));
   for (const p of b.parts) p.pins.forEach((pin, i) => L.push(`C_PIN ${tok(p.name)}-${tok(pin.number || String(i + 1))} ${inch(pin.x)} ${inch(pin.y)} 0 0 0 X /${tok(pin.net) || 'NC'}`));
@@ -387,7 +387,7 @@ export function writeXzz(b: SrcBoard, xorKey = 0x5a): Uint8Array {
 // ------------------------------------------------------------------ TVW
 
 function tvwObjectHeader(w: ByteWriter, kind: 1 | 3, name: string, type: number) {
-  w.u32(kind).u32(2).u32(1).str8(name).str8(name.toLowerCase()).str8('C:\\boardscope\\fixture').u32(type).u32(0x00ffcc00).u32(0x0000ffff);
+  w.u32(kind).u32(2).u32(1).str8(name).str8(name.toLowerCase()).str8('C:\\boardloupe\\fixture').u32(type).u32(0x00ffcc00).u32(0x0000ffff);
 }
 
 interface TvwPadDef {
@@ -631,7 +631,7 @@ export function writeTvw(b: SrcBoard, opts: { shortSettings?: boolean } = {}): U
   ];
 
   const w = new ByteWriter();
-  w.str8(tvwEncodeString('Tebo-ictview files.')).u32(1).str8(tvwEncodeString('BoardScope fixture')).str8(opts.shortSettings ? tvwEncodeString('secret') : '').str8(tvwEncodeString('2026-10-09')).zeros(3).u32(0).u32(0).u32(0);
+  w.str8(tvwEncodeString('Tebo-ictview files.')).u32(1).str8(tvwEncodeString('BoardLoupe fixture')).str8(opts.shortSettings ? tvwEncodeString('secret') : '').str8(tvwEncodeString('2026-10-09')).zeros(3).u32(0).u32(0).u32(0);
   const LAYERS = 6;
   w.u32(LAYERS);
   tvwLogic(w, 'TOP', 1, shapes, top, topLines, { arcs: true, extras: true });
@@ -754,7 +754,7 @@ const fq = (s: string) => `"${s.replace(/"/g, "'")}"`;
 
 export function writeFatf(b: SrcBoard): Uint8Array {
   const { nets, stacks, viaStack, pkgs } = fabJob(b);
-  const L: string[] = ['; ????????  FATF OUTPUT FILE  BoardScope synthetic fixture (Glasgow, 0BSD)', '', ':FABMASTER FATF REV 11.2;', '', ':UNITS = 1/100000 INCH;', '', ':BOARD_DATA', '1,JOB("GLASGOW",,01-01-2026,01-01-2026);'];
+  const L: string[] = ['; ????????  FATF OUTPUT FILE  BoardLoupe synthetic fixture (Glasgow, 0BSD)', '', ':FABMASTER FATF REV 11.2;', '', ':UNITS = 1/100000 INCH;', '', ':BOARD_DATA', '1,JOB("GLASGOW",,01-01-2026,01-01-2026);'];
   const ring = [...b.outline, b.outline[0]];
   L.push(`2,CONTOUR (${ring.map(([x, y]) => `(${n5(x)},${n5(y)},0)`).join(',')});`, ':EOD', '', ':NOTRACE;', '', ':PARTS');
   b.parts.forEach((p, i) => L.push(`${i + 1},${fq(p.name)},${fq(`${p.footprint || 'PART'}|${p.value}`)},${fq(pkgs[i].name)},${n5(p.x)},${n5(p.y)},${pkgs[i].rot10},${p.side === 'B' ? 'B' : 'T'};`));
@@ -797,7 +797,7 @@ const m2 = (mil: number) => (Math.round(mil * 100) / 100).toString();
 
 export function writeFarc(b: SrcBoard): Uint8Array {
   const { nets, stacks, viaStack, pkgs } = fabJob(b);
-  const L: string[] = [':SECTION FABMASTER 1', '{           - FARC ASCII File - V8.F.2 -         }', ':EOSECTION', '', ':SECTION JOBDATA 1', '"GLASGOW (BoardScope synthetic fixture, 0BSD)"', ':EOSECTION', ''];
+  const L: string[] = [':SECTION FABMASTER 1', '{           - FARC ASCII File - V8.F.2 -         }', ':EOSECTION', '', ':SECTION JOBDATA 1', '"GLASGOW (BoardLoupe synthetic fixture, 0BSD)"', ':EOSECTION', ''];
   const ring = [...b.outline, b.outline[0]];
   L.push(':SECTION FORMAT 1', `((TRACK 0.01[](${ring.map(([x, y]) => `(${x} ${y})`).join('')})))`, ':EOSECTION', '', ':SECTION PARTS 1', `${b.parts.length}(`);
   // FARC names a package by its 8.3 outline file: keep only the last 8 characters.
@@ -835,7 +835,7 @@ export function writeFarc(b: SrcBoard): Uint8Array {
 export function writeGencam(b: SrcBoard): Uint8Array {
   const G = (kind: string) => `"(${kind}).GLASGOW"`;
   const ref = (kind: string, name: string) => `${G(kind)}.${gq(name)}`;
-  const L: string[] = ['$HEADER', '  GENCAM: "1.5";', '  GENERATEDBY: "BoardScope fixture writer","1";', '  UNITS: THOU;', '  ANGLEUNITS: DEGREES;', '  ATTRIBUTE: "/GRA3/","PROJECT_NAME","Glasgow ""revC"" (0BSD)",;', '  BOARD: "GLASGOW","GLASGOW","GLASGOW","1";', '$ENDHEADER', ''];
+  const L: string[] = ['$HEADER', '  GENCAM: "1.5";', '  GENERATEDBY: "BoardLoupe fixture writer","1";', '  UNITS: THOU;', '  ANGLEUNITS: DEGREES;', '  ATTRIBUTE: "/GRA3/","PROJECT_NAME","Glasgow ""revC"" (0BSD)",;', '  BOARD: "GLASGOW","GLASGOW","GLASGOW","1";', '$ENDHEADER', ''];
   const prim: string[] = [];
   const shapeIds = new Map<string, string>();
   const shape = (round: boolean, w: number, h: number) => {
@@ -1011,7 +1011,7 @@ export function writeF2b(b: SrcBoard): Uint8Array {
     w.u16(k);
     cstr(s);
   }
-  cstr('C:\\BOARDSCOPE\\GLASGOW-SYNTHETIC.NEU');
+  cstr('C:\\BOARDLOUPE\\GLASGOW-SYNTHETIC.NEU');
   return w.out();
 }
 
@@ -1218,7 +1218,7 @@ export function writeBv(b: SrcBoard): Uint8Array {
 // ------------------------------------------------------------------ Cadence Allegro 16.6 database (minimal)
 
 /**
- * An Allegro 16.6 board database holding just the records BoardScope reads:
+ * An Allegro 16.6 board database holding just the records BoardLoupe reads:
  * nets, net assignments, padstacks, pad definitions, reference designators,
  * footprint definitions, placements (with pad offsets in the part's rotated,
  * bottom-mirrored frame), placed pads, vias, tracks and the outline shape.
@@ -1416,7 +1416,7 @@ export function writeAllegro(b: SrcBoard, opts: { v17?: boolean } = {}): Uint8Ar
   hv.setUint32(0, V ? 0x00140400 : 0x00131504, true);
   hv.setUint32(4, 3, true);
   hv.setUint32(8, 1, true);
-  head.set(enc.encode(V ? 'allv17-2 BoardScope fixture' : 'allv16-6 BoardScope fixture'), 0xf8);
+  head.set(enc.encode(V ? 'allv17-2 BoardLoupe fixture' : 'allv16-6 BoardLoupe fixture'), 0xf8);
   hv.setUint32(0x194, strings.length, true);
   const st: number[] = [];
   strings.forEach((s, i) => {

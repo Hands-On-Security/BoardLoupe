@@ -1,6 +1,6 @@
 // Reference dumper: runs OpenBoardView's own parsers (and the eagleview-derived
 // TVW reader from OBV PR #366) on a file and prints the parsed BRDFileBase as
-// JSON. Used to produce golden files for BoardScope's differential tests.
+// JSON. Used to produce golden files for BoardLoupe's differential tests.
 #include "FileFormats/ASCFile.h"
 #include "FileFormats/BDVFile.h"
 #include "FileFormats/BRD2File.h"

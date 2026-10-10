@@ -1,6 +1,6 @@
 # Vendored archive decoder licences
 
-BoardScope bundles **libarchive.js** to open `.rar` and `.7z` archives directly
+BoardLoupe bundles **libarchive.js** to open `.rar` and `.7z` archives directly
 in the browser. The WebAssembly module (`wasm-base64.ts`) and the Emscripten
 glue (`libarchive-glue.mjs`) come from that project; the WebAssembly is
 **libarchive** compiled with the compression libraries it needs.
@@ -17,7 +17,7 @@ glue (`libarchive-glue.mjs`) come from that project; the WebAssembly is
   Emscripten's ports are also enabled by the link command).
   The vendored WebAssembly matches the upstream v2.0.2 binary by SHA-256
   (`8a66066ed3ea1e6db0469ec752d8fca888a6bf737c6cff21fdbcb62241a72424`).
-  The corresponding texts in `LICENSES/` are embedded in `dist/boardview.html`.
+  The corresponding texts in `LICENSES/` are embedded in `dist/boardloupe.html`.
 
 ## Supported archive variants
 
@@ -27,5 +27,5 @@ not AES-256-encrypted payloads without a key). ZIP is handled separately by a
 small pure-JS reader (`fflate`) and does not use this module.
 
 Encrypted archives (RAR with a password, 7z with header/content encryption)
-report that a password is required; BoardScope does not prompt for archive
+report that a password is required; BoardLoupe does not prompt for archive
 passwords.

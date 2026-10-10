@@ -239,7 +239,7 @@ function drawLegend(ctx: CanvasRenderingContext2D, dpr: number, m: BoardModel, h
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'right';
   ctx.fillStyle = sub;
-  ctx.fillText(`${m.source.fileName} · BoardScope · ${REPORT_URL}`, w - 10 * s, hgt - 10 * s);
+  ctx.fillText(`${m.source.fileName} · BoardLoupe · ${REPORT_URL}`, w - 10 * s, hgt - 10 * s);
   ctx.textAlign = 'left';
   if (!h.nets.length) {
     ctx.restore();

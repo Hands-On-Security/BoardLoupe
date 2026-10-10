@@ -375,7 +375,7 @@ function InfoPanel() {
         <Field label="Format">
           <span class="flex flex-wrap items-center gap-1.5">
             {src.formatName}
-            <Badge tone={STATUS_TONE[src.status]} title="Support level of this format in BoardScope">
+            <Badge tone={STATUS_TONE[src.status]} title="Support level of this format in BoardLoupe">
               {src.status}
             </Badge>
           </span>

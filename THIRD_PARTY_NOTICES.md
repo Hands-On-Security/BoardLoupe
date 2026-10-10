@@ -1,10 +1,10 @@
 # Third-party notices
 
-BoardScope is MIT-licensed (see `LICENSE`). The distributable `dist/boardview.html`
+BoardLoupe is MIT-licensed (see `LICENSE`). The distributable `dist/boardloupe.html`
 bundles the components below; their full licence texts are in `LICENSES/` and are
 also embedded verbatim in a non-executable text block at the top of the built HTML file.
 
-## Bundled into `dist/boardview.html`
+## Bundled into `dist/boardloupe.html`
 
 | Component | Version | Licence | Used for |
 |---|---|---|---|
@@ -31,7 +31,7 @@ also embedded verbatim in a non-executable text block at the top of the built HT
 
 The distributable contains no proprietary viewer binaries or vendor decryption keys.
 Format behavior was also studied using locally analyzed reference software; that software
-is not distributed with BoardScope. Test keys in `fixtures/manifest.json` are randomly
+is not distributed with BoardLoupe. Test keys in `fixtures/manifest.json` are randomly
 generated, parity-valid keys that only decrypt the synthetic test fixtures.
 
 Archive decoder acknowledgments required by the OpenSSL 1.0.2s and original SSLeay licences:

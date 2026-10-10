@@ -1,7 +1,7 @@
-# BoardScope — Plan
+# BoardLoupe — Plan
 
 Single-file, offline boardview viewer. Source is modular TypeScript; `npm run build`
-emits exactly one `dist/boardview.html`.
+emits exactly one `dist/boardloupe.html`.
 
 ## Architecture decisions (ADR summary)
 
@@ -39,7 +39,7 @@ emits exactly one `dist/boardview.html`.
 
 ## Acceptance criteria
 
-- `dist/boardview.html` opens via double-click, no network requests, no external refs (verified by build script + e2e).
+- `dist/boardloupe.html` opens via double-click, no network requests, no external refs (verified by build script + e2e).
 - Every format claimed "verified" has a fixture + golden test; "partial/experimental" clearly labelled in UI and docs.
 - Unsupported/corrupt/encrypted files produce a precise diagnostic (format guess, reason, offset/line where possible).
 - Typecheck, lint, unit, format, e2e all pass (or exceptions documented).

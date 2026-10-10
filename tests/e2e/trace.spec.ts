@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const APP = 'file://' + resolve(ROOT, 'dist/boardview.html');
+const APP = 'file://' + resolve(ROOT, 'dist/boardloupe.html');
 const FX = resolve(ROOT, 'fixtures/real/glasgow/glasgow-kicad10.cad');
 
 async function open(page: Page) {
@@ -34,7 +34,7 @@ test('trace a signal through its series parts and highlight the path', async ({ 
   await page.getByRole('button', { name: 'Highlight the whole series path' }).click();
   await expect(page.getByText(/Series trace: \d+ nets?, \d+ series part/)).toBeVisible();
   const nets = await page.evaluate(() => {
-    const s = (window as unknown as { boardscope?: { store?: { get(): { sel: { nets: number[] } } } } }).boardscope?.store;
+    const s = (window as unknown as { boardloupe?: { store?: { get(): { sel: { nets: number[] } } } } }).boardloupe?.store;
     return s ? s.get().sel.nets.length : -1;
   });
   // The two far-side nets of /ENVA are highlighted alongside it (or state not exposed → skip assertion).

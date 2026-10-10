@@ -176,16 +176,8 @@ export interface AppState {
   toast: { text: string; id: number } | null;
 }
 
-const PREFS_KEY = 'boardscope.prefs.v1';
-const LEGACY_KEYS_KEY = 'boardscope.keys.v1';
-const GROUPS_KEY = 'boardscope.groups.v1';
-
-// Earlier builds could store keys in plaintext here. Remove any such leftover.
-try {
-  localStorage.removeItem(LEGACY_KEYS_KEY);
-} catch {
-  /* storage unavailable */
-}
+const PREFS_KEY = 'boardloupe.prefs.v1';
+const GROUPS_KEY = 'boardloupe.groups.v1';
 
 function loadGroups(): SavedGroup[] {
   try {

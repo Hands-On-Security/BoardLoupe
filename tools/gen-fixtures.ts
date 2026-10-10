@@ -21,7 +21,7 @@ const out = (p: string, data: Uint8Array) => {
 export interface ManifestEntry {
   id: string;
   files: string[];
-  format: string; // BoardScope format id
+  format: string; // BoardLoupe format id
   obv: string | null; // reference harness format name (null: no reference available)
   key?: string; // test key for encrypted fixtures
   origin: 'real' | 'synthetic';
@@ -57,14 +57,14 @@ out(S + 'glasgow.bv', writeBv(b));
 out(S + 'glasgow-allegro16.brd', writeAllegro(b));
 out(S + 'glasgow-allegro17.brd', writeAllegro(b, { v17: true }));
 
-// A BoardScope keyfile carrying the DISPOSABLE test keys for the synthetic
+// A BoardLoupe keyfile carrying the DISPOSABLE test keys for the synthetic
 // encrypted fixtures above — never a vendor key. Used by the keystore e2e test.
 out(
   S + 'test-keys.json',
   new TextEncoder().encode(
     JSON.stringify(
       {
-        boardscope_keystore: 1,
+        boardloupe_keystore: 1,
         created: '2026-01-01T00:00:00.000Z',
         note: 'DISPOSABLE generated test keys for the synthetic fixtures (not vendor keys).',
         keys: [

@@ -1,5 +1,5 @@
 // Inlines the Vite build output (one JS chunk + one CSS file) into a single
-// self-contained dist/boardview.html and verifies that the result references
+// self-contained dist/boardloupe.html and verifies that the result references
 // no external resources and contains no unresolved imports.
 import { readFileSync, writeFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const buildDir = resolve(root, 'dist/.build');
-const out = resolve(root, 'dist/boardview.html');
+const out = resolve(root, 'dist/boardloupe.html');
 
 let html = readFileSync(resolve(buildDir, 'index.html'), 'utf8');
 const files = readdirSync(buildDir, { recursive: true }).map(String);
@@ -49,7 +49,7 @@ if (m) {
     .sort()
     .map((f) => `===== ${f.replace(/\.txt$/, '')} =====\n${readFileSync(resolve(licDir, f), 'utf8')}`);
   const own = readFileSync(resolve(root, 'LICENSE'), 'utf8');
-  const text = `BoardScope — offline boardview viewer.\n${own}\n\nThird-party components bundled in this file and parser sources:\n\n${parts.join('\n\n')}`;
+  const text = `BoardLoupe — offline boardview viewer.\n${own}\n\nThird-party components bundled in this file and parser sources:\n\n${parts.join('\n\n')}`;
   // A non-executable script preserves licence text verbatim. HTML comments
   // cannot contain "--", which occurs in some upstream notices.
   if (/<\/script/i.test(text)) throw new Error('A licence notice contains a closing script tag');
@@ -99,7 +99,7 @@ const gz = gzipSync(html, { level: 9 }).length;
 // RAR/7z. It ships in the single file but is only decoded/instantiated lazily,
 // on the first RAR or 7z a user opens.
 const BUDGET = 2.6 * 1024 * 1024;
-console.log(`✔ dist/boardview.html  ${(size / 1024).toFixed(1)} KB  (gzip ${(gz / 1024).toFixed(1)} KB)  — no external references; ${urls.length} inert URL string(s)`);
+console.log(`✔ dist/boardloupe.html  ${(size / 1024).toFixed(1)} KB  (gzip ${(gz / 1024).toFixed(1)} KB)  — no external references; ${urls.length} inert URL string(s)`);
 if (size > BUDGET) {
   console.error(`✖ Size budget exceeded (${(BUDGET / 1024).toFixed(0)} KB)`);
   process.exit(1);
