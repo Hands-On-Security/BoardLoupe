@@ -382,7 +382,15 @@ export const gencadFormat: FormatModule = {
     }
     flushPad();
     if (!sawHeader) throw new ParseError('gencad.noheader', 'Missing $HEADER section');
-    if (!comps.length) throw new ParseError('gencad.nocomponents', 'No $COMPONENTS found');
+    if (!comps.length) {
+      // A section still open at the end of the file means the file was cut off.
+      if (section)
+        throw new ParseError(
+          'gencad.truncated',
+          `The file is truncated: it ends inside ${section} (line ${lines.length}, ${ctx.file.bytes.length.toLocaleString('en-US')} bytes) before any $COMPONENTS, so it holds no parts to show. Download or extract it again${ctx.file.bytes.length % 4096 === 0 ? ` (a size of exactly ${ctx.file.bytes.length / 1024} KiB suggests an interrupted copy)` : ''}.`,
+        );
+      throw new ParseError('gencad.nocomponents', 'No $COMPONENTS found');
+    }
 
     const S = (v: number) => v * scale;
     const layerIds = new Map<string, number>();
