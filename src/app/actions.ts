@@ -38,7 +38,23 @@ export async function openFiles(files: File[]) {
   const name = files.length > 1 ? `${files[0].name} (+${files.length - 1})` : files[0].name;
   const started = performance.now();
   store.set({ phase: store.get().board ? 'ready' : 'loading', loading: { name, phase: 'Reading file', started } });
-  const j = startParse(files, parseOptions(), (phase, fraction) => {
+
+  // RAR and 7z are expanded here on the main thread: libarchive's WebAssembly
+  // cannot load inside the inlined IIFE worker. ZIP is left for the worker.
+  let parseFiles = files;
+  if (files.some((f) => /\.(rar|7z)$/i.test(f.name))) {
+    try {
+      const { expandOuterArchives } = await import('../io/archive');
+      const { files: expanded } = await expandOuterArchives(files, parseOptions().maxDecompressedBytes);
+      parseFiles = expanded;
+    } catch (e) {
+      const err = e as { code?: string; message?: string };
+      store.set({ loading: null, error: { name, diagnostics: [{ level: 'error', code: err.code ?? 'archive', message: err.message ?? 'Could not open the archive.' }], attempts: [] }, phase: store.get().board ? 'ready' : 'error' });
+      return;
+    }
+  }
+
+  const j = startParse(parseFiles, parseOptions(), (phase, fraction) => {
     const l = store.get().loading;
     if (l) store.set({ loading: { ...l, phase, fraction } });
   });

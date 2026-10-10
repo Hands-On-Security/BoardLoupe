@@ -85,7 +85,10 @@ writeFileSync(out, html);
 rmSync(buildDir, { recursive: true, force: true });
 const size = Buffer.byteLength(html);
 const gz = gzipSync(html, { level: 9 }).length;
-const BUDGET = 1.5 * 1024 * 1024;
+// Headroom for the inlined libarchive WebAssembly (~1.8 MB base64) that opens
+// RAR/7z. It ships in the single file but is only decoded/instantiated lazily,
+// on the first RAR or 7z a user opens.
+const BUDGET = 2.6 * 1024 * 1024;
 console.log(`✔ dist/boardview.html  ${(size / 1024).toFixed(1)} KB  (gzip ${(gz / 1024).toFixed(1)} KB)  — no external references; ${urls.length} inert URL string(s)`);
 if (size > BUDGET) {
   console.error(`✖ Size budget exceeded (${(BUDGET / 1024).toFixed(0)} KB)`);

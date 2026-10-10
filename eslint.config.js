@@ -4,7 +4,8 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'tools/obv-harness/**', 'test-results/**', 'playwright-report/**'] },
+  // src/vendor/** is third-party generated code (libarchive's Emscripten glue); lint only our own code.
+  { ignores: ['dist/**', 'node_modules/**', 'tools/obv-harness/**', 'test-results/**', 'playwright-report/**', 'src/vendor/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
