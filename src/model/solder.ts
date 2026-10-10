@@ -7,7 +7,7 @@
  * Pure model + scene geometry; no rendering state. Deterministic ordering.
  */
 import type { BoardModel } from './types';
-import { MOUNT_TH, PINKIND_TESTPOINT } from './types';
+import { MOUNT_TH, NO_PROBE, PINKIND_TESTPOINT } from './types';
 
 export interface SolderPoint {
   kind: 'pin' | 'via';
@@ -55,6 +55,10 @@ export function solderPoints(m: BoardModel, pinHW: Float32Array, pinHH: Float32A
     if (tp) {
       s += 100;
       reasons.push('test point');
+    } else if (pins.probe[i] !== NO_PROBE) {
+      // A component pin the file marks as probe-accessible (ICT test access).
+      s += 70;
+      reasons.push('test access');
     }
     if (th) {
       s += 45;

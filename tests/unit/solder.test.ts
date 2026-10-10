@@ -63,3 +63,20 @@ describe('solderPoints', () => {
     expect(again.map((p) => p.label + p.kind)).toEqual(pts.map((p) => p.label + p.kind));
   });
 });
+
+describe('solderPoints: test access on a component pin', () => {
+  test('a pin the file marks with a probe outranks other component pads', () => {
+    const b = new BoardBuilder();
+    const r = b.addPart({ name: 'R5', side: SIDE_TOP });
+    b.addPin({ part: r, x: 0, y: 0, net: 'LPC_AD0', number: '1', w: 1, h: 1, probe: 17 });
+    b.addPin({ part: r, x: 2, y: 0, net: 'X', number: '2', w: 1, h: 1 });
+    const c = b.addPart({ name: 'C9', side: SIDE_TOP });
+    b.addPin({ part: c, x: 5, y: 0, net: 'LPC_AD0', number: '1', w: 1, h: 1 });
+    b.addPin({ part: c, x: 7, y: 0, net: 'Y', number: '2', w: 1, h: 1 });
+    const m = b.finish(src);
+    const s = buildScene(m);
+    const pts = solderPoints(m, s.pinHW, s.pinHH, s.typicalPin, m.nets.name.indexOf('LPC_AD0'));
+    expect(pts[0].label).toBe('R5.1');
+    expect(pts[0].reasons).toContain('test access');
+  });
+});

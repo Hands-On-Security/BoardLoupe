@@ -221,7 +221,7 @@ export const brd2Format: FormatModule = {
       fileSize: ctx.file.bytes.length,
       formatId: this.id,
       formatName: this.name,
-      variant: null,
+      variant: /\.gr$/i.test(ctx.file.name) ? 'GR' : null,
       extraFiles: [],
     });
   },
