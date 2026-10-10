@@ -161,7 +161,8 @@ export function ErrorView() {
                 <FolderOpen size={14} /> Open another file
               </Button>
               {keyIssue && (
-                <Button onClick={() => store.set({ dialog: 'settings', error: null, phase: hasBoard ? 'ready' : 'empty' })}>
+                // Keep the error so that unlocking/importing a key re-opens this file automatically.
+                <Button onClick={() => store.set({ dialog: 'settings' })}>
                   <KeyRound size={14} /> Enter key
                 </Button>
               )}

@@ -383,11 +383,13 @@ export const gencadFormat: FormatModule = {
     flushPad();
     if (!sawHeader) throw new ParseError('gencad.noheader', 'Missing $HEADER section');
     if (!comps.length) {
-      // A section still open at the end of the file means the file was cut off.
+      // A section still open at the end of the file means the file was cut off
+      // mid-record. The file itself is incomplete; if a ZIP around it verifies,
+      // the truncation is in the original upload, not a transfer error.
       if (section)
         throw new ParseError(
           'gencad.truncated',
-          `The file is truncated: it ends inside ${section} (line ${lines.length}, ${ctx.file.bytes.length.toLocaleString('en-US')} bytes) before any $COMPONENTS, so it holds no parts to show. Download or extract it again${ctx.file.bytes.length % 4096 === 0 ? ` (a size of exactly ${ctx.file.bytes.length / 1024} KiB suggests an interrupted copy)` : ''}.`,
+          `The file is incomplete: it ends inside ${section} (line ${lines.length}, ${ctx.file.bytes.length.toLocaleString('en-US')} bytes) before any $COMPONENTS, so it holds no parts to show. If it came from an archive that extracts without error, the source file was uploaded truncated and a re-download will not help; otherwise download it again.`,
         );
       throw new ParseError('gencad.nocomponents', 'No $COMPONENTS found');
     }

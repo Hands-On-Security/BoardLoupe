@@ -8,3 +8,9 @@ playwright-report/
 tools/obv-harness/build/
 tools/obv-harness/src-obv/
 bench/boards/
+
+# Real decryption keyfiles must never be committed. The only tracked keyfile is
+# fixtures/synthetic/test-keys.json (disposable generated test keys).
+*.keys.json
+/keys/
+/private-keys/

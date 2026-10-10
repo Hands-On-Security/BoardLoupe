@@ -23,8 +23,16 @@ export function parseOptions(): ParseOptions {
   };
 }
 
+let lastFiles: File[] = [];
+
+/** Re-open the most recently attempted file(s) — e.g. after a decryption key is provided. */
+export function retryOpen() {
+  if (lastFiles.length) void openFiles(lastFiles);
+}
+
 export async function openFiles(files: File[]) {
   if (!files.length) return;
+  lastFiles = files;
   job?.cancel();
   const name = files.length > 1 ? `${files[0].name} (+${files.length - 1})` : files[0].name;
   const started = performance.now();

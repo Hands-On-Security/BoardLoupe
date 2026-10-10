@@ -57,6 +57,28 @@ out(S + 'glasgow.bv', writeBv(b));
 out(S + 'glasgow-allegro16.brd', writeAllegro(b));
 out(S + 'glasgow-allegro17.brd', writeAllegro(b, { v17: true }));
 
+// A BoardScope keyfile carrying the DISPOSABLE test keys for the synthetic
+// encrypted fixtures above — never a vendor key. Used by the keystore e2e test.
+out(
+  S + 'test-keys.json',
+  new TextEncoder().encode(
+    JSON.stringify(
+      {
+        boardscope_keystore: 1,
+        created: '2026-01-01T00:00:00.000Z',
+        note: 'DISPOSABLE generated test keys for the synthetic fixtures (not vendor keys).',
+        keys: [
+          { format: 'fz', label: 'synthetic test key', key: hexKey(fzKey) },
+          { format: 'cae', label: 'synthetic test key', key: hexKey(caeKey) },
+          { format: 'xzz', label: 'synthetic test key', key: XZZ_TEST_KEY },
+        ],
+      },
+      null,
+      2,
+    ) + '\n',
+  ),
+);
+
 const R = 'fixtures/real/glasgow/';
 const REAL_PROV = 'Glasgow interface explorer board; file shipped in whitequark/kicad-boardview (commit da24793, 0BSD), produced by its pcbnew exporter.';
 const KICAD_PROV = 'Exported with `kicad-cli pcb export gencad` (KiCad 10.0.1) from fixtures/real/glasgow/glasgow.kicad_pcb (kicad-boardview example, 0BSD).';

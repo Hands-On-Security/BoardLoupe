@@ -1,14 +1,14 @@
-import { ArrowDownUp, Copy, Crosshair, Download, HelpCircle, KeyRound, Settings, Table2 } from 'lucide-preact';
+import { ArrowDownUp, Copy, Crosshair, Download, HelpCircle, KeyRound, Settings, Table2, Trash2, Unlock, Upload } from 'lucide-preact';
 import { useMemo, useState } from 'preact/hooks';
-import { CAE_KEY_PARITY, FZ_KEY_PARITY, keyParityOk, parseKey44 } from '../../formats/fz';
 import { FORMATS } from '../../formats/registry';
-import { parseXzzKey, xzzKeyParityOk } from '../../formats/xzz';
 import { type BoardModel, sideLabel, unitLabel } from '../../model/types';
 import { modelToJson, toCsv } from '../export';
 import { collator } from '../../search/search';
 import { copyText, downloadText, selectNet, selectPart, selectPin } from '../actions';
 import { HOS_URL, HosByline, HosLogo } from '../brand';
-import { saveKeys, setPrefs, store, useStore } from '../store';
+import { KEY_FORMATS, type KeyFormat, type KeyMap, cryptoAvailable, keyValid } from '../keystore';
+import { importKeyfile, removeKeystore, saveKeystore, setSessionKeys, unlockKeystore } from '../keystore-actions';
+import { setPrefs, store, useStore } from '../store';
 import { Badge, Button, Dialog, Kbd, Toggle, cx } from './ui';
 import { VirtualList } from './VirtualList';
 
@@ -192,31 +192,7 @@ export function TablesDialog() {
 
 export function SettingsDialog() {
   const prefs = useStore(store, (s) => s.prefs);
-  const keys = useStore(store, (s) => s.keys);
-  const [fz, setFz] = useState(keys.fz);
-  const [cae, setCae] = useState(keys.cae);
-  const [xzz, setXzz] = useState(keys.xzz);
-  const [remember, setRemember] = useState(keys.remember);
   const close = () => store.set({ dialog: null });
-  const fzOk = !fz.trim() ? null : (() => {
-    const k = parseKey44(fz);
-    return k ? keyParityOk(k, FZ_KEY_PARITY) : false;
-  })();
-  const caeOk = !cae.trim() ? null : (() => {
-    const k = parseKey44(cae);
-    return k ? keyParityOk(k, CAE_KEY_PARITY) : false;
-  })();
-  const xzzOk = !xzz.trim() ? null : (() => {
-    const k = parseXzzKey(xzz);
-    return k ? xzzKeyParityOk(k[0], k[1]) : false;
-  })();
-  const save = () => {
-    const k = { fz: fz.trim(), cae: cae.trim(), xzz: xzz.trim(), remember };
-    store.set({ keys: k });
-    saveKeys(k);
-    close();
-  };
-  const status = (ok: boolean | null) => (ok === null ? null : ok ? <Badge tone="ok">parity OK</Badge> : <Badge tone="err">invalid</Badge>);
   return (
     <Dialog title="Settings" onClose={close} icon={<Settings size={16} class="text-accent" />}>
       <div class="p-4 space-y-5">
@@ -231,40 +207,194 @@ export function SettingsDialog() {
             onChange={(v) => setPrefs({ forceCanvas2d: v })}
           />
         </section>
-        <section>
-          <h3 class="text-[11px] uppercase tracking-wider text-faint font-semibold mb-1 flex items-center gap-1.5">
-            <KeyRound size={12} /> Decryption keys
-          </h3>
-          <p class="text-[12px] text-muted mb-2 leading-relaxed">
-            Some vendors encrypt their boardviews. BoardScope implements these ciphers but ships <strong>no keys</strong>. Only enter keys you are entitled to use. Keys never
-            leave this browser.
-          </p>
-          <label class="block text-[12.5px] mt-2">
-            <span class="flex items-center gap-2">FZ key (44 hex words) {status(fzOk)}</span>
-            <textarea class="mt-1 w-full h-16 rounded-md bg-panel2 border border-line2 p-2 font-mono text-[11.5px] outline-none focus:border-accent" value={fz} onInput={(e) => setFz((e.target as HTMLTextAreaElement).value)} spellcheck={false} />
-          </label>
-          <label class="block text-[12.5px] mt-2">
-            <span class="flex items-center gap-2">CAE key (44 hex words) {status(caeOk)}</span>
-            <textarea class="mt-1 w-full h-16 rounded-md bg-panel2 border border-line2 p-2 font-mono text-[11.5px] outline-none focus:border-accent" value={cae} onInput={(e) => setCae((e.target as HTMLTextAreaElement).value)} spellcheck={false} />
-          </label>
-          <label class="block text-[12.5px] mt-2">
-            <span class="flex items-center gap-2">XZZ key (16 hex digits) {status(xzzOk)}</span>
-            <input class="mt-1 w-full h-8 rounded-md bg-panel2 border border-line2 px-2 font-mono text-[12px] outline-none focus:border-accent" value={xzz} onInput={(e) => setXzz((e.target as HTMLInputElement).value)} spellcheck={false} />
-          </label>
-          <div class="mt-2">
-            <Toggle label="Remember keys in this browser" hint="Off by default: keys are kept in memory and forgotten when the page closes." checked={remember} onChange={setRemember} />
-          </div>
-        </section>
-        <div class="flex justify-end gap-2">
-          <Button variant="ghost" onClick={close}>
-            Cancel
-          </Button>
-          <Button variant="solid" onClick={save}>
-            Save
+        <Keystore />
+        <div class="flex justify-end">
+          <Button variant="solid" onClick={close}>
+            Close
           </Button>
         </div>
       </div>
     </Dialog>
+  );
+}
+
+/** Bring-your-own-key keystore: import, inspect, save (encrypted), unlock, remove. */
+function Keystore() {
+  const keys = useStore(store, (s) => s.keys);
+  const ks = useStore(store, (s) => s.keystore);
+  const [entry, setEntry] = useState<KeyMap>({});
+  const [pass, setPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [notes, setNotes] = useState<string[]>([]);
+  const canStore = cryptoAvailable();
+  const loaded = KEY_FORMATS.filter((f) => keys[f.id]).length;
+
+  const onImport = async (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    setErr('');
+    try {
+      const warnings = importKeyfile(await file.text());
+      setNotes(warnings);
+    } catch (x) {
+      setErr((x as Error).message);
+    }
+  };
+  const applyTyped = (fmt: KeyFormat, value: string) => {
+    setEntry((e) => ({ ...e, [fmt]: value }));
+  };
+  const commit = (fmt: KeyFormat) => {
+    const v = (entry[fmt] ?? '').trim();
+    if (!v) return;
+    if (!keyValid(fmt, v)) {
+      setErr(`That ${fmt.toUpperCase()} key fails its format check (wrong key or a typo).`);
+      return;
+    }
+    setErr('');
+    setSessionKeys({ ...keys, [fmt]: v });
+    setEntry((e) => ({ ...e, [fmt]: '' }));
+  };
+  const clearOne = (fmt: KeyFormat) => {
+    const next = { ...keys };
+    delete next[fmt];
+    setSessionKeys(next);
+  };
+  const run = async (fn: () => Promise<void>, wrongMsg: string) => {
+    setErr('');
+    setBusy(true);
+    try {
+      await fn();
+      setPass('');
+    } catch (x) {
+      setErr((x as Error).message === 'bad-passphrase' ? wrongMsg : (x as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section>
+      <h3 class="text-[11px] uppercase tracking-wider text-faint font-semibold mb-1 flex items-center gap-1.5">
+        <KeyRound size={12} /> Decryption keys
+      </h3>
+      <p class="text-[12px] text-muted mb-2 leading-relaxed">
+        Some vendors encrypt their boardviews. BoardScope implements these ciphers but ships <strong>no keys</strong>. Use only keys you are entitled to use. Keys stay in this
+        browser; when saved they are encrypted with your passphrase, which is never stored.
+      </p>
+
+      {ks.present && !ks.unlocked ? (
+        <div class="rounded-lg border border-line2 bg-panel2 p-3" data-testid="ks-locked">
+          <div class="text-[12.5px] mb-2 flex items-center gap-1.5">
+            <KeyRound size={13} class="text-accent" /> A passphrase-protected keystore is saved in this browser.
+          </div>
+          <div class="flex gap-2">
+            <input
+              type="password"
+              data-testid="ks-passphrase"
+              class="flex-1 h-8 rounded-md bg-panel border border-line2 px-2 text-[12px] outline-none focus:border-accent"
+              placeholder="Passphrase"
+              value={pass}
+              onInput={(e) => setPass((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => e.key === 'Enter' && pass && run(() => unlockKeystore(pass), 'Wrong passphrase.')}
+            />
+            <Button variant="solid" disabled={busy || !pass} onClick={() => run(() => unlockKeystore(pass), 'Wrong passphrase.')} data-testid="ks-unlock">
+              <Unlock size={14} /> Unlock
+            </Button>
+          </div>
+          <button class="mt-2 text-[11.5px] text-faint hover:text-err inline-flex items-center gap-1" onClick={removeKeystore} data-testid="ks-remove">
+            <Trash2 size={11} /> Remove saved keys
+          </button>
+        </div>
+      ) : (
+        <div class="space-y-2" data-testid="ks-manage">
+          {KEY_FORMATS.map((f) => {
+            const have = !!keys[f.id];
+            const typed = (entry[f.id] ?? '').trim();
+            const typedOk = typed ? keyValid(f.id, typed) : null;
+            return (
+              <div key={f.id} class="flex items-center gap-2 text-[12.5px]">
+                <span class="w-[92px] shrink-0">{f.label}</span>
+                {have ? <Badge tone="ok">key loaded</Badge> : <Badge tone="neutral">not set</Badge>}
+                <input
+                  type="password"
+                  data-testid={`ks-input-${f.id}`}
+                  class="flex-1 h-7 rounded-md bg-panel2 border border-line2 px-2 font-mono text-[11.5px] outline-none focus:border-accent"
+                  placeholder={`paste ${f.hint} to ${have ? 'replace' : 'set'}`}
+                  value={entry[f.id] ?? ''}
+                  onInput={(e) => applyTyped(f.id, (e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => e.key === 'Enter' && commit(f.id)}
+                />
+                {typed ? (
+                  <Button variant="ghost" onClick={() => commit(f.id)} disabled={typedOk === false}>
+                    Set
+                  </Button>
+                ) : have ? (
+                  <button class="text-faint hover:text-err" title="Clear this key" onClick={() => clearOne(f.id)} data-testid={`ks-clear-${f.id}`}>
+                    <Trash2 size={13} />
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <label class="inline-flex">
+              <input type="file" accept=".json,application/json" class="hidden" onChange={onImport} data-testid="ks-import-input" />
+              <span class="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-line2 px-2.5 h-8 text-[12.5px] hover:bg-raised" data-testid="ks-import">
+                <Upload size={14} /> Import keyfile…
+              </span>
+            </label>
+            <span class="text-[11px] text-faint">a JSON file of keys you created</span>
+          </div>
+
+          {loaded > 0 && (
+            <div class="rounded-lg border border-line2 bg-panel2 p-3 mt-1">
+              <div class="text-[12px] text-muted mb-2">
+                Save {loaded} key{loaded > 1 ? 's' : ''} in this browser, encrypted with a passphrase.
+              </div>
+              {canStore ? (
+                <div class="flex gap-2">
+                  <input
+                    type="password"
+                    data-testid="ks-save-passphrase"
+                    class="flex-1 h-8 rounded-md bg-panel border border-line2 px-2 text-[12px] outline-none focus:border-accent"
+                    placeholder="Passphrase to protect the saved keys"
+                    value={pass}
+                    onInput={(e) => setPass((e.target as HTMLInputElement).value)}
+                  />
+                  <Button variant="solid" disabled={busy || pass.length < 4} onClick={() => run(() => saveKeystore(pass).then(() => void 0), '')} data-testid="ks-save">
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <p class="text-[11.5px] text-warn">This browser has no Web Crypto here, so keys cannot be saved encrypted. They stay in memory for this session.</p>
+              )}
+              {ks.present && (
+                <button class="mt-2 text-[11.5px] text-faint hover:text-err inline-flex items-center gap-1" onClick={removeKeystore} data-testid="ks-remove">
+                  <Trash2 size={11} /> Remove saved keys from this browser
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {err && (
+        <p class="text-[12px] text-err mt-2" data-testid="ks-error">
+          {err}
+        </p>
+      )}
+      {notes.length > 0 && (
+        <ul class="text-[11.5px] text-warn mt-2 list-disc pl-4">
+          {notes.map((n, i) => (
+            <li key={i}>{n}</li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

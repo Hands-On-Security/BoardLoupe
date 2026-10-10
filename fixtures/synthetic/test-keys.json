@@ -1,0 +1,22 @@
+{
+  "boardscope_keystore": 1,
+  "created": "2026-01-01T00:00:00.000Z",
+  "note": "DISPOSABLE generated test keys for the synthetic fixtures (not vendor keys).",
+  "keys": [
+    {
+      "format": "fz",
+      "label": "synthetic test key",
+      "key": "f59e4e1e 69a044f3 30acdfa8 6dd4a4f4 a5c88bc2 3558be47 e29680ec 4c96ed69 71d871a7 5b0442da 15933471 1ad6a31c 0c0e63ca 53bfe6af 7a14fe35 9ff5fa10 c91f062f 6a0ffdc2 c64c2239 fb806644 27573cd2 eeb41c17 dceb247d b51e9bb8 d6002bb6 70bb15aa 9e2ac901 f1ca8e6c 210336da 8cd6fe7f e70e13c4 82437260 e4ce023e 27f12a93 82e648c9 bec1bb95 6e7671e3 28fe2de6 1316ec0c 63eb1e08 ec1ea9c7 0611dc7a 3119c190 e5068dbc"
+    },
+    {
+      "format": "cae",
+      "label": "synthetic test key",
+      "key": "b82f535e 96550932 a64c56e9 95b13334 70e94503 a711a686 03c3cc2c 611f3fa9 d5ca1ee6 a4918f1a 906193b0 de84f95c de86450a c6d5d6ef 862bb174 c9c89451 e2865b6e 3386d202 14266979 dd398484 540b4612 d6c81456 d9183fbd 25847df8 3b9228f6 7f4c71ea 488df841 bae774ac 5778681b d1a9febe 7e1e9705 93a59ca1 03dfa77e e6ee0ed3 42ef6008 63bb69d5 4ed1cb23 aa713627 4977d74d bdd29048 dca4f707 4aeb48ba e385c0d0 e97603fd"
+    },
+    {
+      "format": "xzz",
+      "label": "synthetic test key",
+      "key": "1F2E3C4B5A667788"
+    }
+  ]
+}

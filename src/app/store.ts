@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { type KeyMap, hasStoredKeystore } from './keystore';
 import type { BoardModel, Diagnostic } from '../model/types';
 import type { Scene } from '../scene/scene';
 import { SearchIndex } from '../search/search';
@@ -147,13 +148,6 @@ export const DEFAULT_PREFS: Prefs = {
   forceCanvas2d: false,
 };
 
-export interface Keys {
-  fz: string;
-  cae: string;
-  xzz: string;
-  remember: boolean;
-}
-
 export interface AppState {
   phase: 'empty' | 'loading' | 'ready' | 'error';
   loading: { name: string; phase: string; fraction?: number; started: number } | null;
@@ -175,13 +169,23 @@ export interface AppState {
   measure: { a: [number, number] | null; b: [number, number] | null };
   searchText: string;
   prefs: Prefs;
-  keys: Keys;
+  /** Decryption keys unlocked for this session (in memory only). */
+  keys: KeyMap;
+  /** Whether an encrypted keystore is saved in this browser, and whether it's been unlocked. */
+  keystore: { present: boolean; unlocked: boolean };
   toast: { text: string; id: number } | null;
 }
 
 const PREFS_KEY = 'boardscope.prefs.v1';
-const KEYS_KEY = 'boardscope.keys.v1';
+const LEGACY_KEYS_KEY = 'boardscope.keys.v1';
 const GROUPS_KEY = 'boardscope.groups.v1';
+
+// Earlier builds could store keys in plaintext here. Remove any such leftover.
+try {
+  localStorage.removeItem(LEGACY_KEYS_KEY);
+} catch {
+  /* storage unavailable */
+}
 
 function loadGroups(): SavedGroup[] {
   try {
@@ -219,13 +223,8 @@ export function savePrefs(p: Prefs) {
   }
 }
 
-export function saveKeys(k: Keys) {
-  try {
-    if (k.remember) localStorage.setItem(KEYS_KEY, JSON.stringify(k));
-    else localStorage.removeItem(KEYS_KEY);
-  } catch {
-    /* ignore */
-  }
+export function setKeys(k: KeyMap) {
+  store.set({ keys: k });
 }
 
 export const store = createStore<AppState>({
@@ -247,7 +246,8 @@ export const store = createStore<AppState>({
   measure: { a: null, b: null },
   searchText: '',
   prefs: loadJSON(PREFS_KEY, DEFAULT_PREFS), // dark by default; light is a saved preference
-  keys: loadJSON(KEYS_KEY, { fz: '', cae: '', xzz: '', remember: false }),
+  keys: {}, // in memory only; a saved keystore is unlocked with a passphrase
+  keystore: { present: hasStoredKeystore(), unlocked: false },
   toast: null,
 });
 

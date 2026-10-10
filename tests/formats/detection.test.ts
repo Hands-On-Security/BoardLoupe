@@ -176,5 +176,5 @@ test('a GenCAD file cut off before $COMPONENTS is reported as truncated', () => 
   const text = '$HEADER\r\nGENCAD 1.4\r\nUNITS USER 1000\r\n$ENDHEADER\r\n$SHAPES\r\nSHAPE S1\r\nPIN 1 P1 0 0 TOP 0 0\r\n';
   const out = parseBytes('cut.cad', new TextEncoder().encode(text));
   expect(out.ok).toBe(false);
-  expect(out.diagnostics.find((d) => d.level === 'error')?.message).toMatch(/truncated: it ends inside \$SHAPES/);
+  expect(out.diagnostics.find((d) => d.level === 'error')?.message).toMatch(/incomplete: it ends inside \$SHAPES/);
 });
