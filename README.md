@@ -19,7 +19,7 @@ bus of a TPM at a test point or a resistor terminal instead of on a fine-pitch b
 
 ## Quick start
 
-1. Get `dist/boardview.html` (≈383 KB, ≈122 KB gzipped). It is the only file you need.
+1. Get `dist/boardview.html` (≈620 KB, ≈216 KB gzipped). It is the only file you need.
 2. Double-click it, or drag it into a browser window.
 3. Drop a boardview file onto the page, click **Browse files…**, or press <kbd>Ctrl/⌘</kbd>+<kbd>O</kbd>.
    ZIP archives work too, as do multi-file ASC sets (select all files or drop the folder).
@@ -41,21 +41,28 @@ Formats are recognised **by content**, not by file extension. The full details
 
 | Format | Status | Tested with |
 |---|---|---|
-| Tebo-ICT View `.tvw` (standard header) | verified | reference-validated synthetic board with traces, drills, arcs and decal outlines; also checked locally on a real Lenovo board |
+| Tebo-ICT View `.tvw` (standard header, Gigabyte variant) | verified | reference-validated synthetic board with traces, drills, arcs and decal outlines; also checked locally on real Lenovo and Gigabyte boards |
 | BRD Test_Link (plain, obfuscated, Lenovo variant) `.brd` `.bv` | verified | reference-validated synthetic |
 | BRD2 / BRDOUT (Toptest, kicad-boardview) `.brd` | verified | **real** file |
 | BDV `.bdv` | verified | reference-validated synthetic |
 | BVR `BVRAW_FORMAT_1` `.bvr` | verified | reference-validated synthetic |
 | BVR3 `BVRAW_FORMAT_3` `.bvr` | verified | **real** file |
 | FZ (zlib; RC6-encrypted with **your** key) `.fz` | verified | reference-validated synthetic (test key) |
-| GenCAD 1.4 `.cad` `.gcd` | verified | **real** KiCad 10 exports; checked locally on a real CAMCAD export |
+| GenCAD 1.4 `.cad` `.gcd` | verified | **real** KiCad 10 exports; checked locally on real CAMCAD exports |
 | KiCad PCB `.kicad_pcb` (KiCad 5–10) | verified | **real** KiCad board, checked pin by pin against KiCad's own export |
+| Mentor Graphics neutral file `.neu`, CAD "###Panel Added" `.cad` | verified | reference-validated synthetic; checked locally on real neutral files |
+| Fabmaster FATF and FARC (`.faz` job ZIPs) | verified | synthetic boards in both encodings; checked locally on real Gigabyte jobs against their own absolute pin data |
+| GenCAM (IPC-2511) `.a3p` | verified | synthetic; checked locally on a real Compal board |
+| Unisoft F2B `.f2b` | verified | synthetic; checked locally on two real boards |
+| BV database (Microsoft Access / Jet) `.bv` | verified | synthetic Jet 4 database; checked locally on real Apple boards |
+| **Cadence Allegro `.brd` (16.x, 17.x), read natively** | partial | synthetic 16.6 and 17.2 databases; checked locally on three real boards against KiCad 10's own import (identical pins, nets and drills) |
 | ASC multi-file set `.asc` (incl. VayoPro-Test Expert / TSICT exports) | partial | reference-validated synthetic; checked locally on a real set |
 | CAE (FZ container, needs key) `.cae` | partial | synthetic (test key) |
-| CAD "###Panel Added" (COMP/C_PIN) `.cad` | partial | reference-validated synthetic |
+| TopTest numbered-section BRD (+ `.con`) | experimental | documented layout (no real file known) |
+| Allegro Extracta text (`A!`/`S!` rows) | experimental | documented layout (no real file in the corpus) |
+| NBV (NexusBV export) `.nbv` | experimental | documented wire order (no real file available) |
 | CST `.cst` | experimental | reference-validated synthetic |
 | XZZ PCB `.pcb` (needs key for components) | experimental | synthetic (test DES key) |
-| Cadence Allegro `.brd` database | opens after a one-step KiCad conversion (see below) | checked locally on a real Allegro 16.6 board |
 | ZIP containers | supported | — |
 
 "Verified" means the parser's output equals the output of the original
@@ -65,18 +72,14 @@ source) on the fixture, plus integrity, fuzz and browser tests.
 "key required" message. You can enter a key you are entitled to use under
 *Settings → Decryption keys*. Keys stay in memory unless you choose to remember them.
 
-### Allegro, Altium, PADS, Eagle … via KiCad
+### Allegro boards, natively
 
-BoardScope reads KiCad boards directly, and the free [KiCad 10](https://www.kicad.org) imports
-Cadence Allegro (16–17), Altium, PADS, Eagle and CADSTAR designs. Convert once, then open the result:
-
-```bash
-kicad-cli pcb import "board.brd" -o board.kicad_pcb
-```
-
-(or *File → Import → Non-KiCad Board* in KiCad). The KiCad board keeps the real outline, part bodies,
-pads, vias and copper. Open the `.kicad_pcb`, not a GenCAD exported from KiCad: KiCad 10.0.1 writes
-`${REFERENCE}` instead of reference designators for imported boards (BoardScope warns about this).
+Cadence Allegro `.brd` databases (releases 16.x and 17.x) open directly: no Allegro, no KiCad, no
+conversion. BoardScope walks Allegro's record stream itself and builds parts, pins, nets, drills,
+vias, copper traces, the board outline and the copper layer names. On real boards this matches
+KiCad 10's own Allegro import pin for pin (see FORMAT_MATRIX.md). Boards saved by Allegro releases
+before 16 use an older record layout; they are recognised and explained but not read yet. Altium,
+PADS and Eagle designs can still be opened through a KiCad import (KiCad PCB is supported).
 
 ## Using the viewer
 
@@ -182,6 +185,7 @@ decompression output is capped, and input size is capped at 400 MB.
 | `npm test` | All unit, format, differential and fuzz tests (Vitest) |
 | `npm run test:formats` | Format tests only |
 | `BS_PRIVATE_FIXTURES=/dir npm test` | Also runs integrity and geometry checks on your own (non-redistributable) boardviews in `/dir` |
+| `BS_RESEARCH=/dir npm test` | Also opens every sample of a research corpus (`fixtures/manifest.jsonl`) and checks Fabmaster placement against the job's absolute pin data |
 | `npm run test:e2e` | Playwright on the built file over `file://` (Chromium, Firefox, WebKit). Run `npm run build` first. |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run fixtures` | Regenerate synthetic fixtures from the real Glasgow board |
