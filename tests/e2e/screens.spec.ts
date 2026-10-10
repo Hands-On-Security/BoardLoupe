@@ -31,6 +31,8 @@ test('dark: empty state', async ({ page }) => {
   // Let the fade-in finish (a capture mid-animation looks dimmed).
   await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
   await page.screenshot({ path: `${SHOTS}/dark-empty.png` });
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.screenshot({ path: `${SHOTS}/dark-empty-laptop.png` });
 });
 
 test('dark: TVW board, part selected', async ({ page }) => {

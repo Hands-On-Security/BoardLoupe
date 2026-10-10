@@ -62,6 +62,34 @@ test.describe('BoardLoupe single-file app', () => {
     expect(errors).toEqual([]);
   });
 
+  test('welcome view fits laptop screens and expanded formats remain scrollable', async ({ page }) => {
+    for (const [width, height] of [[1512, 862], [1366, 768], [1024, 600]]) {
+      await page.setViewportSize({ width, height });
+      await openApp(page);
+      const layout = await page.evaluate(() => {
+        const scroll = document.querySelector('[data-testid="welcome-scroll"]')!;
+        const title = document.querySelector('h1')!.getBoundingClientRect();
+        const privacy = document.querySelector('#priv-h')!.closest('section')!.getBoundingClientRect();
+        const toolbar = document.querySelector('[role="toolbar"]')!.getBoundingClientRect();
+        const status = document.querySelector('footer')!.getBoundingClientRect();
+        return { titleTop: title.top, toolbarBottom: toolbar.bottom, privacyBottom: privacy.bottom, statusTop: status.top, clientHeight: scroll.clientHeight, scrollHeight: scroll.scrollHeight };
+      });
+      expect(layout.titleTop).toBeGreaterThanOrEqual(layout.toolbarBottom);
+      expect(layout.privacyBottom).toBeLessThanOrEqual(layout.statusTop);
+      expect(layout.scrollHeight).toBe(layout.clientHeight);
+    }
+
+    await page.setViewportSize({ width: 768, height: 500 });
+    await page.locator('section[aria-labelledby="fmt-h"] summary').click();
+    const scroll = page.getByTestId('welcome-scroll');
+    await expect(page.locator('section[aria-labelledby="fmt-h"] details')).toHaveAttribute('open', '');
+    await scroll.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    expect(await scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    await scroll.evaluate((el) => el.scrollTo(0, 0));
+    const titleTop = await page.locator('h1').evaluate((el) => el.getBoundingClientRect().top);
+    expect(titleTop).toBeGreaterThanOrEqual(44);
+  });
+
   test('loads a real GenCAD board, renders, and makes no network requests', async ({ page, context }, info) => {
     const net = trackNetwork(page);
     const errors = await openApp(page);

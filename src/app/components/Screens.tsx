@@ -12,9 +12,9 @@ const STATUS_TEXT = { verified: 'verified', partial: 'partial', experimental: 'e
 export function EmptyState({ dragging }: { dragging: boolean }) {
   const formats = FORMATS.filter((f) => f.status !== 'diagnostic');
   return (
-    <div class="absolute inset-0 overflow-auto scroll-thin flex items-start md:items-center justify-center p-6">
-      <div class="w-full max-w-[860px] fade-in">
-        <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
+    <div class="absolute inset-0 overflow-y-auto scroll-thin flex justify-center p-4 sm:p-6" data-testid="welcome-scroll">
+      <div class="w-full max-w-[900px] my-auto fade-in">
+        <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
           <div class="flex items-center gap-3">
             <BrandMark size={44} />
             <div>
@@ -26,21 +26,20 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
             href={HOS_URL}
             target="_blank"
             rel="noopener noreferrer external"
-            class="flex flex-col items-start gap-1.5 rounded-xl border border-line2 px-3.5 py-2.5 hover:bg-raised transition-colors"
+            class="flex items-center rounded-xl border border-line2 px-3 py-2 hover:bg-raised transition-colors"
             title="BoardLoupe is a Hands-On Security tool — open the project portal"
           >
-            <HosLogo height={26} />
-            <span class="text-[10.5px] text-faint">Practical hardware security training</span>
+            <HosLogo height={20} />
           </a>
         </div>
         <div
-          class={`dropzone-dash rounded-2xl ${dragging ? 'dropzone-active' : 'bg-panel/60'} transition-colors px-6 py-10 flex flex-col items-center text-center`}
+          class={`dropzone-dash rounded-2xl ${dragging ? 'dropzone-active' : 'bg-panel/60'} transition-colors px-6 py-7 flex flex-col items-center text-center`}
           data-testid="dropzone"
         >
-          <Upload size={30} class={dragging ? 'text-accent' : 'text-faint'} />
+          <Upload size={28} class={dragging ? 'text-accent' : 'text-faint'} />
           <p class="mt-3 text-[16px] font-medium">{dragging ? 'Drop to open' : 'Drop a boardview file here'}</p>
           <p class="text-muted text-[13px] mt-1">or a ZIP containing one · several ASC files at once</p>
-          <div class="mt-5 flex items-center gap-3">
+          <div class="mt-4 flex items-center gap-3">
             <Button variant="solid" onClick={openPicker}>
               <FolderOpen size={15} /> Browse files…
             </Button>
@@ -50,44 +49,38 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
             </span>
           </div>
         </div>
-        <div class="mt-6 grid md:grid-cols-[1fr_280px] gap-5">
-          <section aria-labelledby="fmt-h">
-            <h2 id="fmt-h" class="text-[11px] uppercase tracking-wider text-faint font-semibold mb-2">
-              Supported formats (detected by content, not extension)
+        <div class="mt-5 grid md:grid-cols-[minmax(0,1fr)_280px] gap-4">
+          <section class="rounded-xl border border-line bg-panel p-4" aria-labelledby="fmt-h">
+            <h2 id="fmt-h" class="text-[13px] font-semibold">
+              {formats.length} formats recognized
             </h2>
-            <ul class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5">
-              {formats.map((f) => (
-                <li key={f.id} class="flex items-start gap-2 text-[12.5px]">
-                  <Badge tone={STATUS_TONE[f.status]}>{STATUS_TEXT[f.status]}</Badge>
-                  <span class="min-w-0">
-                    <span class="text-fg">{f.name}</span>
-                    <span class="text-faint"> · {f.extensions.map((e) => '.' + e).join(' ')}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <p class="text-muted text-[12.5px] mt-1">TVW, BRD, BVR, FZ, GenCAD, GenCAM and more. Detected by content.</p>
             <p class="text-faint text-[11.5px] mt-2 flex items-start gap-1.5">
-              <KeyRound size={12} class="mt-0.5 shrink-0" /> Encrypted FZ / CAE / XZZ files need a key you provide (Settings). No keys are bundled. Allegro boards open directly — no Allegro or KiCad needed.
+              <KeyRound size={12} class="mt-0.5 shrink-0" /> Encrypted files need your own key; none are bundled.
             </p>
+            <details class="mt-3 text-[12px]">
+              <summary class="cursor-pointer text-accent hover:underline select-none">View formats and support levels</summary>
+              <ul class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-line">
+                {formats.map((f) => (
+                  <li key={f.id} class="flex items-start gap-2 text-[12px]">
+                    <Badge tone={STATUS_TONE[f.status]}>{STATUS_TEXT[f.status]}</Badge>
+                    <span class="min-w-0">
+                      <span class="text-fg">{f.name}</span>
+                      <span class="text-faint"> · {f.extensions.map((e) => '.' + e).join(' ')}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </section>
-          <section class="rounded-xl border border-line bg-panel p-4 h-fit" aria-labelledby="priv-h">
+          <section class="rounded-xl border border-line bg-panel p-4" aria-labelledby="priv-h">
             <h2 id="priv-h" class="flex items-center gap-2 text-[13px] font-semibold text-ok">
               <ShieldCheck size={16} /> Private by design
             </h2>
-            <ul class="mt-2 space-y-1.5 text-[12.5px] text-muted list-disc pl-4">
-              <li>Files are read and parsed locally in your browser.</li>
-              <li>No uploads, network requests, analytics or telemetry.</li>
-              <li>Works fully offline from this single HTML file.</li>
-              <li>Only display preferences are stored (in this browser).</li>
-            </ul>
+            <p class="mt-2 text-[12.5px] text-muted">Your board files stay in this browser. No uploads, accounts or telemetry.</p>
+            <p class="mt-2 text-[12.5px] text-muted">Works offline from one portable HTML file.</p>
           </section>
         </div>
-        <p class="mt-6 pt-4 border-t border-line text-[12px] text-faint flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span class="inline-flex items-center gap-1.5">
-            A <HosLogo height={13} /> tool.
-          </span>
-          <span class="text-muted">Understand the attack. Build the skills to defend.</span>
-        </p>
       </div>
     </div>
   );
