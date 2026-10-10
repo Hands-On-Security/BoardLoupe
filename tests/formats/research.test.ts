@@ -35,6 +35,7 @@ const OPENS: Record<string, string[]> = {
   faz: ['fabmaster'],
   'gencam-a3p': ['gencam'],
   tvw: ['tvw'],
+  f2b: ['f2b'],
 };
 const SETS = new Set(['asc-split', 'con-companion', 'cst-companion', 'cst', 'f2b']);
 

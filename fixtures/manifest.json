@@ -215,6 +215,17 @@
     "license": "0BSD"
   },
   {
+    "id": "syn-f2b",
+    "files": [
+      "fixtures/synthetic/glasgow.f2b"
+    ],
+    "format": "f2b",
+    "obv": null,
+    "origin": "synthetic",
+    "provenance": "Derived from the Glasgow board (whitequark/Glasgow via kicad-boardview example, 0BSD) exported by KiCad 10.0.1 to GenCAD; written by tools/fixtures/writers.ts following the Unisoft F2B archive layout of real files (MFC objects, pin labels in the net dictionary).",
+    "license": "0BSD"
+  },
+  {
     "id": "syn-tvw",
     "files": [
       "fixtures/synthetic/glasgow.tvw"

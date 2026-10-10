@@ -77,7 +77,7 @@ describe('cross-format geometry (real board, independent exporters)', () => {
     expect(r.compared).toBeGreaterThan(1100);
     expect(r.worst).toBeLessThan(0.75);
   });
-  for (const f of ['glasgow.fatf', 'glasgow.far', 'glasgow.a3p'])
+  for (const f of ['glasgow.fatf', 'glasgow.far', 'glasgow.a3p', 'glasgow.f2b'])
     test(`synthetic ${f} reproduces the source board (rotated, mirrored packages)`, () => {
       const m = parse('fixtures/synthetic/' + f).model!;
       const r = compare(parse('fixtures/real/glasgow/glasgow-kicad10.cad').model!, m);
@@ -85,6 +85,6 @@ describe('cross-format geometry (real board, independent exporters)', () => {
       expect(r.worst).toBeLessThan(0.75);
       expect(r.netMismatch).toBe(0);
       expect(m.traces.count).toBeGreaterThan(4000);
-      expect(m.outline.source).toBe('file');
+      if (!f.endsWith('.f2b')) expect(m.outline.source).toBe('file'); // F2B stores no outline
     });
 });

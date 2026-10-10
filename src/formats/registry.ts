@@ -8,6 +8,7 @@ import { bvr1Format, bvr3Format } from './bvr';
 import { cadPanelFormat } from './cad';
 import { extOf, makeSniff } from './common';
 import { cstFormat } from './cst';
+import { f2bFormat } from './f2b';
 import { fabmasterFormat } from './fabmaster';
 import { caeFormat, fzFormat } from './fz';
 import { gencadFormat } from './gencad';
@@ -63,6 +64,7 @@ export const FORMATS: FormatModule[] = [
   cadPanelFormat,
   fabmasterFormat,
   cstFormat,
+  f2bFormat,
   xzzFormat,
   kicadFormat,
   allegroFormat,

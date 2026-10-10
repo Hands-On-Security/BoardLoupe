@@ -936,3 +936,81 @@ export function writeGencam(b: SrcBoard): Uint8Array {
   return enc.encode(L.join(CRLF));
 }
 const gq = (s: string) => `"${s.replace(/"/g, '""')}"`;
+
+// ------------------------------------------------------------------ Unisoft F2B (MFC CArchive)
+
+/** F2B archive v8: trace lists, CPinList with CComponent objects, component map, NetNames with pin labels. */
+export function writeF2b(b: SrcBoard): Uint8Array {
+  const w = new ByteWriter();
+  const cstr = (s: string) => {
+    const bytes = enc.encode(s);
+    if (bytes.length < 255) w.u8(bytes.length);
+    else w.u8(0xff).u16(bytes.length);
+    w.bytes(bytes);
+  };
+  const netKey = new Map(b.nets.map((n, i) => [n, i + 1]));
+  const labels = new Map<string, number>();
+  const labelKey = (s: string) => labels.get(s) ?? (labels.set(s, 0xfffe - labels.size), labels.get(s)!);
+  w.u32(8).zeros(8).u8(0).f32(1000).u16(1).u16(3);
+  const LAYER: Record<string, number> = { T: 1, I: 2, B: 3 };
+  for (const L of ['T', 'I', 'B']) {
+    const ts = b.traces.filter((t) => t.layer === L);
+    if (!ts.length) continue;
+    w.u16(LAYER[L]);
+    cstr('CTraceList');
+    w.u16(1).u16(ts.length);
+    for (const t of ts) {
+      const k = t.net ? netKey.get(t.net)! : 0xffff;
+      w.u16(3).u16(k).u16(k).s16(t.x1).s16(t.y1).s16(t.x2).s16(t.y2).u16(LAYER[L]).zeros(12);
+    }
+  }
+  w.u16(0x7fff).u16(0);
+  cstr('CPinList');
+  const pins = b.parts.reduce((n, p) => n + p.pins.length, 0) + b.vias.length;
+  w.u16(1).u16(pins);
+  let nextIndex = 2; // 1 is the CComponent class
+  const index = new Map<SrcPart, number>();
+  b.parts.forEach((p, pi) => {
+    p.pins.forEach((pin, j) => {
+      const code = p.th ? (p.side === 'B' ? 164 : 80) : p.side === 'B' ? 44 : 24;
+      const layerBits = p.th ? 6 : p.side === 'B' ? 4 : 2;
+      const no = pin.number || String(j + 1);
+      const num = /^\d+$/.test(no) && +no < 32768 ? +no : labelKey(no) - 0x10000;
+      w.u16(1).s16(pin.x).s16(pin.y).u16(code | (layerBits << 8)).s16(num).u16(pin.net ? netKey.get(pin.net)! : 0xffff);
+      if (j > 0) {
+        w.u16(index.get(p)!);
+        return;
+      }
+      if (pi === 0) {
+        w.u16(0xffff).u16(1).u16(10);
+        w.bytes(enc.encode('CComponent'));
+      } else w.u16(0x8001);
+      index.set(p, nextIndex++);
+      const xs = p.pins.map((q) => q.x),
+        ys = p.pins.map((q) => q.y);
+      w.u16(8).s16(Math.min(...xs)).s16(Math.max(...xs)).s16(Math.min(...ys)).s16(Math.max(...ys));
+      for (const s of [p.name, `PN-${p.footprint}`.slice(0, 60), p.footprint, '', '', p.value]) cstr(s);
+      w.u16(p.pins.length).zeros(6).u16(p.side === 'B' ? 1 : 0).zeros(47 - 10);
+    });
+  });
+  b.vias.forEach((v, i) => w.u16(1).s16(v.x).s16(v.y).u16(240 | (7 << 8)).s16(i + 1).u16(v.net ? netKey.get(v.net)! : 0xffff).u16(0));
+  // Component map (name → object), sorted by name like the original.
+  const named = [...index].sort((a, c) => (a[0].name < c[0].name ? -1 : 1));
+  w.u16(named.length);
+  for (const [p, i] of named) {
+    cstr(p.name);
+    w.u16(i);
+  }
+  cstr('NetNames');
+  w.u16(1).u16(b.nets.length + labels.size);
+  for (const [n, k] of netKey) {
+    w.u16(k);
+    cstr(n);
+  }
+  for (const [s, k] of labels) {
+    w.u16(k);
+    cstr(s);
+  }
+  cstr('C:\\BOARDSCOPE\\GLASGOW-SYNTHETIC.NEU');
+  return w.out();
+}
