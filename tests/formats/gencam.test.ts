@@ -166,3 +166,91 @@ describe('GenCAM', () => {
     expect(tp.map((i) => [...xy(m, i), net(m, i)])).toEqual([[1500, 200, 'VIN']]);
   });
 });
+
+/**
+ * Multi-board GenCAM: two BOARD blocks in $BOARDS, each with its own OUTLINE at
+ * a different absolute position, plus one component sitting on each board. This
+ * dialect is SYNTHETIC — no authentic multi-board GenCAM export was found in the
+ * research corpus or publicly (see REPORT.md), so this only verifies the code
+ * path, not real-file fidelity. The single-board placement is checked against a
+ * real Compal LA-6841P .a3p (see FORMAT_MATRIX.md).
+ */
+const MULTI = `$HEADER
+  GENCAM: "1.5";
+  UNITS: THOU;
+  BOARD: "A";
+  BOARD: "B";
+$ENDHEADER
+$PRIMITIVES
+  GROUP: "(primitives).B";
+    RECTCORNERDEF: "R",(-10,-10),(10,10);
+$ENDPRIMITIVES
+$LAYERS
+  GROUP: "(layers).B";
+    LAYERSINGLE: "TOP",TOP,CONDUCTOR,,,,,;
+    LAYERSINGLE: "CT",TOP,COMPONENT,,,,,;
+    LAYERSINGLE: "OUT",ALL,BOARDOUTLINE,,,,,;
+$ENDLAYERS
+$PADSTACKS
+  GROUP: "(padstacks).B";
+    PADSTACK: "SMD";
+      PAD: "(layers).B"."TOP","(primitives).B"."R",,,,,(0,0),0;
+$ENDPADSTACKS
+$PATTERNS
+  GROUP: "(patterns).B";
+    PATTERNDEF: "P",;
+      PADSTACKREF: "(padstacks).B"."SMD","1",(0,0),0;
+$ENDPATTERNS
+$COMPONENTS
+  GROUP: "(components).B";
+    COMPONENT: "U1","(layers).B"."CT",(500,500),0,;
+      PATTERNREF: "(patterns).B"."P",;
+    COMPONENT: "U2","(layers).B"."CT",(5500,500),0,;
+      PATTERNREF: "(patterns).B"."P",;
+$ENDCOMPONENTS
+$BOARDS
+  BOARD: "A";
+    OUTLINE: "A","(layers).B"."OUT",;
+      POLYLINE: ;
+        STARTAT: (0,0);
+        LINETO: (1000,0);
+        LINETO: (1000,1000);
+        LINETO: (0,1000);
+        LINETO: (0,0);
+  BOARD: "B";
+    OUTLINE: "B","(layers).B"."OUT",;
+      POLYLINE: ;
+        STARTAT: (5000,0);
+        LINETO: (6000,0);
+        LINETO: (6000,1000);
+        LINETO: (5000,1000);
+        LINETO: (5000,0);
+$ENDBOARDS
+`;
+
+describe('GenCAM multi-board (synthetic)', () => {
+  const out = parseBytes('panel.a3p', new TextEncoder().encode(MULTI));
+  const m = out.model!;
+
+  test('both boards parse together with integrity', () => {
+    expect(out.ok, out.diagnostics.map((d) => d.message).join('; ')).toBe(true);
+    expect(validateModel(m)).toEqual([]);
+    expect(m.outline.source).toBe('file');
+  });
+
+  test('both boards’ outlines are drawn in shared absolute coordinates', () => {
+    const xs: number[] = [];
+    for (let i = 0; i < m.outline.segs.length; i += 2) xs.push(m.outline.segs[i]);
+    expect(Math.min(...xs)).toBeCloseTo(0, 3); // board A left edge
+    expect(Math.max(...xs)).toBeCloseTo(6000, 3); // board B right edge
+    // Both disjoint loops are present: some segments on A (x<=1000), some on B (x>=5000).
+    expect(xs.some((x) => x <= 1000)).toBe(true);
+    expect(xs.some((x) => x >= 5000)).toBe(true);
+  });
+
+  test('a component on each board is placed at its own board’s position', () => {
+    expect(m.parts.count).toBe(2);
+    expect(xy(m, pin(m, 'U1', '1'))).toEqual([500, 500]);
+    expect(xy(m, pin(m, 'U2', '1'))).toEqual([5500, 500]);
+  });
+});
