@@ -69,7 +69,7 @@ export function EmptyState({ dragging }: { dragging: boolean }) {
               ))}
             </ul>
             <p class="text-faint text-[11.5px] mt-2 flex items-start gap-1.5">
-              <KeyRound size={12} class="mt-0.5 shrink-0" /> Encrypted FZ / CAE / XZZ files need a key you provide (Settings). No keys are bundled. Allegro, Altium, PADS and Eagle boards open after a free KiCad import (KiCad PCB is supported).
+              <KeyRound size={12} class="mt-0.5 shrink-0" /> Encrypted FZ / CAE / XZZ files need a key you provide (Settings). No keys are bundled. Allegro boards open directly — no Allegro or KiCad needed.
             </p>
           </section>
           <section class="rounded-xl border border-line bg-panel p-4 h-fit" aria-labelledby="priv-h">

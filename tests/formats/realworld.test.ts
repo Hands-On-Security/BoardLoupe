@@ -191,10 +191,10 @@ describe('dropping a whole board folder', () => {
     expect(r.model!.source.formatId).toBe('asc');
   });
 
-  test('an Allegro database with only documents reports the Allegro conversion route', () => {
+  test('a damaged Allegro database with only documents is reported as such', () => {
     const r = parseFiles([pdf('schematic.pdf'), { name: 'board.brd', bytes: allegro }], DEFAULT_OPTIONS);
     expect(r.ok).toBe(false);
-    expect(r.diagnostics.find((x) => x.level === 'error')!.code).toBe('unsupported.allegro');
+    expect(r.diagnostics.find((x) => x.level === 'error')!.message).toMatch(/Allegro 16\.6 board.*truncated/);
   });
 
   test('a single PDF named like a boardview is explained as a drawing', () => {

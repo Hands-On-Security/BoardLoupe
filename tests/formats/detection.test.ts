@@ -65,15 +65,24 @@ describe('diagnostics for unsupported or broken input', () => {
     expect(msg(parseBytes(name, b))).toMatch(re);
   });
 
-  test('binary Allegro database is recognised, its release named, and the KiCad route explained', () => {
+  test('a truncated Allegro database is recognised and its release named', () => {
     const b = new Uint8Array(1024);
     b.set([0x04, 0x15, 0x13, 0x00]); // header magic 0x00131504 -> Allegro 16.6
     b.set(new TextEncoder().encode('allv16-612/7/'), 0xf8);
     const r = parseBytes('mainboard.brd', b);
     expect(r.ok).toBe(false);
+    expect(msg(r)).toMatch(/Allegro 16\.6 board \("allv16-612\/7"\) is truncated/);
+    expect(msg(r)).not.toMatch(/kicad/i);
+  });
+
+  test('an Allegro release whose layout is not supported says so without a conversion detour', () => {
+    const b = new Uint8Array(0x2000);
+    b.set([0x0a, 0x01, 0x12, 0x00]); // 0x0012010a -> Allegro 15.5
+    b.set(new TextEncoder().encode('allv15-511/15'), 0xf8);
+    const r = parseBytes('old.brd', b);
+    expect(r.ok).toBe(false);
     expect(r.diagnostics[0].code).toBe('unsupported.allegro');
-    expect(msg(r)).toMatch(/Allegro 16\.6/);
-    expect(msg(r)).toMatch(/kicad-cli pcb import "mainboard\.brd" -o board\.kicad_pcb/);
+    expect(msg(r)).toMatch(/Allegro 15\.5/);
   });
 
   test('a KiCad board without footprints opens (with a warning) instead of being rejected', () => {

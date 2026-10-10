@@ -1,6 +1,7 @@
 import { unzipSync } from 'fflate';
 import { ParseError, entropy, hex, startsWithBytes } from '../io/bytes';
 import type { Diagnostic } from '../model/types';
+import { allegroFormat } from './allegro';
 import { ascFormat, bdvFormat } from './asc';
 import { brdFormat } from './brd';
 import { brd2Format } from './brd2';
@@ -18,37 +19,6 @@ import { kicadFormat } from './kicad';
 import { tvwFormat } from './tvw';
 import type { Detection, FormatModule, InputFile, ParseContext, ParseOptions, ParseOutcome, Sniff } from './types';
 import { xzzFormat } from './xzz';
-
-/** Allegro header magic (low byte masked) -> release. */
-const ALLEGRO_RELEASES: Record<number, string> = { 0x00130000: '16.0', 0x00130400: '16.2', 0x00130c00: '16.4', 0x00131000: '16.5', 0x00131500: '16.6', 0x00140400: '17.2', 0x00140900: '17.4', 0x00141500: '17.5' };
-
-/** Allegro .brd: recognised so the user gets a precise explanation. */
-const allegroFormat: FormatModule = {
-  id: 'allegro',
-  name: 'Cadence Allegro board database',
-  extensions: ['brd'],
-  status: 'diagnostic',
-  summary: 'Binary Allegro design database — opens after a one-step KiCad import (the message gives the command)',
-  detect(_s, f) {
-    const b = f.bytes;
-    if (b.length >= 0xfb) {
-      const tag = String.fromCharCode(b[0xf8], b[0xf9], b[0xfa]);
-      if (tag === 'all' || tag === 'vie') return { confidence: 0.9, reason: `Allegro database marker "${tag}" at 0xF8` };
-    }
-    return null;
-  },
-  parse(ctx) {
-    const b = ctx.file.bytes;
-    // Release from the header magic (little-endian, low byte masked).
-    const magic = b.length >= 4 ? (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0 : 0;
-    const release = ALLEGRO_RELEASES[(magic & 0xffffff00) >>> 0] ?? null;
-    const verText = String.fromCharCode(...b.subarray(0xf8, 0xf8 + 32)).replace(/[^\x20-\x7e].*$/s, '').trim();
-    throw new ParseError(
-      'unsupported.allegro',
-      `This is a binary Cadence Allegro board database${release ? ` (Allegro ${release}${verText ? `, "${verText}"` : ''})` : ''}, not a boardview. BoardScope cannot read Allegro's proprietary format directly, but it opens KiCad boards — and the free KiCad 10 imports Allegro 16–17: run \`kicad-cli pcb import "${ctx.file.name}" -o board.kicad_pcb\` (or File → Import → Non-KiCad Board in KiCad) and open board.kicad_pcb here. Alternatively export GenCAD from Allegro.`,
-    );
-  },
-};
 
 export const FORMATS: FormatModule[] = [
   tvwFormat,
