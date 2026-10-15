@@ -51,7 +51,8 @@ describe('diagnostics for unsupported or broken input', () => {
   test('empty file', () => {
     const r = parseBytes('empty.tvw', new Uint8Array(0));
     expect(r.ok).toBe(false);
-    expect(msg(r)).toMatch(/empty|header/i);
+    expect(r.diagnostics[0].code).toBe('empty-file');
+    expect(msg(r)).toMatch(/empty \(0 bytes\).*archive member/);
   });
 
   test.each([

@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { back, closeBoard, forward, openFiles, viewer } from '../actions';
+import { back, closeBoard, forward, openFiles, toggleMirror, viewer } from '../actions';
 import { BrandMark, HosByline } from '../brand';
 import { type Prefs, setPrefs, store, useStore } from '../store';
 import { IconButton, Toggle, cx } from './ui';
@@ -93,7 +93,7 @@ export function Toolbar() {
               {prefs.otherSide === 'hide' ? <EyeOff size={16} /> : <Eye size={16} />}
             </IconButton>
           )}
-          <IconButton label="Mirror view" shortcut="X" active={viewer.view.mirror} onClick={() => viewer.toggleMirror()}>
+          <IconButton label="Mirror view" shortcut="X" active={viewer.view.mirror} onClick={toggleMirror}>
             <FlipHorizontal2 size={16} />
           </IconButton>
           <IconButton label="Rotate 90°" shortcut="R" onClick={() => viewer.rotate(90)}>

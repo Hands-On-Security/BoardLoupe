@@ -1,6 +1,7 @@
 import { FileDown, ImageDown, Printer } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { downloadText, exportBaseName, highlightFor, viewer } from '../actions';
+import { drawMinimap } from '../minimap-draw';
 import { REPORT_IMAGE_ASPECT, type ReportImage, type ReportOptions, type ReportView, collectReport, renderReportHtml } from '../report';
 import { store, toast, useStore } from '../store';
 import { saveViewPng } from './Groups';
@@ -12,27 +13,56 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 const PAGE_W = 794;
 const PAGE_H = 1123;
 
+const imageKey = (o: ReportOptions) => `${o.lightImage ? 'light' : 'dark'}:${o.includeMinimap ? o.minimapCorner : 'none'}`;
+
+function captureReportImage(o: ReportOptions): ReportImage | null {
+  return viewer.captureImage({
+    light: o.lightImage,
+    aspect: REPORT_IMAGE_ASPECT,
+    decorate: o.includeMinimap
+      ? (ctx, width, height, dpr) => {
+          const map = document.createElement('canvas');
+          if (!drawMinimap(map, viewer, null, dpr)) return;
+          const margin = 12 * dpr;
+          const pad = 4 * dpr;
+          const x = o.minimapCorner.endsWith('right') ? width - map.width - margin - pad * 2 : margin;
+          const y = o.minimapCorner.startsWith('bottom') ? height - map.height - margin - pad * 2 : margin;
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.35)';
+          ctx.shadowBlur = 7 * dpr;
+          ctx.fillStyle = o.lightImage ? '#fff' : '#151b23';
+          ctx.fillRect(x, y, map.width + pad * 2, map.height + pad * 2);
+          ctx.restore();
+          ctx.strokeStyle = o.lightImage ? '#9aa3af' : '#687789';
+          ctx.lineWidth = dpr;
+          ctx.strokeRect(x, y, map.width + pad * 2, map.height + pad * 2);
+          ctx.drawImage(map, x + pad, y + pad);
+        }
+      : undefined,
+  });
+}
+
 export function ReportDialog() {
   const board = useStore(store, (s) => s.board);
   const sel = useStore(store, (s) => s.sel);
   const group = useStore(store, (s) => s.group);
   const otherSide = useStore(store, (s) => s.prefs.otherSide);
   const close = () => store.set({ dialog: null });
-  const [opts, setOpts] = useState<ReportOptions>({ title: '', notes: '', includeImage: true, lightImage: true, includeSolder: true, includeParts: true });
+  const [opts, setOpts] = useState<ReportOptions>({ title: '', notes: '', includeImage: true, lightImage: true, includeMinimap: true, minimapCorner: 'bottom-right', includeSolder: true, includeParts: true });
   // Preview options lag the inputs slightly so typing does not re-parse the document on every key.
   const [previewOpts, setPreviewOpts] = useState(opts);
-  const [images, setImages] = useState<{ light?: ReportImage | null; dark?: ReportImage | null }>({});
+  const [images, setImages] = useState<Record<string, ReportImage | null>>({});
   const frame = useRef<HTMLIFrameElement>(null);
   const printPending = useRef(false);
 
-  // Capture the current view once per palette (the view under the dialog does not change).
-  const key = opts.lightImage ? 'light' : 'dark';
+  // Capture once per palette and minimap placement (the view under the dialog does not change).
+  const key = imageKey(opts);
   useEffect(() => {
     if (!opts.includeImage || images[key] !== undefined) return;
     // Same centre and zoom as on screen, extended to fill the report's frame.
-    const img = viewer.captureImage({ light: opts.lightImage, aspect: REPORT_IMAGE_ASPECT });
+    const img = captureReportImage(opts);
     setImages((prev) => ({ ...prev, [key]: img }));
-  }, [key, opts.includeImage]);
+  }, [key, opts.includeImage, opts.lightImage, opts.includeMinimap, opts.minimapCorner]);
 
   useEffect(() => {
     const t = setTimeout(() => setPreviewOpts(opts), 250);
@@ -50,7 +80,7 @@ export function ReportDialog() {
       zoomPct: Math.round((viewer.view.scale / (viewer.fitScale || 1)) * 100),
       otherSide,
     };
-    const img = (o.lightImage ? images.light : images.dark) ?? null;
+    const img = images[imageKey(o)] ?? null;
     return renderReportHtml(collectReport(m, board.scene, h, group.nets, v, o, img));
   };
   const html = useMemo(() => build(previewOpts), [board, sel, group, previewOpts, images, otherSide]);
@@ -134,6 +164,18 @@ export function ReportDialog() {
           <div>
             <Toggle label="Board view image" hint="The current view as you see it, at print resolution" checked={opts.includeImage} onChange={(v) => set({ includeImage: v })} />
             {opts.includeImage && <Toggle label="Print-friendly (light) image" hint="Light background; off keeps the on-screen colours" checked={opts.lightImage} onChange={(v) => set({ lightImage: v })} />}
+            {opts.includeImage && <Toggle label="Board minimap" hint="Show board overview and current viewport on the report image" checked={opts.includeMinimap} onChange={(v) => set({ includeMinimap: v })} />}
+            {opts.includeImage && opts.includeMinimap && (
+              <label class="flex items-center justify-between gap-2 py-1.5 text-[13px]">
+                Minimap corner
+                <select class="bg-panel2 border border-line2 rounded h-7 px-1 text-[12.5px]" value={opts.minimapCorner} onChange={(e) => set({ minimapCorner: (e.target as HTMLSelectElement).value as ReportOptions['minimapCorner'] })}>
+                  <option value="top-left">Top left</option>
+                  <option value="top-right">Top right</option>
+                  <option value="bottom-left">Bottom left</option>
+                  <option value="bottom-right">Bottom right</option>
+                </select>
+              </label>
+            )}
             <Toggle label="Solder / probe points per net" checked={opts.includeSolder} onChange={(v) => set({ includeSolder: v })} />
             <Toggle label="Highlighted parts" checked={opts.includeParts} onChange={(v) => set({ includeParts: v })} />
           </div>

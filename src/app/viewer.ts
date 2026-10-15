@@ -146,9 +146,9 @@ export class Viewer {
   setOptions(p: Partial<RenderOptions>) {
     const prevSide = this.opts.side;
     this.opts = { ...this.opts, ...p };
-    if (p.side !== undefined && p.side !== prevSide && this.mirrorBottom) {
+    if (p.side !== undefined && p.side !== prevSide) {
       // Turn the board over: mirror horizontally around the current centre.
-      this.view = { ...this.view, mirror: p.side === 2 };
+      this.view = { ...this.view, mirror: p.side === 2 && this.mirrorBottom };
       if (this.autoFit) this.fit();
     }
     this.colorsDirty = true;
@@ -240,6 +240,16 @@ export class Viewer {
     this.view = { ...this.view, mirror: !this.view.mirror };
     this.requestRender();
     this.emitView();
+  }
+
+  setBottomMirror(enabled: boolean) {
+    if (this.mirrorBottom === enabled) return;
+    this.mirrorBottom = enabled;
+    if (this.opts.side === 2 && this.view.mirror !== enabled) {
+      this.view = { ...this.view, mirror: enabled };
+      this.requestRender();
+      this.emitView();
+    }
   }
 
   pickAt(sx: number, sy: number): PickResult {

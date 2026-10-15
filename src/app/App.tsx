@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { addSelectionToGroup, back, clearSelection, focusSelection, forward, openFiles, viewer } from './actions';
+import { addSelectionToGroup, back, clearSelection, focusSelection, forward, openFiles, toggleMirror, viewer } from './actions';
 import { BoardCanvas } from './components/BoardCanvas';
 import { HelpDialog, SettingsDialog, TablesDialog } from './components/Dialogs';
 import { HighlightLegend } from './components/Groups';
@@ -61,7 +61,7 @@ export function App() {
   // Theme + renderer preferences.
   useEffect(() => {
     document.documentElement.dataset.theme = prefs.theme;
-    viewer.mirrorBottom = prefs.mirrorBottom;
+    viewer.setBottomMirror(prefs.mirrorBottom);
     viewer.setOptions({
       light: prefs.theme === 'light',
       otherSide: prefs.otherSide,
@@ -191,7 +191,7 @@ export function App() {
           break;
         case 'x':
         case 'X':
-          viewer.toggleMirror();
+          toggleMirror();
           break;
         case 'g':
         case 'G':

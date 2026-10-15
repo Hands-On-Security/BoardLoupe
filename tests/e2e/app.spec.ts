@@ -200,6 +200,12 @@ test.describe('BoardLoupe single-file app', () => {
     await expect(bottom).toHaveAttribute('aria-pressed', 'true');
     const mirrored = await page.evaluate(() => (window as unknown as { boardloupe: { viewer: { view: { mirror: boolean } } } }).boardloupe.viewer.view.mirror);
     expect(mirrored).toBe(true);
+    await page.getByRole('button', { name: 'Mirror view' }).click();
+    await expect(page.getByRole('button', { name: 'Mirror view' })).toHaveAttribute('aria-pressed', 'false');
+    await top.click();
+    await bottom.click();
+    await expect(page.getByRole('button', { name: 'Mirror view' })).toHaveAttribute('aria-pressed', 'false');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('boardloupe.prefs.v1')!).mirrorBottom)).toBe(false);
     const zoomText = page.locator('footer').getByText(/^\d+%$/);
     await expect(zoomText).toHaveText('100%');
     const box = (await page.getByTestId('board-canvas').boundingBox())!;
@@ -341,6 +347,14 @@ test.describe('BoardLoupe single-file app', () => {
     await page.keyboard.press('Control+p');
     const dlg = page.getByRole('dialog', { name: 'Report' });
     await expect(dlg).toBeVisible();
+    const title = dlg.getByPlaceholder(/board analysis/);
+    await title.pressSequentially('Bus', { delay: 300 });
+    await expect(title).toHaveValue('Bus');
+    await expect(title).toBeFocused();
+    const notes = dlg.getByPlaceholder(/TPM on the SPI bus/);
+    await notes.pressSequentially('Probe', { delay: 300 });
+    await expect(notes).toHaveValue('Probe');
+    await expect(notes).toBeFocused();
     await dlg.getByPlaceholder(/board analysis/).fill('I2C <script>alert(1)</script> audit');
     const preview = dlg.getByTestId('report-preview');
     await expect.poll(async () => (await preview.getAttribute('srcdoc')) ?? '').toContain('I2C &lt;script&gt;');
@@ -349,6 +363,12 @@ test.describe('BoardLoupe single-file app', () => {
     await expect(frame.locator('table.data')).toContainText('/SDA');
     await expect(frame.locator('.brand svg path[d="M19 34h11v-9h13"]')).toHaveCount(1);
     await expect(frame.locator('figure img')).toHaveCount(1);
+    const mapImage = await frame.locator('figure img').getAttribute('src');
+    await dlg.getByLabel('Minimap corner').selectOption('top-left');
+    await expect.poll(() => frame.locator('figure img').getAttribute('src')).not.toBe(mapImage);
+    const movedMapImage = await frame.locator('figure img').getAttribute('src');
+    await dlg.getByText('Board minimap', { exact: true }).click();
+    await expect.poll(() => frame.locator('figure img').getAttribute('src')).not.toBe(movedMapImage);
     // The board image fills the report's 184 x 116 mm frame (extended view, no letterbox) ...
     const [iw, ih] = await frame.locator('figure img').evaluate((img) => [(img as HTMLImageElement).naturalWidth, (img as HTMLImageElement).naturalHeight]);
     expect(Math.abs(iw / ih - 184 / 116)).toBeLessThan(0.01);
@@ -368,6 +388,13 @@ test.describe('BoardLoupe single-file app', () => {
     await page.setInputFiles('#bs-file-input', { name: 'mystery.brd', mimeType: 'application/octet-stream', buffer: Buffer.from(Array.from({ length: 2048 }, (_, i) => (i * 2654435761) >>> 24)) });
     await expect(page.getByTestId('error')).toBeVisible();
     await expect(page.getByTestId('error-message')).toContainText('No supported boardview signature');
+  });
+
+  test('zero-byte file is identified before format detection', async ({ page }) => {
+    await openApp(page);
+    await page.setInputFiles('#bs-file-input', { name: 'archive-member.brd', mimeType: 'application/octet-stream', buffer: Buffer.alloc(0) });
+    await expect(page.getByTestId('error-message')).toContainText('empty (0 bytes)');
+    await expect(page.getByTestId('error-message')).toContainText('archive member');
   });
 
   test('encrypted FZ without key explains how to proceed', async ({ page }) => {

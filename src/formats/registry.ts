@@ -130,6 +130,7 @@ const isBoardviewPdfName = (name: string) => /board\s*view|[-_ .]bv[-_ .]|[-_ .]
 
 function shortKind(f: InputFile): string {
   const b = f.bytes;
+  if (!b.length) return 'empty (0 bytes)';
   if (startsWithBytes(b, [0x25, 0x50, 0x44, 0x46])) return isBoardviewPdfName(f.name) ? 'boardview drawing as PDF (not boardview data)' : 'PDF (schematic or document)';
   if (startsWithBytes(b, [0x89, 0x50, 0x4e, 0x47]) || startsWithBytes(b, [0xff, 0xd8, 0xff])) return 'image';
   if (startsWithBytes(b, [0x52, 0x61, 0x72, 0x21]) || startsWithBytes(b, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c])) return 'archive (extract it first)';
@@ -188,6 +189,8 @@ export function parseFiles(input: InputFile[], options: ParseOptions, progress: 
   const diagnostics: Diagnostic[] = [];
   const attempts: ParseOutcome['attempts'] = [];
   if (!input.length) return { ok: false, diagnostics: [{ level: 'error', code: 'nofile', message: 'No file given' }], attempts };
+  if (input.length === 1 && input[0].bytes.length === 0)
+    return { ok: false, attempts, diagnostics: [{ level: 'error', code: 'empty-file', message: `${input[0].name} is empty (0 bytes). Check that the archive member extracted correctly, then open the boardview file.` }] };
   for (const f of input) {
     if (f.bytes.length > MAX_INPUT_BYTES) {
       return {

@@ -33,6 +33,8 @@ export interface ReportOptions {
   includeImage: boolean;
   /** Render the board image with the light (print-friendly) palette. */
   lightImage: boolean;
+  includeMinimap: boolean;
+  minimapCorner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   includeSolder: boolean;
   includeParts: boolean;
 }

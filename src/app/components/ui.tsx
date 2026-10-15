@@ -122,13 +122,15 @@ export function Unavailable({ children = 'not in file' }: { children?: Component
 /** Modal dialog with focus trap-lite (initial focus + Esc to close). */
 export function Dialog({ title, onClose, children, wide, icon }: { title: string; onClose: () => void; children: ComponentChildren; wide?: boolean; icon?: ComponentChildren }) {
   const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        closeRef.current();
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -136,7 +138,7 @@ export function Dialog({ title, onClose, children, wide, icon }: { title: string
       window.removeEventListener('keydown', onKey, true);
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div

@@ -6,10 +6,15 @@ import type { BoardModel } from '../model/types';
 import type { Highlight } from '../render/style';
 import { SearchIndex } from '../search/search';
 import { type ParseJob, startParse } from '../worker/client';
-import { EMPTY_GROUP, type HighlightGroup, NO_SEL, type SavedGroup, type Selection, historyGo, saveGroups, select, store, toast } from './store';
+import { EMPTY_GROUP, type HighlightGroup, NO_SEL, type SavedGroup, type Selection, historyGo, saveGroups, select, setPrefs, store, toast } from './store';
 import { Viewer } from './viewer';
 
 export const viewer = new Viewer();
+
+export function toggleMirror() {
+  viewer.toggleMirror();
+  if (viewer.opts.side === 2) setPrefs({ mirrorBottom: viewer.view.mirror });
+}
 
 let job: ParseJob | null = null;
 let boardSeq = 0;

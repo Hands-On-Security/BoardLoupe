@@ -1,5 +1,5 @@
 import type Flatbush from 'flatbush';
-import type { BoardModel } from '../model/types';
+import { type BoardModel, PINKIND_TESTPOINT } from '../model/types';
 import type { Scene } from '../scene/scene';
 import { type View, viewMatrix, visibleWorldRect } from './camera';
 import type { Palette } from './palette';
@@ -60,6 +60,36 @@ export function drawLabels(
 
   const selected = new Set<number>(h.parts);
   if (h.part >= 0) selected.add(h.part);
+
+  // Test pads get a diamond outline; vias stay hollow rings. Put the mark at
+  // the pad edge so pin/net labels in the centre remain readable.
+  if (o.showPins && pinIdx) {
+    const ids = pinIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY);
+    if (ids.length < 20000) {
+      for (const i of ids) {
+        if (m.pins.kind[i] !== PINKIND_TESTPOINT || (other(m.pins.side[i]) && o.otherSide === 'hide')) continue;
+        const padPx = Math.min(s.pinHW[i], s.pinHH[i]) * view.scale;
+        if (padPx < 2.5) continue;
+        const x = tx(m.pins.x[i], m.pins.y[i]),
+          y = ty(m.pins.x[i], m.pins.y[i]);
+        const r = Math.max(6, padPx + 3);
+        ctx.globalAlpha = other(m.pins.side[i]) && o.otherSide === 'ghost' ? 0.4 : 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y - r);
+        ctx.lineTo(x + r, y);
+        ctx.lineTo(x, y + r);
+        ctx.lineTo(x - r, y);
+        ctx.closePath();
+        ctx.strokeStyle = p.labelHalo;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.strokeStyle = p.label;
+        ctx.lineWidth = 1.75;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
 
   if (o.showPartLabels && partIdx) {
     const ids = partIdx.search(vr.minX, vr.minY, vr.maxX, vr.maxY);
