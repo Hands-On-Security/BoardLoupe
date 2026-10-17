@@ -87,7 +87,7 @@ export async function openFiles(files: File[]) {
   const recent = [
     { id, name, format: r.model.source.formatName, parts: r.model.parts.count, pins: r.model.pins.count, files },
     ...store.get().recent.filter((e) => e.name !== name),
-  ].slice(0, 8);
+  ];
   store.set({
     board,
     phase: 'ready',
@@ -115,10 +115,29 @@ export function cancelLoad() {
   job?.cancel();
 }
 
-export function closeBoard() {
+function clearActiveBoard() {
   job?.cancel();
-  store.set({ board: null, phase: 'empty', error: null, sel: NO_SEL, history: [], historyPos: -1, loading: null, group: EMPTY_GROUP });
+  job = null;
+  lastFiles = [];
+  store.set({ board: null, phase: 'empty', error: null, sel: NO_SEL, history: [], historyPos: -1, loading: null, group: EMPTY_GROUP, isolate: false, hideOtherNets: false, measure: { a: null, b: null }, tool: 'select', searchText: '' });
   viewer.setBoard(null, null);
+}
+
+/** Removes one board from the session list, showing the next one if it was active. */
+export function closeBoard(id = store.get().board?.id) {
+  if (id === undefined) return;
+  const s = store.get();
+  const remaining = s.recent.filter((r) => r.id !== id);
+  if (remaining.length === s.recent.length) return;
+  store.set({ recent: remaining });
+  if (s.board?.id !== id) return;
+  clearActiveBoard();
+  if (remaining.length) void openFiles(remaining[0].files);
+}
+
+export function closeAllBoards() {
+  clearActiveBoard();
+  store.set({ recent: [] });
 }
 
 export function highlightFor(sel: Selection, m: BoardModel | null, isolate: boolean, hideOtherNets: boolean, group: HighlightGroup = EMPTY_GROUP): Highlight {

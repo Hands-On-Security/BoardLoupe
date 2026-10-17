@@ -226,6 +226,40 @@ test.describe('BoardLoupe single-file app', () => {
     expect(after.cx !== before).toBe(true);
   });
 
+  test('board selector closes one board, any listed board, or all boards', async ({ page }) => {
+    await openApp(page);
+    const fileName = page.getByTestId('file-name');
+    await load(page, FX('synthetic/glasgow.tvw'));
+    await expect(fileName).toHaveText('glasgow.tvw');
+    await load(page, FX('synthetic/glasgow.bv'));
+    await expect(fileName).toHaveText('glasgow.bv');
+    await load(page, FX('synthetic/glasgow-testlink.brd'));
+    await expect(fileName).toHaveText('glasgow-testlink.brd');
+
+    await fileName.click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: /glasgow\.tvw/ })).toBeVisible();
+    await menu.getByRole('button', { name: 'Close glasgow.bv' }).click();
+    await expect(menu.getByRole('menuitem', { name: /glasgow\.bv/ })).toHaveCount(0);
+    await expect(fileName).toHaveText('glasgow-testlink.brd');
+
+    await menu.getByRole('menuitem', { name: 'Close board', exact: true }).click();
+    await expect(fileName).toHaveText('glasgow.tvw');
+    await fileName.click();
+    await expect(page.getByRole('menu').getByRole('menuitem', { name: /glasgow-testlink\.brd/ })).toHaveCount(0);
+
+    await page.getByRole('menu').getByRole('menuitem', { name: /glasgow\.tvw/ }).click();
+    await load(page, FX('synthetic/glasgow.bv'));
+    await expect(fileName).toHaveText('glasgow.bv');
+    await fileName.click();
+    await page.getByRole('menu').getByRole('button', { name: 'Close glasgow.bv' }).click();
+    await expect(fileName).toHaveText('glasgow.tvw');
+    await fileName.click();
+    await page.getByRole('menu').getByRole('menuitem', { name: 'Close all boards' }).click();
+    await expect(page.getByTestId('dropzone')).toBeVisible();
+    await expect(fileName).toHaveCount(0);
+  });
+
   test('tables dialog and CSV export', async ({ page }) => {
     await openApp(page);
     await load(page, FX('real/glasgow/glasgow-kicad10.cad'));

@@ -22,7 +22,7 @@ import {
   X,
 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { back, closeBoard, forward, openFiles, toggleMirror, viewer } from '../actions';
+import { back, closeAllBoards, closeBoard, forward, openFiles, toggleMirror, viewer } from '../actions';
 import { BrandMark, HosByline } from '../brand';
 import { type Prefs, setPrefs, store, useStore } from '../store';
 import { IconButton, Toggle, cx } from './ui';
@@ -176,7 +176,7 @@ function FileMenu() {
   const board = useStore(store, (s) => s.board);
   const recent = useStore(store, (s) => s.recent);
   const { open, setOpen, ref } = usePopover();
-  if (!board) return null;
+  if (!board && !recent.length) return null;
   return (
     <div class="relative min-w-0" ref={ref}>
       <button
@@ -184,32 +184,46 @@ function FileMenu() {
         class="flex items-center gap-1.5 h-8 max-w-[260px] px-2 rounded-md hover:bg-raised text-[12.5px] min-w-0"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Recent files in this session"
+        title="Open boards in this session"
         onClick={() => setOpen(!open)}
       >
         <span class="truncate font-medium" data-testid="file-name">
-          {board.model.source.fileName}
+          {board?.model.source.fileName ?? 'Select board'}
         </span>
         <ChevronDown size={14} class="text-faint shrink-0" />
       </button>
       {open && (
-        <div role="menu" class="absolute left-0 top-9 z-40 w-80 rounded-lg border border-line2 bg-raised shadow-pop py-1 fade-in">
-          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wider text-faint font-semibold">Recent (this session only)</div>
+        <div role="menu" class="absolute left-0 top-9 z-40 w-80 max-h-[70vh] overflow-y-auto rounded-lg border border-line2 bg-raised shadow-pop py-1 fade-in">
+          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wider text-faint font-semibold">Open boards (this session)</div>
           {recent.map((r) => (
-            <button
-              key={r.id}
-              role="menuitem"
-              class="w-full text-left px-3 py-1.5 hover:bg-panel2 flex flex-col"
-              onClick={() => {
-                setOpen(false);
-                void openFiles(r.files);
-              }}
-            >
-              <span class="text-[12.5px] truncate">{r.name}</span>
-              <span class="text-[11px] text-faint">
-                {r.format} · {r.parts.toLocaleString()} parts · {r.pins.toLocaleString()} pins
-              </span>
-            </button>
+            <div key={r.id} class="flex items-center hover:bg-panel2">
+              <button
+                role="menuitem"
+                aria-current={board?.id === r.id ? 'true' : undefined}
+                class="min-w-0 flex-1 text-left pl-3 pr-1 py-1.5 flex flex-col"
+                onClick={() => {
+                  setOpen(false);
+                  if (board?.id !== r.id) void openFiles(r.files);
+                }}
+              >
+                <span class={cx('text-[12.5px] truncate w-full', board?.id === r.id && 'text-accent font-medium')}>{r.name}</span>
+                <span class="text-[11px] text-faint truncate w-full">
+                  {r.format} · {r.parts.toLocaleString()} parts · {r.pins.toLocaleString()} pins
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Close ${r.name}`}
+                title={`Close ${r.name}`}
+                class="h-7 w-7 mr-2 rounded flex items-center justify-center text-faint hover:text-fg hover:bg-panel"
+                onClick={() => {
+                  if (board?.id === r.id) setOpen(false);
+                  closeBoard(r.id);
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
           ))}
           <div class="border-t border-line my-1" />
           <button
@@ -222,15 +236,27 @@ function FileMenu() {
           >
             <FolderOpen size={14} /> Open another file…
           </button>
+          {board && (
+            <button
+              role="menuitem"
+              class="w-full text-left px-3 py-1.5 hover:bg-panel2 flex items-center gap-2 text-[12.5px]"
+              onClick={() => {
+                setOpen(false);
+                closeBoard();
+              }}
+            >
+              <X size={14} /> Close board
+            </button>
+          )}
           <button
             role="menuitem"
             class="w-full text-left px-3 py-1.5 hover:bg-panel2 flex items-center gap-2 text-[12.5px]"
             onClick={() => {
               setOpen(false);
-              closeBoard();
+              closeAllBoards();
             }}
           >
-            <X size={14} /> Close board
+            <X size={14} /> Close all boards
           </button>
         </div>
       )}
