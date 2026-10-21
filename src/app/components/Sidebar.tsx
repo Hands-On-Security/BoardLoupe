@@ -22,24 +22,39 @@ export function Sidebar() {
   const panel = useStore(store, (s) => s.panel);
   const groupSize = useStore(store, (s) => s.group.nets.length + s.group.parts.length);
   return (
-    <aside class="w-[300px] shrink-0 border-r border-line bg-panel flex flex-col min-h-0" aria-label="Explorer">
-      <div role="tablist" class="flex items-center gap-0.5 px-1.5 h-10 border-b border-line shrink-0 overflow-x-auto [scrollbar-width:none]">
-        {TABS.map((t) => (
+    <aside class="w-[300px] shrink-0 border-r border-line bg-panel flex min-h-0" aria-label="Explorer">
+      <div role="tablist" aria-orientation="vertical" aria-label="Explorer panels" class="w-11 shrink-0 flex flex-col items-center gap-1 py-2 border-r border-line">
+        {TABS.map((t, index) => (
           <button
             key={t.id}
             role="tab"
             aria-selected={panel === t.id}
+            aria-controls="explorer-panel"
+            aria-label={t.label}
+            title={t.label}
             id={`tab-${t.id}`}
-            class={cx('relative flex items-center gap-1 h-7 px-2 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap shrink-0', panel === t.id ? 'bg-raised text-fg' : 'text-muted hover:text-fg')}
+            tabIndex={panel === t.id ? 0 : -1}
+            class={cx('relative w-9 h-9 rounded-md flex items-center justify-center transition-colors', panel === t.id ? 'bg-raised text-accent' : 'text-muted hover:text-fg hover:bg-raised')}
             onClick={() => store.set({ panel: t.id })}
+            onKeyDown={(e) => {
+              let next: number;
+              if (e.key === 'ArrowDown') next = (index + 1) % TABS.length;
+              else if (e.key === 'ArrowUp') next = (index - 1 + TABS.length) % TABS.length;
+              else if (e.key === 'Home') next = 0;
+              else if (e.key === 'End') next = TABS.length - 1;
+              else return;
+              e.preventDefault();
+              store.set({ panel: TABS[next].id });
+              document.getElementById(`tab-${TABS[next].id}`)?.focus();
+            }}
           >
-            <t.icon size={13} />
-            {t.label}
-            {t.id === 'groups' && groupSize > 0 && <span class="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-accent text-accent-fg text-[10px] leading-4 text-center tabular">{groupSize}</span>}
+            {panel === t.id && <span class="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent" aria-hidden="true" />}
+            <t.icon size={18} aria-hidden="true" />
+            {t.id === 'groups' && groupSize > 0 && <span aria-hidden="true" class="absolute -right-0.5 -top-0.5 min-w-4 h-4 px-0.5 rounded-full bg-accent text-accent-fg text-[10px] leading-4 text-center tabular">{groupSize}</span>}
           </button>
         ))}
       </div>
-      <div class="flex-1 min-h-0 flex flex-col" role="tabpanel" aria-labelledby={`tab-${panel}`}>
+      <div id="explorer-panel" class="flex-1 min-w-0 min-h-0 flex flex-col" role="tabpanel" aria-labelledby={`tab-${panel}`}>
         {panel === 'search' && <SearchPanel />}
         {panel === 'parts' && <PartsPanel />}
         {panel === 'nets' && <NetsPanel />}

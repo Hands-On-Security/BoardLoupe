@@ -135,6 +135,31 @@ test.describe('BoardLoupe single-file app', () => {
     await expect(insp.getByText(/\d+ pins/).first()).toBeVisible();
   });
 
+  test('explorer tabs stay visible in a vertical rail', async ({ page }) => {
+    await openApp(page);
+    await load(page, FX('synthetic/glasgow.tvw'));
+    const explorer = page.getByRole('complementary', { name: 'Explorer' });
+    const rail = explorer.getByRole('tablist', { name: 'Explorer panels' });
+    await expect(rail).toHaveAttribute('aria-orientation', 'vertical');
+    for (const width of [1366, 1024]) {
+      await page.setViewportSize({ width, height: 600 });
+      const bounds = await explorer.evaluate((el) => {
+        const panel = el.getBoundingClientRect();
+        const tabs = Array.from(el.querySelectorAll('[role="tab"]'), (tab) => tab.getBoundingClientRect());
+        return { width: panel.width, visible: tabs.every((tab) => tab.left >= panel.left && tab.right <= panel.right && tab.top >= panel.top && tab.bottom <= panel.bottom) };
+      });
+      expect(bounds.width).toBe(300);
+      expect(bounds.visible).toBe(true);
+    }
+    await explorer.getByRole('tab', { name: 'File' }).click();
+    await expect(explorer.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'tab-info');
+    await explorer.getByRole('tab', { name: 'Groups' }).focus();
+    await page.keyboard.press('ArrowUp');
+    await expect(explorer.getByRole('tab', { name: 'Nets' })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Home');
+    await expect(explorer.getByRole('tab', { name: 'Search' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   test('click a pin → pin details and net highlight; Esc clears', async ({ page }) => {
     await openApp(page);
     await load(page, FX('real/glasgow/glasgow-kicad10.cad'));
